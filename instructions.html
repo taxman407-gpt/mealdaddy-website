@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta
+      name="description"
+      content="Instructions for using MealDaddy.AI to personalize meal plans, restaurant choices, reports, hydration, and health goals."
+    >
+    <title>MealDaddy.AI | Instructions</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body class="instructions-page">
+    <header class="site-header is-scrolled" data-header>
+      <a class="brand" href="index.html#top" aria-label="MealDaddy.AI home">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 40 40" role="img" focusable="false" class="apple-mark">
+            <path class="apple-leaf" d="M22 11c2.7-4 6.4-4.2 8.5-3.4-1 3.3-4.3 5.2-8.5 3.4z"></path>
+            <path class="apple-body" d="M20 15c-2.8-3-9.4-2.2-10.8 4.1-1.6 7 4.1 15 8.1 15 1.6 0 2.1-.8 3.7-.8s2.1.8 3.7.8c4 0 9.7-8 8.1-15C31.4 12.8 24.2 12 20 15z"></path>
+          </svg>
+        </span>
+        <span>MealDaddy.AI</span>
+      </a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" data-nav-toggle>
+        <span class="sr-only">Toggle navigation</span>
+        <span></span>
+        <span></span>
+      </button>
+      <nav class="site-nav" id="site-nav" data-nav>
+        <a href="index.html#personalization">Personalization</a>
+        <a href="index.html#features">Features</a>
+        <a href="index.html#preview">Preview</a>
+        <a href="instructions.html" aria-current="page">Instructions</a>
+        <a href="faq.html">FAQ</a>
+        <a class="nav-cta" href="https://chatgpt.com/g/g-68d0767309508191949d20e7a4e3213e-meal-daddy-ai" target="_blank" rel="noopener">Try MealDaddy</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="instructions-hero" aria-labelledby="instructions-title">
+        <div class="section-inner instructions-hero-grid">
+          <div>
+            <p class="eyebrow">How to use MealDaddy</p>
+            <h1 id="instructions-title">Start simple. Add detail when you want more personal guidance.</h1>
+            <p>
+              MealDaddy.AI works best when it knows your goals, what you are eating, where you are eating, and which tracking tools you want enabled. Use the quickstart once, then log meals with a photo plus a short description for the deepest interpretation.
+            </p>
+            <div class="hero-actions">
+              <a class="button primary" href="https://chatgpt.com/g/g-68d0767309508191949d20e7a4e3213e-meal-daddy-ai" target="_blank" rel="noopener">Open MealDaddy</a>
+              <a class="button quiet" href="#quickstart">Jump to instructions</a>
+            </div>
+          </div>
+          <aside class="instruction-card quick-start" aria-label="Quick start prompt">
+            <h2>One-time setup</h2>
+            <p>
+              Units: US or Metric. Track BMI: Yes or No. Weight: optional. Goals: calories, protein, net carbs, fiber, water, and optional steps, sleep, stress, or other custom metrics.
+            </p>
+          </aside>
+        </div>
+      </section>
+
+      <nav class="instructions-toc" aria-label="Instructions sections">
+        <div class="section-inner toc-grid">
+          <a href="#quickstart">Quickstart</a>
+          <a href="#systems">Core systems</a>
+          <a href="#reports">Reports</a>
+          <a href="#commands">Commands</a>
+        </div>
+      </nav>
+
+      <section class="section" id="quickstart">
+        <div class="section-inner">
+          <div class="instruction-grid">
+            <article class="instruction-card">
+              <span>01</span>
+              <h2>Set up your tracking</h2>
+              <p>Reply with the basics once so MealDaddy knows what to track and what to ignore.</p>
+              <ul>
+                <li>Choose US or Metric units</li>
+                <li>Enable or disable BMI tracking</li>
+                <li>Add weight if you want weight trends</li>
+                <li>Set targets for calories, protein, net carbs, fiber, water, steps, sleep, stress, or any custom goal</li>
+              </ul>
+            </article>
+
+            <article class="instruction-card">
+              <span>02</span>
+              <h2>Log meals with a photo plus description</h2>
+              <p>For the deepest interpretation, send both a meal photo and a short text description. Either one can work, but both together give MealDaddy better context.</p>
+              <ul>
+                <li>Example: photo plus "3 eggs, mushrooms, herbs, olive oil"</li>
+                <li>Example: photo plus "chicken salad with avocado"</li>
+                <li>Tracks calories, protein, total carbs, fiber, net carbs, fat, and hydration</li>
+                <li>Applies an Inflammation Score per meal</li>
+              </ul>
+            </article>
+
+            <article class="instruction-card">
+              <span>03</span>
+              <h2>Watch daily totals update</h2>
+              <p>During the day, MealDaddy keeps a running picture of how the day is going.</p>
+              <ul>
+                <li>Calories and protein</li>
+                <li>Net carbs with remaining allowance</li>
+                <li>Fiber running total</li>
+                <li>Hydration progress</li>
+                <li>Rolling Inflammation Score trend</li>
+              </ul>
+            </article>
+
+            <article class="instruction-card">
+              <span>04</span>
+              <h2>Finish the day</h2>
+              <p>Say "Finish my day" when you are done logging.</p>
+              <ul>
+                <li>Optional calories burned check</li>
+                <li>Full daily summary</li>
+                <li>Net carb compliance check</li>
+                <li>Daily Inflammation Score from 1 to 10</li>
+                <li>Key insights and next-day plan</li>
+              </ul>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section examples-section" id="systems">
+        <div class="section-inner">
+          <div class="section-heading">
+            <p class="eyebrow">Core systems</p>
+            <h2>The engines behind MealDaddy.</h2>
+          </div>
+          <div class="system-grid">
+            <article class="system-card">
+              <h3>Nutrition Tracking Engine</h3>
+              <p>Tracks calories, protein, total carbs, fiber, net carbs, fat, and hydration. Net carbs are calculated as total carbs minus fiber, and remaining daily net carbs are always displayed.</p>
+            </article>
+            <article class="system-card">
+              <h3>Defaults Engine</h3>
+              <p>Applies neutral assumptions when details are missing, allows user override, avoids hard-coded habits, and flags uncertainty when needed.</p>
+            </article>
+            <article class="system-card">
+              <h3>Adaptive Hydration</h3>
+              <p>Uses a user-defined daily water goal, tracks fluids, supports pacing reminders, and can adjust hydration guidance after salty meals.</p>
+            </article>
+            <article class="system-card">
+              <h3>Inflammation Score System</h3>
+              <p>Scores meals from 1 strongly anti-inflammatory to 10 highly inflammatory using processing level, refined carbs, added sugars, seed oils, alcohol, and whole-food ratio.</p>
+            </article>
+            <article class="system-card">
+              <h3>Reporting System</h3>
+              <p>Creates daily reports, weekly reports, and monthly reports on request, including macros, net carb compliance, hydration, inflammation trends, insights, and action fixes.</p>
+            </article>
+            <article class="system-card">
+              <h3>Smart Coaching Engine</h3>
+              <p>Triggers suggestions when patterns appear: elevated inflammation scores, high stress trends, low energy, hydration gaps, or nutritional imbalance.</p>
+            </article>
+            <article class="system-card">
+              <h3>Restaurant Mode</h3>
+              <p>When a restaurant is mentioned, MealDaddy recommends optimal menu choices, identifies high-risk items, suggests substitutions, estimates macros, and applies inflammation guidance.</p>
+            </article>
+            <article class="system-card">
+              <h3>Feedback and Export</h3>
+              <p>After reports, users can rate the output from 1 to 5, add comments, and request exports such as "Export my week" or "Create my log file."</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="reports">
+        <div class="section-inner">
+          <div class="section-heading">
+            <p class="eyebrow">Reports</p>
+            <h2>Daily, weekly, and monthly views.</h2>
+          </div>
+          <div class="report-grid">
+            <article class="report-panel">
+              <h3>Daily report</h3>
+              <ul>
+                <li>Full macro breakdown</li>
+                <li>Net carb compliance</li>
+                <li>Fiber total</li>
+                <li>Hydration progress</li>
+                <li>Daily Inflammation Score</li>
+                <li>Key insights and suggested adjustments</li>
+              </ul>
+            </article>
+            <article class="report-panel">
+              <h3>Weekly report</h3>
+              <ul>
+                <li>Net carbs trend</li>
+                <li>Inflammation Score trend</li>
+                <li>Daily values and averages</li>
+                <li>Trend direction</li>
+                <li>Top 3 action fixes</li>
+              </ul>
+            </article>
+            <article class="report-panel">
+              <h3>Monthly report</h3>
+              <ul>
+                <li>Trend analysis</li>
+                <li>Behavioral insights</li>
+                <li>Adjustment strategy</li>
+                <li>Longer-term pattern review</li>
+              </ul>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section examples-section" id="commands">
+        <div class="section-inner">
+          <div class="section-heading">
+            <p class="eyebrow">Commands and examples</p>
+            <h2>Useful phrases to try.</h2>
+          </div>
+          <div class="prompt-list">
+            <article class="prompt-card">
+              <h3>Setup</h3>
+              <p>Units: US. Track BMI: Yes. Weight: [optional]. Goals: calories, protein, net carbs, fiber, water. Optional: steps, sleep, stress.</p>
+            </article>
+            <article class="prompt-card">
+              <h3>Log a meal</h3>
+              <p>Photo attached. Description: 3 eggs, mushrooms, herbs, olive oil. Estimate nutrition, net carbs, fiber, hydration impact, and Inflammation Score.</p>
+            </article>
+            <article class="prompt-card">
+              <h3>Restaurant mode</h3>
+              <p>I am going to [restaurant]. Recommend the best menu choices for my goals and suggest substitutions.</p>
+            </article>
+            <article class="prompt-card">
+              <h3>Finish the day</h3>
+              <p>Finish my day. Include daily summary, net carb compliance, inflammation score, hydration progress, key insights, and tomorrow's plan.</p>
+            </article>
+            <article class="prompt-card">
+              <h3>Weight and BMI</h3>
+              <p>Override BMI with [value]. Clear BMI override. Show my weight trend as loss, gain, or stable.</p>
+            </article>
+            <article class="prompt-card">
+              <h3>Export</h3>
+              <p>Export my week. Create my log file. Include a daily log sheet and weekly summary sheet.</p>
+            </article>
+            <article class="prompt-card">
+              <h3>Database mode</h3>
+              <p>Use verified nutrition data when available. Add new foods from a label or photo and keep the data structured.</p>
+            </article>
+            <article class="prompt-card">
+              <h3>Guardrails</h3>
+              <p>Do not guess when reliable data exists. Flag uncertainty clearly. Keep outputs structured, readable, and logically consistent.</p>
+            </article>
+          </div>
+          <p class="health-note">
+            BMI and nutrition scoring are general guidance tools, not diagnostic tools. MealDaddy.AI does not replace medical advice from a qualified clinician.
+          </p>
+        </div>
+      </section>
+
+      <section class="section cta-section">
+        <div class="section-inner cta-grid">
+          <div>
+            <p class="eyebrow">Ready when you are</p>
+            <h2>Use MealDaddy for the next food decision.</h2>
+            <p>
+              Start with one meal, one restaurant, or one daily report. The system gets more useful as your feedback loop builds.
+            </p>
+          </div>
+          <a class="button primary instructions-launch" href="https://chatgpt.com/g/g-68d0767309508191949d20e7a4e3213e-meal-daddy-ai" target="_blank" rel="noopener">Launch MealDaddy in ChatGPT</a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <span>MealDaddy.AI</span>
+      <span>Eat better anywhere you eat.</span>
+    </footer>
+
+    <script src="script.js"></script>
+  </body>
+</html>
