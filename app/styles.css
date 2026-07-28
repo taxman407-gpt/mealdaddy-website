@@ -146,3 +146,62 @@ h2 { font-size: clamp(1.65rem, 3vw, 2.6rem); line-height: 1.06; letter-spacing: 
   #account-email { display: none; }
   .account-actions .text-button { font-size: .75rem; }
 }
+
+
+/* Subscription selection and checkout */
+.pricing-section,
+.subscription-section {
+  max-width: 1180px;
+  margin: auto;
+  padding: 80px clamp(18px, 4vw, 44px) 110px;
+}
+.subscription-section {
+  margin-bottom: 120px;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+.pricing-heading { max-width: 720px; margin-bottom: 30px; }
+.pricing-heading > p:last-child { color: var(--muted); line-height: 1.55; }
+.pricing-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.pricing-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 390px;
+  border: 1px solid var(--line);
+  border-radius: 26px;
+  padding: clamp(22px, 4vw, 32px);
+  background: var(--paper);
+  box-shadow: 0 12px 35px rgba(23, 63, 53, .06);
+}
+.pricing-card-featured { border: 2px solid var(--forest); }
+.plan-label {
+  align-self: flex-start;
+  border-radius: 999px;
+  padding: 7px 10px;
+  color: var(--forest);
+  background: var(--soft);
+  font-size: .7rem;
+  font-weight: 850;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.pricing-card h3 { margin: 28px 0 8px; font-size: 1.55rem; }
+.pricing-price { display: flex; align-items: baseline; gap: 6px; margin-bottom: 24px; }
+.pricing-price strong { font-size: clamp(2.2rem, 6vw, 3.4rem); letter-spacing: -.055em; }
+.pricing-price span { color: var(--muted); font-weight: 700; }
+.pricing-features { display: grid; gap: 12px; margin: 0 0 28px; padding: 0; color: var(--muted); list-style: none; }
+.pricing-features li { position: relative; padding-left: 22px; line-height: 1.45; }
+.pricing-features li::before { content: "✓"; position: absolute; left: 0; color: var(--forest); font-weight: 900; }
+.pricing-card .button { margin-top: auto; }
+.pricing-card button:disabled { cursor: wait; opacity: .55; }
+.pricing-note { max-width: 850px; margin: 20px auto 0; color: var(--muted); font-size: .78rem; line-height: 1.55; text-align: center; }
+.billing-status { min-height: 1.4rem; margin: 14px 0 0; color: var(--forest); font-weight: 750; text-align: center; }
+.compact-pricing .pricing-card { min-height: 275px; }
+
+@media (max-width: 760px) {
+  .pricing-section { padding-top: 70px; }
+  .subscription-section { margin-inline: 16px; }
+  .pricing-grid { grid-template-columns: 1fr; }
+  .pricing-card { min-height: 0; }
+}

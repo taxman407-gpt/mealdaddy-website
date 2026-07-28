@@ -7,6 +7,10 @@ const session = await requireSession();
 if (!session) throw new Error("Authentication required");
 
 const user = session.user;
+const allowedPlans = new Set(["core", "byo"]);
+const query = new URLSearchParams(location.search);
+let pendingPlan = allowedPlans.has(query.get("plan")) ? query.get("plan") : null;
+const checkoutResult = query.get("checkout");
 const state = { diet: "", tone: "supportive", provider: "best_value", entries: [], photo: null };
 document.body.classList.remove("auth-loading");
 $("#account-email").textContent = user.email || "Signed in";
@@ -23,6 +27,27 @@ function toast(message) {
   element.classList.add("is-visible");
   clearTimeout(toast.timer);
   toast.timer = setTimeout(() => element.classList.remove("is-visible"), 3200);
+}
+
+async function startCheckout(plan) {
+  if (!allowedPlans.has(plan)) return;
+  const buttons = $("[data-plan]");
+  const status = $("#billing-status");
+  buttons.forEach((button) => { button.disabled = true; });
+  status.textContent = "Opening secure Stripe Checkout...";
+  try {
+    const { data, error } = await supabase.functions.invoke("create-checkout", { body: { plan } });
+    if (error) throw error;
+    if (!data?.url || new URL(data.url).hostname !== "checkout.stripe.com") {
+      throw new Error(data?.error || "Stripe Checkout did not return a valid address.");
+    }
+    pendingPlan = null;
+    location.assign(data.url);
+  } catch (error) {
+    status.textContent = "Checkout could not be opened. Please try again.";
+    toast(error.message || "Checkout could not be opened.");
+    buttons.forEach((button) => { button.disabled = false; });
+  }
 }
 
 function renderDietChoices() {
@@ -106,6 +131,7 @@ $("#continue-onboarding").addEventListener("click", async () => {
   const { error } = await supabase.from("profiles").upsert({ user_id: user.id, diet_style: state.diet, coaching_tone: state.tone, ai_routing_preference: state.provider, updated_at: new Date().toISOString() });
   if (error) { toast(error.message); button.disabled = false; return; }
   $("#profile-diet").textContent = state.diet; closeOnboarding(); toast(`Your ${state.diet} plan is saved.`);
+  if (pendingPlan) await startCheckout(pendingPlan);
 });
 $("#open-profile").addEventListener("click", showOnboarding);
 
@@ -145,7 +171,9 @@ $("#entry-form").addEventListener("submit", async (event) => {
   input.value = ""; state.photo = null; $("#photo-input").value = ""; await loadLedger(); toast("Saved to your private daily ledger.");
 });
 
-$$('input[name="provider"]').forEach((input) => input.addEventListener("change", async (event) => {
+$("[data-plan]").forEach((button) => button.addEventListener("click", () => startCheckout(button.dataset.plan)));
+
+$('input[name="provider"]').forEach((input) => input.addEventListener("change", async (event) => {
   state.provider = event.target.value;
   const { error } = await supabase.from("profiles").update({ ai_routing_preference: state.provider, updated_at: new Date().toISOString() }).eq("user_id", user.id);
   toast(error ? error.message : "AI provider preference saved. Provider connections are not active yet.");
@@ -155,4 +183,19 @@ $("#refresh-ledger").addEventListener("click", () => loadLedger().catch((error) 
 $("#sign-out").addEventListener("click", async () => { await supabase.auth.signOut(); location.replace("./auth.html"); });
 supabase.auth.onAuthStateChange((event) => { if (event === "SIGNED_OUT") location.replace("./auth.html"); });
 
-try { await Promise.all([loadProfile(), loadLedger()]); if (location.hash === "#onboarding") showOnboarding(); } catch (error) { toast(error.message); }
+try {
+  const [profileResult] = await Promise.all([loadProfile(), loadLedger()]);
+  if (location.hash === "#onboarding") showOnboarding();
+  if (checkoutResult === "success") {
+    $("#billing-status").textContent = "Your checkout was completed. Membership status will update shortly.";
+    toast("Welcome to Meal Daddy.");
+  } else if (checkoutResult === "cancelled") {
+    $("#billing-status").textContent = "Checkout was cancelled. No new subscription was started.";
+  }
+  if (checkoutResult) {
+    query.delete("checkout");
+    const cleanQuery = query.toString();
+    history.replaceState({}, "", `${location.pathname}${cleanQuery ? `?${cleanQuery}` : ""}${location.hash}`);
+  }
+  if (pendingPlan && $("#onboarding").hidden) await startCheckout(pendingPlan);
+} catch (error) { toast(error.message); }
