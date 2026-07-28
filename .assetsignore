@@ -6,6 +6,8 @@
 .wrangler/**
 node_modules
 node_modules/**
+server
+server/**
 .assetsignore
 wrangler.jsonc
 README.md
