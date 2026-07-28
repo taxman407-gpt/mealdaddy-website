@@ -41,8 +41,8 @@
     </section>
     <nav class="bottom-nav" aria-label="App navigation"><a class="is-current" href="./app.html">Today</a><a href="#plan">Plan</a><button type="button" onclick="document.querySelector('#quick-entry').focus()">+</button><a href="#reports">Reports</a><a href="#profile">Profile</a></nav>
   </main>
-  <section class="settings-preview" id="provider-settings" aria-labelledby="provider-title">
-    <div><p class="eyebrow">AI preferences</p><h2 id="provider-title">Choose who processes AI requests</h2><p>Your selection changes which AI service receives a request for AI-assisted analysis. Account and ledger data remain in MealDaddy's data system.</p></div>
+  <section class="settings-preview" id="provider-settings" aria-labelledby="provider-title" hidden>
+    <div><p class="eyebrow">AI preferences</p><h2 id="provider-title">Choose who processes AI requests</h2><p>Bring Your Own API members can choose which supported AI service processes their requests. Account and ledger data remain in MealDaddy's data system.</p></div>
     <div class="provider-options" role="radiogroup" aria-label="AI provider preference">
       <label><input type="radio" name="provider" value="best_value" checked /><span><strong>Best value</strong><small>MealDaddy selects a lower-cost approved model and discloses the choice.</small></span></label>
       <label><input type="radio" name="provider" value="openai" /><span><strong>OpenAI</strong><small>Supported requests are processed by OpenAI.</small></span></label>
@@ -54,9 +54,9 @@
     <div class="pricing-heading">
       <p class="eyebrow">Membership</p>
       <h2 id="subscription-title">Choose your plan</h2>
-      <p>Checkout is handled securely by Stripe. Meal Daddy does not store your card details.</p>
+      <p id="subscription-copy">Checkout is handled securely by Stripe. Meal Daddy does not store your card details.</p>
     </div>
-    <div class="pricing-grid compact-pricing">
+    <div class="pricing-grid compact-pricing" id="plan-options">
       <article class="pricing-card pricing-card-featured">
         <span class="plan-label">Meal Daddy-managed AI</span>
         <h3>Meal Daddy Core</h3>
@@ -70,7 +70,7 @@
         <button class="button button-quiet full-button" data-plan="byo" type="button">Continue with BYO API</button>
       </article>
     </div>
-    <p class="pricing-note">Eligible new customers receive 7 days free, limited to the first 2,000 eligible starts each week. A payment method is required. Cancel before the trial ends to avoid the monthly charge.</p>
+    <p class="pricing-note" id="trial-note">Eligible new customers receive 7 days free, limited to the first 2,000 eligible starts each week. A payment method is required. Cancel before the trial ends to avoid the monthly charge.</p>
     <p class="billing-status" id="billing-status" role="status" aria-live="polite"></p>
   </section>
   <section class="onboarding" id="onboarding" role="dialog" aria-modal="true" aria-labelledby="onboarding-title" hidden>
