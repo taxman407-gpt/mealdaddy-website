@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#173f35" />
+  <meta name="robots" content="noindex" />
+  <title>Sign in - MealDaddy</title>
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body class="auth-page">
+  <header class="marketing-nav">
+    <a class="brand" href="./index.html"><span class="brand-mark">M</span><span>MealDaddy</span></a>
+    <a class="text-link" href="../">Public site</a>
+  </header>
+  <main class="auth-shell">
+    <section class="auth-card" aria-labelledby="auth-title">
+      <p class="eyebrow">Your private MealDaddy account</p>
+      <h1 id="auth-title">Welcome back</h1>
+      <p id="auth-copy">Sign in to open your daily ledger, profile, and plans.</p>
+      <div class="auth-tabs" role="tablist" aria-label="Account action">
+        <button class="is-active" id="signin-tab" type="button">Sign in</button>
+        <button id="signup-tab" type="button">Create account</button>
+      </div>
+      <form id="auth-form">
+        <label>Email<input id="email" type="email" autocomplete="email" required /></label>
+        <label>Password<input id="password" type="password" autocomplete="current-password" minlength="8" required /></label>
+        <button class="button button-primary full-button" id="auth-submit" type="submit">Sign in</button>
+      </form>
+      <button class="text-button auth-reset" id="reset-password" type="button">Send a password reset email</button>
+      <p class="privacy-line">Authentication is handled by MealDaddy's secured Supabase project. Passwords are never stored in this website code.</p>
+      <p class="auth-status" id="auth-status" role="status" aria-live="polite"></p>
+    </section>
+  </main>
+  <script type="module" src="./auth.js"></script>
+  <script src="./register-sw.js"></script>
+</body>
+</html>
