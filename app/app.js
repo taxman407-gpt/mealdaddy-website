@@ -55,10 +55,7 @@ function renderDietChoices() {
 }
 
 function showOnboarding() {
-  $("#onboarding").hidden = false;
-  document.body.classList.add("modal-open");
-  renderDietChoices();
-  $("#continue-onboarding").disabled = !state.diet;
+  location.assign(`./setup.html${pendingPlan ? `?plan=${pendingPlan}` : ""}`);
 }
 
 function closeOnboarding() {
@@ -67,15 +64,16 @@ function closeOnboarding() {
 }
 
 async function loadProfile() {
-  const { data, error } = await supabase.from("profiles").select("diet_style,coaching_tone,ai_routing_preference").eq("user_id", user.id).maybeSingle();
+  const { data, error } = await supabase.from("profiles").select("diet_style,coaching_tone,ai_routing_preference,onboarding_data,onboarding_completed_at").eq("user_id", user.id).maybeSingle();
   if (error) throw error;
-  if (!data) {
+  if (!data?.onboarding_completed_at) {
     showOnboarding();
     return;
   }
   state.diet = data.diet_style;
   state.tone = data.coaching_tone;
   state.provider = data.ai_routing_preference || "best_value";
+  if (data.onboarding_data?.name) $("#greeting").textContent = `Welcome back, ${data.onboarding_data.name}.`;
   $("#profile-diet").textContent = state.diet;
   $("#tone-options").value = state.tone;
   const provider = document.querySelector(`input[name="provider"][value="${state.provider}"]`);
