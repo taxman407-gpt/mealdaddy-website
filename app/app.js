@@ -4,9 +4,9 @@ const dietStyles = [
 ];
 
 const demoLedger = [
-  { icon: "â˜€", label: "Breakfast", detail: "Eggs, spinach & sourdough", meta: "410 cal Â· 28g protein" },
-  { icon: "â—", label: "Water", detail: "20 fl oz", meta: "9:42 AM" },
-  { icon: "â—", label: "Lunch", detail: "Chicken grain bowl", meta: "620 cal Â· 43g protein" }
+  { icon: "", label: "Breakfast", detail: "Eggs, spinach & sourdough", meta: "410 cal - 28g protein" },
+  { icon: "", label: "Water", detail: "20 fl oz", meta: "9:42 AM" },
+  { icon: "", label: "Lunch", detail: "Chicken grain bowl", meta: "620 cal - 43g protein" }
 ];
 
 const $ = (selector) => document.querySelector(selector);
@@ -74,8 +74,8 @@ $$("[data-entry-mode]").forEach((button) => button.addEventListener("click", () 
   button.classList.add("is-active");
   const mode = button.dataset.entryMode;
   const input = $("#quick-entry");
-  input.placeholder = mode === "voice" ? "Voice preview â€” tap Log to simulateâ€¦" :
-    mode === "photo" ? "Photo preview â€” describe anything not visibleâ€¦" :
+  input.placeholder = mode === "voice" ? "Voice preview - tap Log to simulate" :
+    mode === "photo" ? "Photo preview - describe anything not visible" :
     "e.g. turkey sandwich, apple, and sparkling water";
   input.focus();
 }));
@@ -84,7 +84,7 @@ $("#entry-form").addEventListener("submit", (event) => {
   event.preventDefault();
   const input = $("#quick-entry");
   const description = input.value.trim() || "New meal";
-  demoLedger.unshift({ icon: "+", label: "Just logged", detail: description, meta: "Estimatingâ€¦" });
+  demoLedger.unshift({ icon: "+", label: "Just logged", detail: description, meta: "Estimating" });
   renderLedger();
   input.value = "";
   toast("Saved instantly. Nutrition estimate is processing.");
