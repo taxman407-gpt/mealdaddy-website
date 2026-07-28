@@ -131,7 +131,7 @@ function render() {
 function validateStep() {
   if (currentStep !== 0) return true;
   if (!answers.name || !(answers.primary_goals || []).length) {
-    $("#setup-status").textContent = "Add your name and primary goal to continue.";
+    $("#setup-status").textContent = "Add your name and at least one primary goal to continue.";
     return false;
   }
   return true;
