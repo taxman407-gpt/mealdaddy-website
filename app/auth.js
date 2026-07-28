@@ -11,6 +11,8 @@ let mode = "signin";
 
 const returnTo = new URLSearchParams(location.search).get("returnTo") || "./app.html";
 const safeReturnTo = returnTo.startsWith("/") || returnTo.startsWith("./") ? returnTo : "./app.html";
+const signupTarget = new URL(safeReturnTo, location.href);
+signupTarget.hash = "onboarding";
 
 function setMode(nextMode) {
   mode = nextMode;
@@ -38,7 +40,7 @@ form.addEventListener("submit", async (event) => {
   const result = mode === "signup"
     ? await supabase.auth.signUp({
         ...credentials,
-        options: { emailRedirectTo: new URL("./app.html#onboarding", location.href).href }
+        options: { emailRedirectTo: signupTarget.href }
       })
     : await supabase.auth.signInWithPassword(credentials);
 
@@ -53,7 +55,7 @@ form.addEventListener("submit", async (event) => {
     return;
   }
 
-  location.replace(mode === "signup" ? "./app.html#onboarding" : safeReturnTo);
+  location.replace(mode === "signup" ? signupTarget.href : safeReturnTo);
 });
 
 document.querySelector("#reset-password").addEventListener("click", async () => {
