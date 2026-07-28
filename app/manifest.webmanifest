@@ -1,0 +1,13 @@
+{
+  "id": "/app/",
+  "name": "MealDaddy",
+  "short_name": "MealDaddy",
+  "description": "Fast meal, nutrition, and hydration guidance.",
+  "start_url": "./app.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f3f5f0",
+  "theme_color": "#173f35",
+  "categories": ["food", "health", "lifestyle"]
+}
+
