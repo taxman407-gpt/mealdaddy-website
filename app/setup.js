@@ -28,7 +28,7 @@ const choices = {
 const steps = [
   { title: "About you", intro: "The basics help Meal Daddy personalize targets.", fields: [
     ["name", "What should I call you?", "text", "First name or nickname", true],
-    ["primary_goal", "What's your primary goal?", "single", choices.goals, true],
+    ["primary_goals", "What are your primary goals?", "multi", choices.goals, true],
     ["age", "Age", "number", "Optional"], ["biological_sex", "Biological sex", "single", choices.sex],
     ["height", "Height", "text", "e.g. 5 ft 10 in"], ["current_weight", "Current weight", "number", "lb"], ["goal_weight", "Goal weight", "number", "Optional"]
   ]},
@@ -68,6 +68,14 @@ const steps = [
 let currentStep = 0;
 let answers = JSON.parse(sessionStorage.getItem("mealdaddy-onboarding") || "{}");
 
+function normalizeGoalAnswers() {
+  if (answers.primary_goal && !(answers.primary_goals || []).length) {
+    answers.primary_goals = [answers.primary_goal];
+    delete answers.primary_goal;
+  }
+}
+normalizeGoalAnswers();
+
 document.body.classList.remove("auth-loading");
 
 function escapeHtml(value = "") {
@@ -98,7 +106,7 @@ function collectVisibleAnswers() {
 
 function renderSummary() {
   const rows = [
-    ["Goal", answers.primary_goal], ["Calories", answers.calorie_goal ? `${answers.calorie_goal}/day` : "Help me determine it"],
+    ["Goals", (answers.primary_goals || []).join(", ")], ["Calories", answers.calorie_goal ? `${answers.calorie_goal}/day` : "Help me determine it"],
     ["Protein", answers.protein_goal ? `${answers.protein_goal}g/day` : "Not set"], ["Eating style", (answers.eating_styles || []).join(", ") || "Flexible"],
     ["Foods to avoid", answers.foods_to_avoid || "None listed"], ["Restaurants", answers.favorite_restaurants || "None listed"],
     ["Garden", answers.has_garden || "Not specified"], ["Tracking", answers.tracking_detail || "Moderate"],
@@ -122,7 +130,7 @@ function render() {
 
 function validateStep() {
   if (currentStep !== 0) return true;
-  if (!answers.name || !answers.primary_goal) {
+  if (!answers.name || !(answers.primary_goals || []).length) {
     $("#setup-status").textContent = "Add your name and primary goal to continue.";
     return false;
   }
