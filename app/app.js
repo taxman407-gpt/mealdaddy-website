@@ -173,7 +173,7 @@ $("#entry-form").addEventListener("submit", async (event) => {
 
 document.querySelectorAll("[data-plan]").forEach((button) => button.addEventListener("click", () => startCheckout(button.dataset.plan)));
 
-$('input[name="provider"]').forEach((input) => input.addEventListener("change", async (event) => {
+document.querySelectorAll('input[name="provider"]').forEach((input) => input.addEventListener("change", async (event) => {
   state.provider = event.target.value;
   const { error } = await supabase.from("profiles").update({ ai_routing_preference: state.provider, updated_at: new Date().toISOString() }).eq("user_id", user.id);
   toast(error ? error.message : "AI provider preference saved. Provider connections are not active yet.");
