@@ -82,6 +82,36 @@ async function loadProfile() {
   if (provider) provider.checked = true;
 }
 
+async function loadMembership() {
+  const { data, error } = await supabase
+    .from("subscriptions")
+    .select("plan_key,status,trial_ends_at,current_period_ends_at,cancel_at_period_end")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return;
+
+  const membershipIsCurrent = ["trialing", "active", "past_due"].includes(data.status);
+  if (!membershipIsCurrent) return;
+
+  const planName = data.plan_key === "byo" ? "Bring Your Own API" : "Meal Daddy Core";
+  $("#plan-options").hidden = true;
+  $("#trial-note").hidden = true;
+  $("#subscription-title").textContent = planName;
+  $("#provider-settings").hidden = data.plan_key !== "byo";
+
+  if (data.status === "trialing" && data.trial_ends_at) {
+    const trialEnd = new Intl.DateTimeFormat(undefined, { month: "long", day: "numeric", year: "numeric" }).format(new Date(data.trial_ends_at));
+    $("#subscription-copy").textContent = `Your 7-day trial is active through ${trialEnd}. After that, your monthly membership begins unless cancelled.`;
+    $("#billing-status").textContent = "Trial active";
+  } else {
+    $("#subscription-copy").textContent = data.cancel_at_period_end
+      ? "Your membership remains available through the end of the current billing period."
+      : "Your membership is active.";
+    $("#billing-status").textContent = data.cancel_at_period_end ? "Cancellation scheduled" : "Membership active";
+  }
+}
+
 async function loadLedger() {
   const start = new Date();
   start.setHours(0, 0, 0, 0);
@@ -185,7 +215,7 @@ $("#sign-out").addEventListener("click", async () => { await supabase.auth.signO
 supabase.auth.onAuthStateChange((event) => { if (event === "SIGNED_OUT") location.replace("./auth.html"); });
 
 try {
-  const [profileResult] = await Promise.all([loadProfile(), loadLedger()]);
+  await Promise.all([loadProfile(), loadLedger(), loadMembership()]);
   if (location.hash === "#onboarding") showOnboarding();
   if (checkoutResult === "success") {
     $("#billing-status").textContent = "Your checkout was completed. Membership status will update shortly.";
