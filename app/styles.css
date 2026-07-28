@@ -121,3 +121,28 @@ h2 { font-size: clamp(1.65rem, 3vw, 2.6rem); line-height: 1.06; letter-spacing: 
   .choice-grid { grid-template-columns: 1fr; }.onboarding { padding: 10px; place-items: end center; }.onboarding-panel { max-height: 94vh; overflow-y: auto; border-radius: 26px 26px 16px 16px; }
 }
 
+
+
+/* Authenticated account flow */
+.auth-loading .dashboard,
+.auth-loading .settings-preview { visibility: hidden; }
+.account-actions { display: flex; align-items: center; gap: .65rem; }
+#account-email { max-width: 12rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .78rem; color: var(--muted); }
+.auth-page { min-height: 100vh; background: linear-gradient(180deg, #f7f2e9 0%, #eef5ef 100%); color: var(--ink); }
+.auth-shell { min-height: calc(100vh - 74px); display: grid; place-items: center; padding: 2rem 1rem 5rem; }
+.auth-card { width: min(100%, 28rem); background: #fff; border: 1px solid var(--line); border-radius: 1.5rem; padding: clamp(1.25rem, 5vw, 2rem); box-shadow: 0 24px 70px rgba(23,63,53,.12); }
+.auth-card h1 { margin: .35rem 0 .5rem; font-size: clamp(2rem, 8vw, 3rem); }
+.auth-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: .4rem; margin: 1.35rem 0; padding: .3rem; background: var(--surface-alt); border-radius: .85rem; }
+.auth-tabs button { border: 0; border-radius: .65rem; padding: .75rem; background: transparent; color: var(--muted); font-weight: 750; }
+.auth-tabs button.is-active { background: #fff; color: var(--green); box-shadow: 0 2px 10px rgba(23,63,53,.1); }
+#auth-form { display: grid; gap: 1rem; }
+#auth-form label { display: grid; gap: .4rem; font-size: .84rem; font-weight: 750; color: var(--green); }
+#auth-form input { width: 100%; border: 1px solid var(--line); border-radius: .8rem; padding: .9rem 1rem; font: inherit; background: #fff; }
+#auth-form input:focus { outline: 3px solid rgba(238,128,79,.22); border-color: var(--orange); }
+.auth-reset { margin: 1rem auto .35rem; display: block; }
+.auth-status { min-height: 1.4rem; margin: .9rem 0 0; color: var(--green); font-weight: 700; }
+.ledger-empty { list-style: none; padding: 1.25rem; color: var(--muted); text-align: center; }
+@media (max-width: 620px) {
+  #account-email { display: none; }
+  .account-actions .text-button { font-size: .75rem; }
+}
