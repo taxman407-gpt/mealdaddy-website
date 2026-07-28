@@ -169,4 +169,5 @@ $("#save-exit").addEventListener("click", async () => { if (currentStep < steps.
 
 const { data: existing } = await supabase.from("profiles").select("onboarding_data").eq("user_id", user.id).maybeSingle();
 if (existing?.onboarding_data && Object.keys(existing.onboarding_data).length) answers = { ...existing.onboarding_data, ...answers };
+normalizeGoalAnswers();
 render();
