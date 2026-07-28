@@ -31,7 +31,7 @@ function toast(message) {
 
 async function startCheckout(plan) {
   if (!allowedPlans.has(plan)) return;
-  const buttons = $("[data-plan]");
+  const buttons = document.querySelectorAll("[data-plan]");
   const status = $("#billing-status");
   buttons.forEach((button) => { button.disabled = true; });
   status.textContent = "Opening secure Stripe Checkout...";
@@ -171,7 +171,7 @@ $("#entry-form").addEventListener("submit", async (event) => {
   input.value = ""; state.photo = null; $("#photo-input").value = ""; await loadLedger(); toast("Saved to your private daily ledger.");
 });
 
-$("[data-plan]").forEach((button) => button.addEventListener("click", () => startCheckout(button.dataset.plan)));
+document.querySelectorAll("[data-plan]").forEach((button) => button.addEventListener("click", () => startCheckout(button.dataset.plan)));
 
 $('input[name="provider"]').forEach((input) => input.addEventListener("change", async (event) => {
   state.provider = event.target.value;
