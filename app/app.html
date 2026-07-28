@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#173f35" />
+    <meta name="robots" content="noindex" />
+    <title>Today â€” MealDaddy</title>
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body class="app-page">
+    <header class="app-header">
+      <a class="brand" href="./index.html"><span class="brand-mark">M</span><span>MealDaddy</span></a>
+      <button class="avatar-button" id="open-profile" type="button" aria-label="Open profile">AD</button>
+    </header>
+
+    <main class="dashboard">
+      <section class="today-heading">
+        <div><p class="eyebrow">Monday, July 27</p><h1>Good morning, Alex.</h1><p>Small choices count. Hereâ€™s where today stands.</p></div>
+        <span class="diet-badge" id="profile-diet">Set diet</span>
+      </section>
+
+      <section class="quick-log-card" aria-labelledby="quick-log-title">
+        <div><p class="eyebrow">Quick log</p><h2 id="quick-log-title">What did you have?</h2></div>
+        <form id="entry-form">
+          <label class="entry-field">
+            <span class="sr-only">Describe your meal or drink</span>
+            <input id="quick-entry" autocomplete="off" placeholder="e.g. turkey sandwich, apple, and sparkling water" />
+          </label>
+          <div class="entry-actions">
+            <button class="mode-button is-active" data-entry-mode="text" type="button">âŒ¨ <span>Text</span></button>
+            <button class="mode-button" data-entry-mode="voice" type="button">â— <span>Voice</span></button>
+            <label class="mode-button" data-entry-mode="photo">â–£ <span>Photo</span><input id="photo-input" type="file" accept="image/*" capture="environment" /></label>
+            <button class="log-button" type="submit">Log</button>
+          </div>
+        </form>
+        <p class="privacy-line">Preview entries stay in this browser session. Production uploads will use signed, private storage.</p>
+      </section>
+
+      <section class="metric-grid" aria-label="Daily nutrition totals">
+        <article class="metric-card primary-metric"><span>Energy</span><strong>1,240</strong><small>of 2,050 cal</small><progress value="1240" max="2050"></progress></article>
+        <article class="metric-card"><span>Protein</span><strong>72g</strong><small>of 130g</small><progress value="72" max="130"></progress></article>
+        <article class="metric-card"><span>Fiber</span><strong>18g</strong><small>of 30g</small><progress value="18" max="30"></progress></article>
+        <article class="metric-card"><span>Hydration</span><strong>52oz</strong><small>of 90oz</small><progress value="52" max="90"></progress></article>
+      </section>
+
+      <section class="dashboard-grid">
+        <article class="ledger-card">
+          <div class="section-title"><div><p class="eyebrow">Daily ledger</p><h2>Todayâ€™s entries</h2></div><button class="text-button" type="button">View all</button></div>
+          <ul id="ledger-list" class="ledger-list"></ul>
+        </article>
+        <aside class="coach-card">
+          <span class="coach-label">Next best move</span>
+          <h2>Build dinner around vegetables and 35â€“45g of protein.</h2>
+          <p>Youâ€™re on pace. A salmon bowl or tofu stir-fry fits today without overthinking it.</p>
+          <div><button type="button">Plan dinner</button><button type="button">Restaurant mode</button></div>
+        </aside>
+      </section>
+
+      <nav class="bottom-nav" aria-label="App navigation">
+        <a class="is-current" href="./app.html">Today</a><a href="#plan">Plan</a><button type="button" onclick="document.querySelector('#quick-entry').focus()">ï¼‹</button><a href="#reports">Reports</a><a href="#profile">Profile</a>
+      </nav>
+    </main>
+
+    <section class="settings-preview" id="provider-settings" aria-labelledby="provider-title">
+      <div>
+        <p class="eyebrow">AI preferences</p>
+        <h2 id="provider-title">Choose who processes AI requests</h2>
+        <p>Your selection changes which AI service receives meal descriptions, photos, or questions for AI-assisted analysis. Account and ledger data remain in MealDaddyâ€™s data system.</p>
+      </div>
+      <div class="provider-options" role="radiogroup" aria-label="AI provider preference">
+        <label><input type="radio" name="provider" value="best_value" checked /><span><strong>Best value</strong><small>MealDaddy selects a lower-cost approved model for the task and discloses the choice.</small></span></label>
+        <label><input type="radio" name="provider" value="openai" /><span><strong>OpenAI</strong><small>Supported AI requests are processed by OpenAI.</small></span></label>
+        <label><input type="radio" name="provider" value="anthropic" /><span><strong>Anthropic</strong><small>Supported AI requests are processed by Anthropic.</small></span></label>
+      </div>
+      <p class="privacy-line">For reliability or safety, MealDaddy may use a more capable approved model when the lowest-cost option cannot perform the task. Any fallback will be shown with the result. Provider connections are not enabled in this preview.</p>
+    </section>
+
+    <section class="onboarding" id="onboarding" role="dialog" aria-modal="true" aria-labelledby="onboarding-title" hidden>
+      <div class="onboarding-panel">
+        <div class="step-indicator"><span class="is-active"></span><span></span><span></span></div>
+        <p class="eyebrow">A few basics first</p>
+        <h1 id="onboarding-title">How do you like to eat?</h1>
+        <p>Choose the closest fit. You can adjust individual preferences anytime.</p>
+        <div class="choice-grid" id="diet-options"></div>
+        <label class="select-field">Coaching tone
+          <select id="tone-options">
+            <option>Supportive</option><option>Direct</option><option>Data-focused</option><option>Playful</option>
+          </select>
+        </label>
+        <button class="button button-primary full-button" id="continue-onboarding" type="button" disabled>Build my starting plan</button>
+        <p class="privacy-line">Health preferences are private account data in production and will never be placed in public page code.</p>
+      </div>
+    </section>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="./app.js" type="module"></script>
+    <script src="./register-sw.js"></script>
+  </body>
+</html>
+
