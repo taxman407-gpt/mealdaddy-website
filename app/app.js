@@ -134,6 +134,7 @@ $("#continue-onboarding").addEventListener("click", async () => {
   if (pendingPlan) await startCheckout(pendingPlan);
 });
 $("#open-profile").addEventListener("click", showOnboarding);
+$("#profile-diet").addEventListener("click", showOnboarding);
 
 $$("[data-entry-mode]").forEach((button) => button.addEventListener("click", () => {
   $$("[data-entry-mode]").forEach((item) => item.classList.remove("is-active")); button.classList.add("is-active");
