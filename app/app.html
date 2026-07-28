@@ -15,7 +15,7 @@
     <div class="account-actions"><span id="account-email"></span><button class="text-button" id="sign-out" type="button">Sign out</button><button class="avatar-button" id="open-profile" type="button" aria-label="Open profile">MD</button></div>
   </header>
   <main class="dashboard">
-    <section class="today-heading"><div><p class="eyebrow" id="today-date"></p><h1 id="greeting">Welcome back.</h1><p>Small choices count. Here's where today stands.</p></div><button class="diet-badge" id="profile-diet" type="button" aria-label="Edit diet and coaching preferences">Set diet</button></section>
+    <section class="today-heading"><div><p class="eyebrow" id="today-date"></p><h1 id="greeting">Welcome back.</h1><p id="goal-summary">Small choices count. Here's where today stands.</p></div><button class="diet-badge" id="profile-diet" type="button" aria-label="Edit diet and coaching preferences">Set diet</button></section>
     <section class="quick-log-card" aria-labelledby="quick-log-title">
       <div><p class="eyebrow">Quick log</p><h2 id="quick-log-title">What did you have?</h2></div>
       <form id="entry-form">
@@ -31,7 +31,7 @@
     </section>
     <section class="metric-grid" aria-label="Daily nutrition totals">
       <article class="metric-card primary-metric"><span>Energy</span><strong id="energy-total">0</strong><small>cal logged</small><progress id="energy-progress" value="0" max="2050"></progress></article>
-      <article class="metric-card"><span>Protein</span><strong id="protein-total">0g</strong><small>of 130g</small><progress id="protein-progress" value="0" max="130"></progress></article>
+      <article class="metric-card"><span>Protein</span><strong id="protein-total">0g</strong><small id="protein-goal-label">of 130g</small><progress id="protein-progress" value="0" max="130"></progress></article>
       <article class="metric-card"><span>Fiber</span><strong id="fiber-total">0g</strong><small>of 30g</small><progress id="fiber-progress" value="0" max="30"></progress></article>
       <article class="metric-card"><span>Hydration</span><strong id="water-total">0oz</strong><small>of 90oz</small><progress id="water-progress" value="0" max="90"></progress></article>
     </section>
