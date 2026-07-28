@@ -73,7 +73,16 @@ async function loadProfile() {
   state.diet = data.diet_style;
   state.tone = data.coaching_tone;
   state.provider = data.ai_routing_preference || "best_value";
-  if (data.onboarding_data?.name) $("#greeting").textContent = `Welcome back, ${data.onboarding_data.name}.`;
+  const profile = data.onboarding_data || {};
+  if (profile.name) $("#greeting").textContent = `Welcome back, ${profile.name}.`;
+  const goals = profile.primary_goals || (profile.primary_goal ? [profile.primary_goal] : []);
+  if (goals.length) $("#goal-summary").textContent = `Today's focus: ${goals.join(" · ")}`;
+  const calorieGoal = Number(profile.calorie_goal || 2050);
+  const proteinGoal = Number(profile.protein_goal || 130);
+  $("#energy-progress").max = calorieGoal;
+  $("#protein-progress").max = proteinGoal;
+  $("#energy-goal-label").textContent = `of ${calorieGoal.toLocaleString()} cal`;
+  $("#protein-goal-label").textContent = `of ${proteinGoal}g`;
   $("#profile-diet").textContent = state.diet;
   $("#tone-options").value = state.tone;
   const provider = document.querySelector(`input[name="provider"][value="${state.provider}"]`);
