@@ -1,5 +1,5 @@
-const CACHE = "mealdaddy-shell-v1";
-const SHELL = ["./", "./index.html", "./app.html", "./styles.css", "./app.js"];
+const CACHE = "mealdaddy-shell-v2";
+const SHELL = ["./", "./index.html", "./auth.html", "./app.html", "./styles.css", "./auth.js", "./app.js", "./supabase-client.js"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)));
@@ -7,9 +7,7 @@ self.addEventListener("install", (event) => {
 });
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(caches.keys().then((keys) =>
-    Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key)))
-  ));
+  event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key)))));
   self.clients.claim();
 });
 
@@ -17,4 +15,3 @@ self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET" || new URL(event.request.url).origin !== location.origin) return;
   event.respondWith(fetch(event.request).catch(() => caches.match(event.request)));
 });
-
