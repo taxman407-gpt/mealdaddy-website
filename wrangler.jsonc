@@ -1,0 +1,12 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "mealdaddy-website",
+  "compatibility_date": "2026-07-27",
+  "workers_dev": true,
+  "preview_urls": true,
+  "assets": {
+    "directory": ".",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page"
+  }
+}
