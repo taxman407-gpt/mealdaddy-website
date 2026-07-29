@@ -13,7 +13,7 @@ const entryCategories = [...mealLabels, "Hydration"];
 const query = new URLSearchParams(location.search);
 let pendingPlan = allowedPlans.has(query.get("plan")) ? query.get("plan") : null;
 const checkoutResult = query.get("checkout");
-const state = { diet: "", tone: "supportive", provider: "best_value", entries: [], photo: null, coachPhoto: null, coachMode: "dinner", calorieGoal: 2050, proteinGoal: 130, fiberGoal: 30, waterGoal: 90, eatingStyles: [], goals: [], trackingDetail: "Moderate", uses: [], reminders: [] };
+const state = { diet: "", tone: "supportive", provider: "best_value", entries: [], photo: null, coachPhoto: null, restaurantLocation: null, coachMode: "dinner", calorieGoal: 2050, proteinGoal: 130, fiberGoal: 30, waterGoal: 90, eatingStyles: [], goals: [], trackingDetail: "Moderate", uses: [], reminders: [] };
 const installDismissedKey = "mealdaddy-install-tip-dismissed";
 let deferredInstallPrompt = null;
 let latestReport = null;
@@ -571,6 +571,54 @@ function clearCoachPhoto() {
   $("#coach-photo-name").textContent = "No photo selected.";
 }
 
+function clearRestaurantLocation() {
+  state.restaurantLocation = null;
+  $("#restaurant-location-status").textContent = "Location not shared.";
+  $("#use-restaurant-location").textContent = "Use my current area";
+  $("#clear-restaurant-location").hidden = true;
+}
+
+$("#use-restaurant-location").addEventListener("click", () => {
+  const button = $("#use-restaurant-location");
+  const status = $("#restaurant-location-status");
+  if (!navigator.geolocation) {
+    status.textContent = "Location is not supported in this browser. Enter a city or restaurant in the box instead.";
+    return;
+  }
+  button.disabled = true;
+  status.textContent = "Waiting for your browser’s location permission...";
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      const accuracyMeters = Math.max(0, Math.round(Number(position.coords.accuracy) || 0));
+      state.restaurantLocation = {
+        latitude: Number(position.coords.latitude.toFixed(2)),
+        longitude: Number(position.coords.longitude.toFixed(2)),
+        accuracyMeters,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || ""
+      };
+      const areaAccuracy = accuracyMeters > 0
+        ? ` Device accuracy was about ${accuracyMeters < 1000 ? `${accuracyMeters} meters` : `${Math.ceil(accuracyMeters / 1000)} km`}.`
+        : "";
+      status.textContent = `Current area ready for this request.${areaAccuracy}`;
+      button.textContent = "Update current area";
+      $("#clear-restaurant-location").hidden = false;
+      button.disabled = false;
+    },
+    (error) => {
+      const messages = {
+        1: "Location was not shared. You can enter a city or restaurant in the box instead.",
+        2: "Your current area could not be determined. Try again or enter a city manually.",
+        3: "Location took too long. Try again or enter a city manually."
+      };
+      status.textContent = messages[error.code] || "Location could not be used. Enter a city manually.";
+      button.disabled = false;
+    },
+    { enableHighAccuracy: false, timeout: 10_000, maximumAge: 300_000 }
+  );
+});
+
+$("#clear-restaurant-location").addEventListener("click", clearRestaurantLocation);
+
 $("#coach-photo-input").addEventListener("change", (event) => {
   const file = event.target.files[0] || null;
   const supportedTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
@@ -587,7 +635,7 @@ $("#coach-photo-input").addEventListener("change", (event) => {
 function openCoachAction(mode) {
   state.coachMode = mode;
   const restaurantMode = mode === "restaurant";
-  if (restaurantMode) clearCoachPhoto();
+  if (restaurantMode) clearCoachPhoto(); else clearRestaurantLocation();
   $("#coach-action-title").textContent = restaurantMode ? "Restaurant Mode" : "Plan Your Next Meal";
   $("#coach-action-prompt").textContent = restaurantMode
     ? "Enter a restaurant, menu item, or what you are considering ordering."
@@ -596,6 +644,7 @@ function openCoachAction(mode) {
     ? "e.g. Texas Roadhouse — choosing between sirloin and grilled salmon"
     : "e.g. 30 minutes, cooking for two, something low carb";
   $("#coach-photo-field").hidden = restaurantMode;
+  $("#restaurant-location-field").hidden = !restaurantMode;
   $("#run-coach-action").textContent = restaurantMode ? "Get ordering guidance" : "Plan my meal";
   $("#coach-action-form").hidden = false;
   $("#coach-action-status").hidden = true;
@@ -608,11 +657,16 @@ $("#restaurant-mode").addEventListener("click", () => openCoachAction("restauran
 $("#close-coach-action").addEventListener("click", () => {
   $("#coach-action-form").hidden = true;
   clearCoachPhoto();
+  clearRestaurantLocation();
 });
 
 $("#coach-action-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const enteredContext = $("#coach-action-context").value.trim();
+  if (state.coachMode === "restaurant" && !enteredContext) {
+    toast("Enter a restaurant, type of food, or what you want help ordering.");
+    return;
+  }
   if (!enteredContext && !state.coachPhoto) {
     toast("Add a few details or a fridge or pantry photo so Meal Daddy can help.");
     return;
@@ -643,7 +697,12 @@ $("#coach-action-form").addEventListener("submit", async (event) => {
       }
     }
     const { data, error } = await supabase.functions.invoke("coach-action", {
-      body: { mode: state.coachMode, context, photoPath }
+      body: {
+        mode: state.coachMode,
+        context,
+        photoPath,
+        location: state.coachMode === "restaurant" ? state.restaurantLocation : null
+      }
     });
     if (error || !data?.guidance) {
       status.textContent = data?.error || error?.message || "Meal Daddy could not generate guidance right now.";
@@ -653,6 +712,7 @@ $("#coach-action-form").addEventListener("submit", async (event) => {
     result.textContent = data.guidance;
     result.hidden = false;
     clearCoachPhoto();
+    clearRestaurantLocation();
   } catch (error) {
     status.textContent = error?.message || "Meal Daddy could not generate guidance right now.";
   } finally {
