@@ -89,6 +89,8 @@ h2 { font-size: clamp(1.65rem, 3vw, 2.6rem); line-height: 1.06; letter-spacing: 
 .coach-launcher .coach-action-form { grid-column: 1 / -1; border-top-color: var(--line); }
 .coach-launcher .coach-action-form label { color: var(--muted); }.coach-launcher .coach-action-form label strong { color: var(--ink); }
 .coach-launcher .coach-action-form textarea { border: 1px solid var(--line); }
+.coach-launcher .coach-photo-field { border-color: var(--line); background: var(--soft); }
+.coach-launcher .coach-photo-field p strong { color: var(--ink); }.coach-launcher .coach-photo-field p span, .coach-launcher .coach-photo-name, .coach-launcher .coach-photo-field small { color: var(--muted); }
 .coach-launcher .coach-action-result { color: var(--ink) !important; background: var(--soft); }
 .quick-log-card { border-radius: 26px; padding: clamp(20px, 4vw, 34px); color: white; background: var(--forest); box-shadow: var(--shadow); }
 .quick-log-card .eyebrow { color: var(--lime); }.quick-log-card h2 { margin-bottom: 22px; }
@@ -163,6 +165,10 @@ h2 { font-size: clamp(1.65rem, 3vw, 2.6rem); line-height: 1.06; letter-spacing: 
 .coach-action-form label { display: grid; gap: 7px; color: rgba(255,255,255,.72); font-size: .76rem; line-height: 1.45; }
 .coach-action-form label strong { color: white; font-size: 1rem; }
 .coach-action-form textarea { width: 100%; resize: vertical; border: 0; border-radius: 12px; padding: 11px 12px; color: var(--ink); background: white; font: inherit; }
+.coach-photo-field { display: grid; grid-template-columns: 1fr auto; gap: 7px 12px; align-items: center; border: 1px solid rgba(255,255,255,.16); border-radius: 14px; padding: 12px; background: rgba(255,255,255,.06); }
+.coach-photo-field p { display: grid; gap: 3px; margin: 0; }.coach-photo-field p strong { color: white; font-size: .84rem; }.coach-photo-field p span, .coach-photo-name, .coach-photo-field small { color: rgba(255,255,255,.7); font-size: .72rem; line-height: 1.4; }
+.coach-photo-picker { position: relative; display: inline-flex !important; min-height: 40px; align-items: center; justify-content: center; border-radius: 11px; padding: 0 12px; color: var(--forest) !important; background: var(--lime); font-size: .74rem !important; font-weight: 850; cursor: pointer; }
+.coach-photo-picker input { position: absolute; width: 1px; height: 1px; opacity: 0; }.coach-photo-name { grid-column: 1 / -1; }.coach-photo-field small { grid-column: 1 / -1; }
 .coach-form-buttons { display: flex; gap: 7px; }
 .coach-action-status, .coach-action-result { margin: 0; }
 .coach-action-result { white-space: pre-wrap; border-radius: 13px; padding: 12px; color: white !important; background: rgba(255,255,255,.09); font-size: .82rem; line-height: 1.55 !important; }
@@ -199,7 +205,7 @@ h2 { font-size: clamp(1.65rem, 3vw, 2.6rem); line-height: 1.06; letter-spacing: 
 }
 
 @media (max-width: 480px) {
-  .today-heading { display: grid; }.install-tip { display: grid; }.install-tip[hidden] { display: none; }.install-tip-actions { align-items: start; flex-direction: column; }.tips-dropdown > summary small { display: none; }.tips-grid { grid-template-columns: 1fr; }.coach-launcher { padding: 16px; }.coach-launcher .coach-buttons { display: grid; grid-template-columns: 1fr; }.coach-launcher .coach-buttons button { width: 100%; }.quick-log-card { border-radius: 21px; padding: 20px 16px; }.entry-actions { display: grid; grid-template-columns: repeat(3, 1fr); }.mode-button { justify-content: center; padding: 0 7px; }.log-button { grid-column: 1 / -1; justify-content: center; margin: 0; }
+  .today-heading { display: grid; }.install-tip { display: grid; }.install-tip[hidden] { display: none; }.install-tip-actions { align-items: start; flex-direction: column; }.tips-dropdown > summary small { display: none; }.tips-grid { grid-template-columns: 1fr; }.coach-launcher { padding: 16px; }.coach-launcher .coach-buttons { display: grid; grid-template-columns: 1fr; }.coach-launcher .coach-buttons button { width: 100%; }.coach-photo-field { grid-template-columns: 1fr; }.coach-photo-picker, .coach-photo-name, .coach-photo-field small { grid-column: 1; }.quick-log-card { border-radius: 21px; padding: 20px 16px; }.entry-actions { display: grid; grid-template-columns: repeat(3, 1fr); }.mode-button { justify-content: center; padding: 0 7px; }.log-button { grid-column: 1 / -1; justify-content: center; margin: 0; }
   .metric-card { padding: 15px; }.metric-card strong { font-size: 1.4rem; }.ledger-card, .coach-card { padding: 19px; }.ledger-item { grid-template-columns: 38px 1fr auto; }.ledger-edit-form { grid-column: 1 / -1; grid-template-columns: 1fr; }.ledger-edit-form > div { grid-column: auto; }.ledger-actions { align-self: start; }
   .choice-grid { grid-template-columns: 1fr; }.onboarding { padding: 10px; place-items: end center; }.onboarding-panel { max-height: 94vh; overflow-y: auto; border-radius: 26px 26px 16px 16px; }
 }

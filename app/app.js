@@ -13,7 +13,7 @@ const entryCategories = [...mealLabels, "Hydration"];
 const query = new URLSearchParams(location.search);
 let pendingPlan = allowedPlans.has(query.get("plan")) ? query.get("plan") : null;
 const checkoutResult = query.get("checkout");
-const state = { diet: "", tone: "supportive", provider: "best_value", entries: [], photo: null, coachMode: "dinner", calorieGoal: 2050, proteinGoal: 130, fiberGoal: 30, waterGoal: 90, eatingStyles: [], goals: [], trackingDetail: "Moderate", uses: [], reminders: [] };
+const state = { diet: "", tone: "supportive", provider: "best_value", entries: [], photo: null, coachPhoto: null, coachMode: "dinner", calorieGoal: 2050, proteinGoal: 130, fiberGoal: 30, waterGoal: 90, eatingStyles: [], goals: [], trackingDetail: "Moderate", uses: [], reminders: [] };
 const installDismissedKey = "mealdaddy-install-tip-dismissed";
 let deferredInstallPrompt = null;
 let latestReport = null;
@@ -565,16 +565,37 @@ function startVoiceCapture() {
 
 $("#photo-input").addEventListener("change", (event) => { state.photo = event.target.files[0] || null; if (state.photo) toast("Photo ready for private upload."); });
 
+function clearCoachPhoto() {
+  state.coachPhoto = null;
+  $("#coach-photo-input").value = "";
+  $("#coach-photo-name").textContent = "No photo selected.";
+}
+
+$("#coach-photo-input").addEventListener("change", (event) => {
+  const file = event.target.files[0] || null;
+  const supportedTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+  if (file && (!supportedTypes.has(file.type) || file.size > 8 * 1024 * 1024)) {
+    clearCoachPhoto();
+    toast("Use a JPG, PNG, WebP, or GIF photo no larger than 8 MB.");
+    return;
+  }
+  state.coachPhoto = file;
+  $("#coach-photo-name").textContent = file ? `${file.name} ready` : "No photo selected.";
+  if (file) toast("Fridge or pantry photo ready for private analysis.");
+});
+
 function openCoachAction(mode) {
   state.coachMode = mode;
   const restaurantMode = mode === "restaurant";
+  if (restaurantMode) clearCoachPhoto();
   $("#coach-action-title").textContent = restaurantMode ? "Restaurant Mode" : "Plan Your Next Meal";
   $("#coach-action-prompt").textContent = restaurantMode
     ? "Enter a restaurant, menu item, or what you are considering ordering."
-    : "What ingredients do you have, how much time do you have, or what sounds good?";
+    : "Describe what you have, or add a fridge or pantry photo. Include your available time or what sounds good.";
   $("#coach-action-context").placeholder = restaurantMode
     ? "e.g. Texas Roadhouse — choosing between sirloin and grilled salmon"
-    : "e.g. chicken thighs, broccoli, 30 minutes, cooking for two";
+    : "e.g. 30 minutes, cooking for two, something low carb";
+  $("#coach-photo-field").hidden = restaurantMode;
   $("#run-coach-action").textContent = restaurantMode ? "Get ordering guidance" : "Plan my meal";
   $("#coach-action-form").hidden = false;
   $("#coach-action-status").hidden = true;
@@ -586,33 +607,61 @@ $("#plan-dinner").addEventListener("click", () => openCoachAction("dinner"));
 $("#restaurant-mode").addEventListener("click", () => openCoachAction("restaurant"));
 $("#close-coach-action").addEventListener("click", () => {
   $("#coach-action-form").hidden = true;
+  clearCoachPhoto();
 });
 
 $("#coach-action-form").addEventListener("submit", async (event) => {
   event.preventDefault();
-  const context = $("#coach-action-context").value.trim();
-  if (!context) {
-    toast("Add a few details so Meal Daddy can help.");
+  const enteredContext = $("#coach-action-context").value.trim();
+  if (!enteredContext && !state.coachPhoto) {
+    toast("Add a few details or a fridge or pantry photo so Meal Daddy can help.");
     return;
   }
+  const context = enteredContext || "Use my fridge or pantry photo to suggest my next meal.";
   const button = $("#run-coach-action");
   const status = $("#coach-action-status");
   const result = $("#coach-action-result");
   button.disabled = true;
-  status.textContent = state.coachMode === "restaurant" ? "Reviewing your options..." : "Building a practical meal...";
+  status.textContent = state.coachMode === "restaurant"
+    ? "Reviewing your options..."
+    : state.coachPhoto
+      ? "Reviewing your photo and building a practical meal..."
+      : "Building a practical meal...";
   status.hidden = false;
   result.hidden = true;
-  const { data, error } = await supabase.functions.invoke("coach-action", {
-    body: { mode: state.coachMode, context }
-  });
-  button.disabled = false;
-  if (error || !data?.guidance) {
-    status.textContent = data?.error || error?.message || "Meal Daddy could not generate guidance right now.";
-    return;
+  let photoPath = "";
+  try {
+    if (state.coachMode === "dinner" && state.coachPhoto) {
+      const safeName = state.coachPhoto.name.replace(/[^a-z0-9._-]/gi, "-");
+      photoPath = `${user.id}/coach-${crypto.randomUUID()}-${safeName}`;
+      const { error: uploadError } = await supabase.storage
+        .from("meal-photos")
+        .upload(photoPath, state.coachPhoto, { upsert: false });
+      if (uploadError) {
+        status.textContent = `Photo was not uploaded: ${uploadError.message}`;
+        return;
+      }
+    }
+    const { data, error } = await supabase.functions.invoke("coach-action", {
+      body: { mode: state.coachMode, context, photoPath }
+    });
+    if (error || !data?.guidance) {
+      status.textContent = data?.error || error?.message || "Meal Daddy could not generate guidance right now.";
+      return;
+    }
+    status.hidden = true;
+    result.textContent = data.guidance;
+    result.hidden = false;
+    clearCoachPhoto();
+  } catch (error) {
+    status.textContent = error?.message || "Meal Daddy could not generate guidance right now.";
+  } finally {
+    if (photoPath) {
+      const { error: removeError } = await supabase.storage.from("meal-photos").remove([photoPath]);
+      if (removeError) console.warn("Temporary coach photo cleanup failed.", removeError);
+    }
+    button.disabled = false;
   }
-  status.hidden = true;
-  result.textContent = data.guidance;
-  result.hidden = false;
 });
 
 $("#ledger-list").addEventListener("click", (event) => {

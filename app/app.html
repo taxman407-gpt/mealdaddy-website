@@ -7,7 +7,7 @@
   <meta name="robots" content="noindex" />
   <title>Today - MealDaddy</title>
   <link rel="manifest" href="./manifest.webmanifest" />
-  <link rel="stylesheet" href="./styles.css?v=20260729-13" />
+  <link rel="stylesheet" href="./styles.css?v=20260729-14" />
 </head>
 <body class="app-page auth-loading">
   <header class="app-header">
@@ -34,7 +34,7 @@
           <article class="signature-tip"><span>Signature tool</span><strong>Adaptive Hydration™</strong><p>Include every drink and note salty restaurant foods so hydration guidance has the context it needs.</p></article>
           <article class="signature-tip"><span>Signature tool</span><strong>Inflammation Score™ System</strong><p>Describe processing, cooking oils, sauces, added sugars, and alcohol so inflammation-aware guidance can identify useful patterns.</p></article>
           <article><strong>Restaurant Mode</strong><p>Open it before ordering and include the restaurant, location, cravings, and any menu choices you are considering.</p></article>
-          <article><strong>Plan Your Next Meal</strong><p>Share the ingredients you have, your available time, servings, equipment, and budget for more practical ideas.</p></article>
+          <article><strong>Plan Your Next Meal</strong><p>Take a photo of your fridge or pantry, then add your available time, servings, equipment, and budget for practical ideas using what you already have.</p></article>
           <article><strong>Feedback Loop</strong><p>Keep preferences current, correct estimates with Edit, and use Reports to turn repeated entries into more useful patterns.</p></article>
         </div>
       </div>
@@ -43,7 +43,13 @@
       <div class="coach-launcher-copy"><p class="eyebrow">What are you deciding?</p><h2>Get help with your next choice.</h2></div>
       <div class="coach-buttons"><button id="plan-dinner" type="button" aria-controls="coach-action-form">Plan Your Next Meal</button><button id="restaurant-mode" type="button" aria-controls="coach-action-form">Restaurant Mode</button></div>
       <form id="coach-action-form" class="coach-action-form" hidden>
-        <label><strong id="coach-action-title">Plan Your Next Meal</strong><span id="coach-action-prompt">What ingredients do you have, how much time do you have, or what sounds good?</span><textarea id="coach-action-context" maxlength="1000" rows="3" required></textarea></label>
+        <label><strong id="coach-action-title">Plan Your Next Meal</strong><span id="coach-action-prompt">Describe what you have, or add a fridge or pantry photo. Include your available time or what sounds good.</span><textarea id="coach-action-context" maxlength="1000" rows="3"></textarea></label>
+        <div id="coach-photo-field" class="coach-photo-field">
+          <p><strong>Optional fridge or pantry photo</strong><span>Show Meal Daddy what ingredients are available.</span></p>
+          <label class="coach-photo-picker"><span>Take or choose a photo</span><input id="coach-photo-input" type="file" accept="image/*" capture="environment" /></label>
+          <span id="coach-photo-name" class="coach-photo-name">No photo selected.</span>
+          <small>The photo is temporarily uploaded to your private account for this request and removed after guidance is generated.</small>
+        </div>
         <div class="coach-form-buttons"><button id="run-coach-action" type="submit">Get guidance</button><button id="close-coach-action" type="button">Close</button></div>
         <p id="coach-action-status" class="coach-action-status" role="status" hidden></p>
         <p id="coach-action-result" class="coach-action-result" hidden></p>
@@ -159,7 +165,7 @@
     <div class="onboarding-panel"><div class="step-indicator"><span class="is-active"></span><span></span><span></span></div><p class="eyebrow">A few basics first</p><h1 id="onboarding-title">How do you like to eat?</h1><p>Choose the closest fit. You can adjust individual preferences anytime.</p><div class="choice-grid" id="diet-options"></div><label class="select-field">Coaching tone<select id="tone-options"><option value="supportive">Supportive</option><option value="direct">Direct</option><option value="data_focused">Data-focused</option><option value="playful">Playful</option></select></label><button class="button button-primary full-button" id="continue-onboarding" type="button" disabled>Save my starting plan</button><p class="privacy-line">These preferences are protected by row-level security and can only be accessed by your account.</p></div>
   </section>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="./app.js?v=20260729-13" type="module"></script>
-  <script src="./register-sw.js?v=20260729-13"></script>
+  <script src="./app.js?v=20260729-14" type="module"></script>
+  <script src="./register-sw.js?v=20260729-14"></script>
 </body>
 </html>
