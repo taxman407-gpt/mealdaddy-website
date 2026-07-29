@@ -132,12 +132,19 @@ async function loadMembership() {
     .eq("user_id", user.id)
     .maybeSingle();
   if (error) throw error;
-  if (!data) return;
+  if (!data) {
+    $("#subscription").hidden = checkoutResult === "success";
+    return;
+  }
 
   const membershipIsCurrent = ["trialing", "active", "past_due"].includes(data.status);
-  if (!membershipIsCurrent) return;
+  if (!membershipIsCurrent) {
+    $("#subscription").hidden = false;
+    return;
+  }
 
   const planName = data.plan_key === "byo" ? "Bring Your Own API" : "Meal Daddy Core";
+  $("#subscription").hidden = true;
   $("#plan-options").hidden = true;
   $("#trial-note").hidden = true;
   $("#subscription-title").textContent = planName;
