@@ -7,7 +7,7 @@
   <meta name="robots" content="noindex" />
   <title>Today - MealDaddy</title>
   <link rel="manifest" href="./manifest.webmanifest" />
-  <link rel="stylesheet" href="./styles.css?v=20260729-5" />
+  <link rel="stylesheet" href="./styles.css?v=20260729-6" />
 </head>
 <body class="app-page auth-loading">
   <header class="app-header">
@@ -47,9 +47,12 @@
     <section class="metric-grid" aria-label="Daily nutrition totals">
       <article class="metric-card primary-metric"><span>Energy</span><strong id="energy-total">0</strong><small id="energy-goal-label">of 2,050 cal</small><progress id="energy-progress" value="0" max="2050"></progress></article>
       <article class="metric-card"><span>Protein</span><strong id="protein-total">0g</strong><small id="protein-goal-label">of 130g</small><progress id="protein-progress" value="0" max="130"></progress></article>
+      <article class="metric-card"><span>Carbohydrates</span><strong id="carbs-total">0g</strong><small>estimated total</small></article>
+      <article class="metric-card"><span>Fat</span><strong id="fat-total">0g</strong><small>estimated total</small></article>
       <article class="metric-card"><span>Fiber</span><strong id="fiber-total">0g</strong><small>of 30g</small><progress id="fiber-progress" value="0" max="30"></progress></article>
       <article class="metric-card"><span>Hydration</span><strong id="water-total">0oz</strong><small>of 90oz</small><progress id="water-progress" value="0" max="90"></progress></article>
     </section>
+    <p class="estimate-note"><span aria-hidden="true">≈</span> Nutrition totals are estimates. Open an entry to review or correct its description.</p>
     <section class="dashboard-grid">
       <article class="ledger-card"><div class="section-title"><div><p class="eyebrow">Daily ledger</p><h2>Today's entries</h2></div><button class="text-button" id="refresh-ledger" type="button">Refresh</button></div><ul id="ledger-list" class="ledger-list"></ul></article>
       <aside class="coach-card" aria-live="polite">
@@ -97,7 +100,7 @@
     <div class="onboarding-panel"><div class="step-indicator"><span class="is-active"></span><span></span><span></span></div><p class="eyebrow">A few basics first</p><h1 id="onboarding-title">How do you like to eat?</h1><p>Choose the closest fit. You can adjust individual preferences anytime.</p><div class="choice-grid" id="diet-options"></div><label class="select-field">Coaching tone<select id="tone-options"><option value="supportive">Supportive</option><option value="direct">Direct</option><option value="data_focused">Data-focused</option><option value="playful">Playful</option></select></label><button class="button button-primary full-button" id="continue-onboarding" type="button" disabled>Save my starting plan</button><p class="privacy-line">These preferences are protected by row-level security and can only be accessed by your account.</p></div>
   </section>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="./app.js?v=20260729-5" type="module"></script>
-  <script src="./register-sw.js?v=20260729-5"></script>
+  <script src="./app.js?v=20260729-6" type="module"></script>
+  <script src="./register-sw.js?v=20260729-6"></script>
 </body>
 </html>

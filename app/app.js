@@ -206,12 +206,16 @@ function renderTotals() {
     const n = entry.nutrition_estimate || {};
     sum.calories += Number(n.calories || 0);
     sum.protein += Number(n.protein_g || 0);
+    sum.carbs += Number(n.carbs_g || 0);
+    sum.fat += Number(n.fat_g || 0);
     sum.fiber += Number(n.fiber_g || 0);
     sum.water += entry.kind === "hydration" ? Number(n.ounces || 0) : Number(n.hydration_ounces || 0);
     return sum;
-  }, { calories: 0, protein: 0, fiber: 0, water: 0 });
+  }, { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, water: 0 });
   $("#energy-total").textContent = Math.round(totals.calories).toLocaleString();
   $("#protein-total").textContent = `${Math.round(totals.protein)}g`;
+  $("#carbs-total").textContent = `${Math.round(totals.carbs)}g`;
+  $("#fat-total").textContent = `${Math.round(totals.fat)}g`;
   $("#fiber-total").textContent = `${Math.round(totals.fiber)}g`;
   $("#water-total").textContent = `${Math.round(totals.water)}oz`;
   $("#energy-progress").value = totals.calories; $("#protein-progress").value = totals.protein; $("#fiber-progress").value = totals.fiber; $("#water-progress").value = totals.water;
