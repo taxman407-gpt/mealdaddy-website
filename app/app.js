@@ -184,7 +184,7 @@ function renderLedger() {
       ? `${estimate.ounces || 0} fl oz${Number(estimate.calories || 0) > 0 ? ` · ${Math.round(estimate.calories)} cal` : entry.status === "pending_estimate" ? " · Estimate pending" : ""}`
       : entry.status === "pending_estimate" ? "Estimate pending" : `${estimate.calories || 0} cal${mealHydration > 0 ? ` · ${Math.round(mealHydration)} fl oz` : ""}`;
     const label = entry.kind === "hydration" ? "Hydration" : mealLabels.has(entry.meal_label) ? entry.meal_label : "Meal";
-    const ledgerIcon = entry.kind === "hydration" ? "W" : mealLabels.has(entry.meal_label) ? entry.meal_label.charAt(0) : "M";
+    const ledgerIcon = entry.kind === "hydration" ? "H" : mealLabels.has(entry.meal_label) ? entry.meal_label.charAt(0) : "M";
     const currentCategory = entry.kind === "hydration" ? "Hydration" : mealLabels.has(entry.meal_label) ? entry.meal_label : defaultMealLabel(new Date(entry.occurred_at));
     const edit = `<button class="ledger-edit-button" type="button" data-edit-entry="${entry.id}" aria-label="Edit ${escapeHtml(label)}">Edit</button>`;
     const editor = `<form class="ledger-edit-form" data-edit-form="${entry.id}" hidden>
