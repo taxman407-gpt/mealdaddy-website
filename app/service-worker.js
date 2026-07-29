@@ -1,4 +1,4 @@
-const CACHE = "mealdaddy-shell-v2";
+const CACHE = "mealdaddy-shell-v3";
 const SHELL = ["./", "./index.html", "./auth.html", "./app.html", "./styles.css", "./auth.js", "./app.js", "./supabase-client.js"];
 
 self.addEventListener("install", (event) => {
