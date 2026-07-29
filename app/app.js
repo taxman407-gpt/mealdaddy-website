@@ -150,6 +150,7 @@ function renderLedger() {
     const estimate = entry.nutrition_estimate || {};
     const meta = entry.kind === "hydration" ? `${estimate.ounces || 0} fl oz` : entry.status === "pending_estimate" ? "Estimate pending" : `${estimate.calories || 0} cal`;
     const label = entry.kind === "hydration" ? "Hydration" : mealLabels.has(entry.meal_label) ? entry.meal_label : "Meal";
+    const ledgerIcon = entry.kind === "hydration" ? "W" : mealLabels.has(entry.meal_label) ? entry.meal_label.charAt(0) : "M";
     const edit = entry.kind === "meal"
       ? `<button class="ledger-edit-button" type="button" data-edit-entry="${entry.id}" aria-label="Edit ${escapeHtml(label)}">Edit</button>`
       : "";
@@ -161,8 +162,8 @@ function renderLedger() {
         </form>`
       : "";
     return `<li class="ledger-item">
-      <span class="ledger-icon" aria-hidden="true">${entry.kind === "hydration" ? "W" : "M"}</span>
-      <span class="ledger-main"><strong>${escapeHtml(label)}</strong><small>${escapeHtml(entry.description)}</small></span>
+      <span class="ledger-icon" aria-hidden="true">${ledgerIcon}</span>
+      <span class="ledger-main"><strong>${escapeHtml(entry.description)}</strong></span>
       <span class="ledger-actions"><small>${meta}</small>${edit}</span>
       ${editor}
     </li>`;
