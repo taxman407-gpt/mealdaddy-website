@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#173f35" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Feedback insights - MealDaddy</title>
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="stylesheet" href="./styles.css?v=20260729-17" />
+</head>
+<body class="app-page auth-loading insights-page">
+  <header class="app-header">
+    <a class="brand" href="./app.html"><span class="brand-mark">M</span><span>MealDaddy</span></a>
+    <div class="account-actions">
+      <a class="text-link" href="./app.html">Today</a>
+      <span id="account-email"></span>
+      <button class="text-button" id="sign-out" type="button">Sign out</button>
+    </div>
+  </header>
+  <main class="insights-shell">
+    <section class="insights-heading">
+      <div>
+        <p class="eyebrow">Private owner dashboard</p>
+        <h1>Customer feedback signals</h1>
+        <p>See exact rating trends alongside a concise AI-assisted summary of what customers are reporting.</p>
+      </div>
+      <button class="button button-primary" id="generate-summary" type="button">Generate fresh AI summary</button>
+    </section>
+
+    <p class="insights-status" id="insights-status" role="status" aria-live="polite">Loading protected feedback indicators...</p>
+
+    <section id="insights-content" hidden>
+      <div class="insight-metrics" aria-label="Feedback indicators">
+        <article><span>Feedback submissions</span><strong id="metric-submissions">0</strong></article>
+        <article><span>Customers represented</span><strong id="metric-customers">0</strong></article>
+        <article><span>Current average</span><strong id="metric-current-average">—</strong></article>
+        <article><span>All-time average</span><strong id="metric-all-average">—</strong></article>
+        <article><span>Comments received</span><strong id="metric-comments">0</strong></article>
+        <article><span>Public-display consent</span><strong id="metric-consent">0</strong></article>
+      </div>
+
+      <section class="insights-card" aria-labelledby="attitude-title">
+        <div class="insights-card-heading">
+          <div><p class="eyebrow">First rating to latest rating</p><h2 id="attitude-title">Attitude movement</h2></div>
+          <span id="history-customer-count">0 returning customers</span>
+        </div>
+        <div class="attitude-grid">
+          <article class="trend-positive"><span>Improved</span><strong id="metric-improved">0</strong></article>
+          <article class="trend-negative"><span>Declined</span><strong id="metric-declined">0</strong></article>
+          <article><span>Unchanged</span><strong id="metric-unchanged">0</strong></article>
+        </div>
+        <p class="insight-note">Movement is measured only for customers who have submitted feedback more than once. It is an indicator for review, not a conclusion about why a rating changed.</p>
+      </section>
+
+      <section class="insights-card" aria-labelledby="distribution-title">
+        <div class="insights-card-heading">
+          <div><p class="eyebrow">Latest response per customer</p><h2 id="distribution-title">Current rating distribution</h2></div>
+        </div>
+        <div class="rating-distribution" id="rating-distribution"></div>
+      </section>
+
+      <section class="insights-card ai-summary-card" aria-labelledby="summary-title">
+        <div class="insights-card-heading">
+          <div><p class="eyebrow">Owner-requested analysis</p><h2 id="summary-title">What customers are reporting</h2></div>
+          <div class="summary-meta"><span id="summary-signal"></span><time id="summary-time"></time></div>
+        </div>
+        <p class="summary-stale" id="summary-stale" hidden>New feedback has arrived since this summary was generated.</p>
+        <div id="summary-empty">
+          <p>No AI summary has been generated yet. Exact indicators above are available without an AI request.</p>
+        </div>
+        <div id="summary-content" hidden>
+          <p class="summary-overview" id="summary-overview"></p>
+          <div class="summary-groups">
+            <section><h3>Strengths</h3><div id="summary-strengths" class="finding-list"></div></section>
+            <section><h3>Concerns</h3><div id="summary-concerns" class="finding-list"></div></section>
+            <section><h3>Feature requests</h3><div id="summary-features" class="finding-list"></div></section>
+            <section><h3>Trend signals</h3><div id="summary-trends" class="finding-list"></div></section>
+            <section class="summary-actions"><h3>Recommended actions</h3><div id="summary-actions" class="finding-list"></div></section>
+          </div>
+        </div>
+        <p class="insight-note" id="coverage-note"></p>
+      </section>
+
+      <details class="insights-privacy">
+        <summary>How this analysis protects customer information</summary>
+        <p>Exact counts and rating changes are calculated on Meal Daddy's server. Only an authorized owner can request or view this dashboard.</p>
+        <p>When a fresh summary is requested, ratings and comments are grouped under temporary customer aliases and processed by OpenAI. Email addresses and account identifiers are not sent, and the request is configured not to be stored by the model provider.</p>
+        <p>AI themes and their evidence counts are review indicators, not formal survey statistics. Check the exact measurements above before making a decision.</p>
+      </details>
+    </section>
+  </main>
+  <script type="module" src="./feedback-insights.js?v=20260729-17"></script>
+  <script src="./register-sw.js?v=20260729-17"></script>
+</body>
+</html>
