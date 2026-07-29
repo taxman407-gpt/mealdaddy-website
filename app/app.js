@@ -9,6 +9,7 @@ if (!session) throw new Error("Authentication required");
 const user = session.user;
 const allowedPlans = new Set(["core", "byo"]);
 const mealLabels = new Set(["Breakfast", "Brunch", "Lunch", "Dinner", "Snack"]);
+const entryCategories = [...mealLabels, "Hydration"];
 const query = new URLSearchParams(location.search);
 let pendingPlan = allowedPlans.has(query.get("plan")) ? query.get("plan") : null;
 const checkoutResult = query.get("checkout");
@@ -25,6 +26,22 @@ function defaultMealLabel(date = new Date()) {
   if (hour < 16) return "Lunch";
   if (hour < 21) return "Dinner";
   return "Snack";
+}
+
+function hydrationOunces(description) {
+  const match = description.match(/(\d+(?:\.\d+)?)\s*(fluid\s*ounces?|fl\s*oz|ounces?|oz|cups?|milliliters?|ml|liters?|litres?|l)\b/i);
+  if (!match) return null;
+  const amount = Number(match[1]);
+  const unit = match[2].toLowerCase().replace(/\s+/g, "");
+  let ounces = amount;
+  if (unit.startsWith("cup")) ounces = amount * 8;
+  if (unit === "ml" || unit.startsWith("milliliter")) ounces = amount / 29.5735;
+  if (unit === "l" || unit.startsWith("liter") || unit.startsWith("litre")) ounces = amount * 33.814;
+  return Math.round(ounces * 10) / 10;
+}
+
+function isHydrationDescription(description) {
+  return hydrationOunces(description) !== null && /\b(water|hydration|hydrate|fluid|fluids)\b/i.test(description);
 }
 
 $("#meal-label").value = defaultMealLabel();
@@ -151,16 +168,13 @@ function renderLedger() {
     const meta = entry.kind === "hydration" ? `${estimate.ounces || 0} fl oz` : entry.status === "pending_estimate" ? "Estimate pending" : `${estimate.calories || 0} cal`;
     const label = entry.kind === "hydration" ? "Hydration" : mealLabels.has(entry.meal_label) ? entry.meal_label : "Meal";
     const ledgerIcon = entry.kind === "hydration" ? "W" : mealLabels.has(entry.meal_label) ? entry.meal_label.charAt(0) : "M";
-    const edit = entry.kind === "meal"
-      ? `<button class="ledger-edit-button" type="button" data-edit-entry="${entry.id}" aria-label="Edit ${escapeHtml(label)}">Edit</button>`
-      : "";
-    const editor = entry.kind === "meal"
-      ? `<form class="ledger-edit-form" data-edit-form="${entry.id}" hidden>
-          <label><span>Meal</span><select name="meal_label">${[...mealLabels].map((option) => `<option${option === entry.meal_label ? " selected" : ""}>${option}</option>`).join("")}</select></label>
+    const currentCategory = entry.kind === "hydration" ? "Hydration" : mealLabels.has(entry.meal_label) ? entry.meal_label : defaultMealLabel(new Date(entry.occurred_at));
+    const edit = `<button class="ledger-edit-button" type="button" data-edit-entry="${entry.id}" aria-label="Edit ${escapeHtml(label)}">Edit</button>`;
+    const editor = `<form class="ledger-edit-form" data-edit-form="${entry.id}" hidden>
+          <label><span>Log as</span><select name="entry_category">${entryCategories.map((option) => `<option${option === currentCategory ? " selected" : ""}>${option}</option>`).join("")}</select></label>
           <label><span>Description</span><input name="description" value="${escapeHtml(entry.description)}" required maxlength="1200" /></label>
           <div><button class="button button-primary" type="submit">Save</button><button class="button button-quiet" type="button" data-cancel-edit="${entry.id}">Cancel</button></div>
-        </form>`
-      : "";
+        </form>`;
     return `<li class="ledger-item">
       <span class="ledger-icon" aria-hidden="true">${ledgerIcon}</span>
       <span class="ledger-main"><strong>${escapeHtml(entry.description)}</strong></span>
@@ -238,20 +252,34 @@ $("#ledger-list").addEventListener("submit", async (event) => {
   const form = event.target.closest("[data-edit-form]");
   if (!form) return;
   event.preventDefault();
-  const entry = state.entries.find((item) => item.id === form.dataset.editForm && item.kind === "meal");
+  const entry = state.entries.find((item) => item.id === form.dataset.editForm);
   if (!entry) return;
   const formData = new FormData(form);
   const description = String(formData.get("description") || "").trim();
-  const mealLabel = String(formData.get("meal_label") || "");
-  if (!description || !mealLabels.has(mealLabel)) {
-    toast("Choose a meal label and enter a description.");
+  const category = String(formData.get("entry_category") || "");
+  if (!description || !entryCategories.includes(category)) {
+    toast("Choose an entry category and enter a description.");
+    return;
+  }
+  const targetKind = category === "Hydration" ? "hydration" : "meal";
+  const ounces = targetKind === "hydration" ? hydrationOunces(description) : null;
+  if (targetKind === "hydration" && ounces === null) {
+    toast("Include a fluid amount, such as 16 oz, 2 cups, 500 ml, or 1 liter.");
     return;
   }
   const descriptionChanged = description !== entry.description;
+  const kindChanged = targetKind !== entry.kind;
   const saveButton = form.querySelector('button[type="submit"]');
   saveButton.disabled = true;
-  const changes = { description, meal_label: mealLabel };
-  if (descriptionChanged) {
+  const changes = {
+    description,
+    kind: targetKind,
+    meal_label: targetKind === "meal" ? category : null
+  };
+  if (targetKind === "hydration") {
+    changes.nutrition_estimate = { ounces };
+    changes.status = "estimated";
+  } else if (descriptionChanged || kindChanged) {
     changes.nutrition_estimate = null;
     changes.status = "pending_estimate";
   }
@@ -262,11 +290,13 @@ $("#ledger-list").addEventListener("submit", async (event) => {
     return;
   }
   await loadLedger();
-  if (descriptionChanged) {
+  if (targetKind === "meal" && (descriptionChanged || kindChanged)) {
     toast("Meal updated. Recalculating nutrition...");
     const { error: estimateError } = await supabase.functions.invoke("estimate-entry", { body: { entryId: entry.id } });
     await loadLedger();
     toast(estimateError ? "Meal updated. Nutrition estimate is pending." : "Meal and nutrition estimate updated.");
+  } else if (targetKind === "hydration") {
+    toast(`Hydration updated: ${ounces} fl oz.`);
   } else {
     toast("Meal label updated.");
   }
@@ -275,22 +305,27 @@ $("#ledger-list").addEventListener("submit", async (event) => {
 $("#entry-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const input = $("#quick-entry"); const description = input.value.trim() || (state.photo ? "Meal photo" : "New meal");
-  const hydrationMatch = description.match(/(\d+(?:\.\d+)?)\s*(?:fl\s*)?(?:oz|ounces?)/i);
-  const kind = /water|hydration|drink/i.test(description) && hydrationMatch ? "hydration" : "meal";
+  const selectedCategory = $("#meal-label").value;
+  const ounces = hydrationOunces(description);
+  const kind = selectedCategory === "Hydration" || isHydrationDescription(description) ? "hydration" : "meal";
+  if (kind === "hydration" && ounces === null) {
+    toast("Include a fluid amount, such as 16 oz, 2 cups, 500 ml, or 1 liter.");
+    return;
+  }
   let photoPath = null;
   if (state.photo) {
     const safeName = state.photo.name.replace(/[^a-z0-9._-]/gi, "-"); photoPath = `${user.id}/${crypto.randomUUID()}-${safeName}`;
     const { error: uploadError } = await supabase.storage.from("meal-photos").upload(photoPath, state.photo, { upsert: false });
     if (uploadError) { toast(`Photo was not uploaded: ${uploadError.message}`); return; }
   }
-  const nutrition = kind === "hydration" ? { ounces: Number(hydrationMatch[1]) } : photoPath ? { photo_path: photoPath } : null;
-  const mealLabel = mealLabels.has($("#meal-label").value) ? $("#meal-label").value : defaultMealLabel();
+  const nutrition = kind === "hydration" ? { ounces } : photoPath ? { photo_path: photoPath } : null;
+  const mealLabel = mealLabels.has(selectedCategory) ? selectedCategory : defaultMealLabel();
   const { data: savedEntry, error } = await supabase.from("ledger_entries")
     .insert({ user_id: user.id, client_request_id: crypto.randomUUID(), kind, occurred_at: new Date().toISOString(), description, meal_label: kind === "meal" ? mealLabel : null, nutrition_estimate: nutrition, status: kind === "hydration" ? "estimated" : "pending_estimate" })
     .select("id")
     .single();
   if (error) { toast(error.message); return; }
-  input.value = ""; state.photo = null; $("#photo-input").value = "";
+  input.value = ""; state.photo = null; $("#photo-input").value = ""; $("#meal-label").value = defaultMealLabel();
   await loadLedger();
   if (kind === "meal") {
     toast("Meal saved. Estimating nutrition...");
