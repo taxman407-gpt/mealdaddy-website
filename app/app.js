@@ -44,6 +44,10 @@ function isHydrationDescription(description) {
   return hydrationOunces(description) !== null && /\b(water|hydration|hydrate|fluid|fluids)\b/i.test(description);
 }
 
+function hydrationNeedsNutritionEstimate(description) {
+  return /\b(cream|creamer|milk|half[\s-]?and[\s-]?half|sugar|honey|syrup|sweeten(?:ed|er)?|juice|smoothie|shake|protein|soda|pop|sports drink|energy drink|beer|wine|cocktail|liquor)\b/i.test(description);
+}
+
 $("#meal-label").value = defaultMealLabel();
 
 function escapeHtml(value = "") {
@@ -168,7 +172,9 @@ function renderLedger() {
   }
   $("#ledger-list").innerHTML = state.entries.map((entry) => {
     const estimate = entry.nutrition_estimate || {};
-    const meta = entry.kind === "hydration" ? `${estimate.ounces || 0} fl oz` : entry.status === "pending_estimate" ? "Estimate pending" : `${estimate.calories || 0} cal`;
+    const meta = entry.kind === "hydration"
+      ? `${estimate.ounces || 0} fl oz${Number(estimate.calories || 0) > 0 ? ` · ${Math.round(estimate.calories)} cal` : entry.status === "pending_estimate" ? " · Estimate pending" : ""}`
+      : entry.status === "pending_estimate" ? "Estimate pending" : `${estimate.calories || 0} cal`;
     const label = entry.kind === "hydration" ? "Hydration" : mealLabels.has(entry.meal_label) ? entry.meal_label : "Meal";
     const ledgerIcon = entry.kind === "hydration" ? "W" : mealLabels.has(entry.meal_label) ? entry.meal_label.charAt(0) : "M";
     const currentCategory = entry.kind === "hydration" ? "Hydration" : mealLabels.has(entry.meal_label) ? entry.meal_label : defaultMealLabel(new Date(entry.occurred_at));
@@ -215,8 +221,7 @@ function renderCoachFeedback(providedTotals) {
   const suggestion = $("#coach-feedback-suggestion");
   if (!title || !support || !suggestion) return;
 
-  const meals = state.entries.filter((entry) => entry.kind === "meal");
-  const pending = meals.some((entry) => entry.status === "pending_estimate");
+  const pending = state.entries.some((entry) => entry.status === "pending_estimate");
   if (!state.entries.length) {
     title.textContent = "Ready when you are.";
     support.textContent = "No pressure to make today perfect. Log your next meal or drink and we’ll take it one choice at a time.";
@@ -388,9 +393,10 @@ $("#ledger-list").addEventListener("submit", async (event) => {
     kind: targetKind,
     meal_label: targetKind === "meal" ? category : null
   };
+  const estimateHydration = targetKind === "hydration" && hydrationNeedsNutritionEstimate(description);
   if (targetKind === "hydration") {
     changes.nutrition_estimate = { ounces };
-    changes.status = "estimated";
+    changes.status = estimateHydration ? "pending_estimate" : "estimated";
   } else if (descriptionChanged || kindChanged) {
     changes.nutrition_estimate = null;
     changes.status = "pending_estimate";
@@ -402,11 +408,13 @@ $("#ledger-list").addEventListener("submit", async (event) => {
     return;
   }
   await loadLedger();
-  if (targetKind === "meal" && (descriptionChanged || kindChanged)) {
-    toast("Meal updated. Recalculating nutrition...");
+  if ((targetKind === "meal" && (descriptionChanged || kindChanged)) || estimateHydration) {
+    toast(targetKind === "hydration" ? "Drink updated. Estimating its nutrition..." : "Meal updated. Recalculating nutrition...");
     const { error: estimateError } = await supabase.functions.invoke("estimate-entry", { body: { entryId: entry.id } });
     await loadLedger();
-    toast(estimateError ? "Meal updated. Nutrition estimate is pending." : "Meal and nutrition estimate updated.");
+    toast(estimateError
+      ? `${targetKind === "hydration" ? "Drink" : "Meal"} updated. Nutrition estimate is pending.`
+      : `${targetKind === "hydration" ? "Drink" : "Meal"} and nutrition estimate updated.`);
   } else if (targetKind === "hydration") {
     toast(`Hydration updated: ${ounces} fl oz.`);
   } else {
@@ -430,27 +438,35 @@ $("#entry-form").addEventListener("submit", async (event) => {
     const { error: uploadError } = await supabase.storage.from("meal-photos").upload(photoPath, state.photo, { upsert: false });
     if (uploadError) { toast(`Photo was not uploaded: ${uploadError.message}`); return; }
   }
+  const estimateHydration = kind === "hydration" && hydrationNeedsNutritionEstimate(description);
   const nutrition = kind === "hydration" ? { ounces } : photoPath ? { photo_path: photoPath } : null;
   const mealLabel = mealLabels.has(selectedCategory) ? selectedCategory : defaultMealLabel();
   const { data: savedEntry, error } = await supabase.from("ledger_entries")
-    .insert({ user_id: user.id, client_request_id: crypto.randomUUID(), kind, occurred_at: new Date().toISOString(), description, meal_label: kind === "meal" ? mealLabel : null, nutrition_estimate: nutrition, status: kind === "hydration" ? "estimated" : "pending_estimate" })
+    .insert({ user_id: user.id, client_request_id: crypto.randomUUID(), kind, occurred_at: new Date().toISOString(), description, meal_label: kind === "meal" ? mealLabel : null, nutrition_estimate: nutrition, status: kind === "hydration" && !estimateHydration ? "estimated" : "pending_estimate" })
     .select("id")
     .single();
   if (error) { toast(error.message); return; }
   input.value = ""; state.photo = null; $("#photo-input").value = ""; $("#meal-label").value = defaultMealLabel();
   await loadLedger();
-  if (kind === "meal") {
-    toast("Meal saved. Estimating nutrition...");
+  if (kind === "meal" || estimateHydration) {
+    toast(kind === "hydration" ? "Drink saved. Estimating its nutrition..." : "Meal saved. Estimating nutrition...");
     const { error: estimateError } = await supabase.functions.invoke("estimate-entry", { body: { entryId: savedEntry.id } });
     await loadLedger();
-    toast(estimateError ? "Meal saved, but the estimate needs another try." : "Nutrition estimate ready.");
+    toast(estimateError
+      ? `${kind === "hydration" ? "Drink" : "Meal"} saved, but the estimate needs another try.`
+      : "Nutrition estimate ready.");
   } else {
     toast("Saved to your private daily ledger.");
   }
 });
 
 async function estimatePendingEntries() {
-  const pending = state.entries.filter((entry) => entry.kind === "meal" && entry.status === "pending_estimate").slice(0, 3);
+  const pending = state.entries.filter((entry) =>
+    (entry.kind === "meal" && entry.status === "pending_estimate") ||
+    (entry.kind === "hydration" &&
+      typeof entry.nutrition_estimate?.calories !== "number" &&
+      hydrationNeedsNutritionEstimate(entry.description))
+  ).slice(0, 3);
   for (const entry of pending) {
     const { error } = await supabase.functions.invoke("estimate-entry", { body: { entryId: entry.id } });
     if (error) break;
