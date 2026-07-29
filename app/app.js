@@ -13,7 +13,7 @@ const entryCategories = [...mealLabels, "Hydration"];
 const query = new URLSearchParams(location.search);
 let pendingPlan = allowedPlans.has(query.get("plan")) ? query.get("plan") : null;
 const checkoutResult = query.get("checkout");
-const state = { diet: "", tone: "supportive", provider: "best_value", entries: [], photo: null };
+const state = { diet: "", tone: "supportive", provider: "best_value", entries: [], photo: null, coachMode: "dinner" };
 document.body.classList.remove("auth-loading");
 $("#account-email").textContent = user.email || "Signed in";
 $("#greeting").textContent = `Welcome back${user.user_metadata?.first_name ? `, ${user.user_metadata.first_name}` : ""}.`;
@@ -234,6 +234,56 @@ function startVoiceCapture() {
 }
 
 $("#photo-input").addEventListener("change", (event) => { state.photo = event.target.files[0] || null; if (state.photo) toast("Photo ready for private upload."); });
+
+function openCoachAction(mode) {
+  state.coachMode = mode;
+  const restaurantMode = mode === "restaurant";
+  $("#coach-action-title").textContent = restaurantMode ? "Restaurant mode" : "Plan dinner";
+  $("#coach-action-prompt").textContent = restaurantMode
+    ? "Enter a restaurant, menu item, or what you are considering ordering."
+    : "What ingredients do you have, how much time do you have, or what sounds good?";
+  $("#coach-action-context").placeholder = restaurantMode
+    ? "e.g. Texas Roadhouse — choosing between sirloin and grilled salmon"
+    : "e.g. chicken thighs, broccoli, 30 minutes, cooking for two";
+  $("#run-coach-action").textContent = restaurantMode ? "Get ordering guidance" : "Build my dinner";
+  $("#coach-action-form").hidden = false;
+  $("#coach-action-status").hidden = true;
+  $("#coach-action-result").hidden = true;
+  $("#coach-action-context").focus();
+}
+
+$("#plan-dinner").addEventListener("click", () => openCoachAction("dinner"));
+$("#restaurant-mode").addEventListener("click", () => openCoachAction("restaurant"));
+$("#close-coach-action").addEventListener("click", () => {
+  $("#coach-action-form").hidden = true;
+});
+
+$("#coach-action-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const context = $("#coach-action-context").value.trim();
+  if (!context) {
+    toast("Add a few details so Meal Daddy can help.");
+    return;
+  }
+  const button = $("#run-coach-action");
+  const status = $("#coach-action-status");
+  const result = $("#coach-action-result");
+  button.disabled = true;
+  status.textContent = state.coachMode === "restaurant" ? "Reviewing your options..." : "Building a practical dinner...";
+  status.hidden = false;
+  result.hidden = true;
+  const { data, error } = await supabase.functions.invoke("coach-action", {
+    body: { mode: state.coachMode, context }
+  });
+  button.disabled = false;
+  if (error || !data?.guidance) {
+    status.textContent = data?.error || error?.message || "Meal Daddy could not generate guidance right now.";
+    return;
+  }
+  status.hidden = true;
+  result.textContent = data.guidance;
+  result.hidden = false;
+});
 
 $("#ledger-list").addEventListener("click", (event) => {
   const editButton = event.target.closest("[data-edit-entry]");

@@ -96,7 +96,14 @@ h2 { font-size: clamp(1.65rem, 3vw, 2.6rem); line-height: 1.06; letter-spacing: 
 .ledger-edit-form .button { min-height: 40px; padding-inline: 15px; font-size: .78rem; }
 .coach-card { color: white; background: var(--forest); }.coach-label { color: var(--lime); font-size: .72rem; font-weight: 850; text-transform: uppercase; letter-spacing: .1em; }
 .coach-card h2 { margin-top: 26px; font-size: 1.55rem; }.coach-card p { color: rgba(255,255,255,.68); line-height: 1.55; }
-.coach-card div { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 30px; }.coach-card button { min-height: 39px; border: 1px solid rgba(255,255,255,.18); border-radius: 11px; padding: 0 12px; color: white; background: rgba(255,255,255,.08); font-size: .76rem; font-weight: 750; }
+.coach-buttons { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 30px; }.coach-card button { min-height: 39px; border: 1px solid rgba(255,255,255,.18); border-radius: 11px; padding: 0 12px; color: white; background: rgba(255,255,255,.08); font-size: .76rem; font-weight: 750; }
+.coach-action-form { display: grid; gap: 12px; margin-top: 18px; border-top: 1px solid rgba(255,255,255,.14); padding-top: 18px; }
+.coach-action-form label { display: grid; gap: 7px; color: rgba(255,255,255,.72); font-size: .76rem; line-height: 1.45; }
+.coach-action-form label strong { color: white; font-size: 1rem; }
+.coach-action-form textarea { width: 100%; resize: vertical; border: 0; border-radius: 12px; padding: 11px 12px; color: var(--ink); background: white; font: inherit; }
+.coach-form-buttons { display: flex; gap: 7px; }
+.coach-action-status, .coach-action-result { margin: 0; }
+.coach-action-result { white-space: pre-wrap; border-radius: 13px; padding: 12px; color: white !important; background: rgba(255,255,255,.09); font-size: .82rem; line-height: 1.55 !important; }
 .bottom-nav { position: fixed; left: 50%; bottom: max(12px, env(safe-area-inset-bottom)); z-index: 4; display: none; width: calc(100% - 24px); max-width: 520px; transform: translateX(-50%); align-items: center; justify-content: space-around; border: 1px solid var(--line); border-radius: 19px; padding: 9px 5px; background: rgba(255,255,255,.94); box-shadow: 0 12px 30px rgba(23,63,53,.18); backdrop-filter: blur(16px); }
 .settings-preview { display: grid; grid-template-columns: .8fr 1.2fr; gap: 32px; max-width: 1080px; margin: 0 auto 120px; border: 1px solid var(--line); border-radius: 24px; padding: clamp(22px, 4vw, 36px); background: var(--paper); }
 .settings-preview > div > p { color: var(--muted); line-height: 1.55; }

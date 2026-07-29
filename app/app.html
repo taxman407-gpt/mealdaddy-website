@@ -42,7 +42,18 @@
     </section>
     <section class="dashboard-grid">
       <article class="ledger-card"><div class="section-title"><div><p class="eyebrow">Daily ledger</p><h2>Today's entries</h2></div><button class="text-button" id="refresh-ledger" type="button">Refresh</button></div><ul id="ledger-list" class="ledger-list"></ul></article>
-      <aside class="coach-card"><span class="coach-label">Next best move</span><h2>Build dinner around vegetables and 35-45g of protein.</h2><p>MealDaddy will keep the next suggestion practical and aligned with your day.</p><div><button type="button">Plan dinner</button><button type="button">Restaurant mode</button></div></aside>
+      <aside class="coach-card">
+        <span class="coach-label">Next best move</span>
+        <h2>Build dinner around vegetables and 35-45g of protein.</h2>
+        <p>MealDaddy will keep the next suggestion practical and aligned with your day.</p>
+        <div class="coach-buttons"><button id="plan-dinner" type="button" aria-controls="coach-action-form">Plan dinner</button><button id="restaurant-mode" type="button" aria-controls="coach-action-form">Restaurant mode</button></div>
+        <form id="coach-action-form" class="coach-action-form" hidden>
+          <label><strong id="coach-action-title">Plan dinner</strong><span id="coach-action-prompt">What ingredients do you have, how much time do you have, or what sounds good?</span><textarea id="coach-action-context" maxlength="1000" rows="3" required></textarea></label>
+          <div class="coach-form-buttons"><button id="run-coach-action" type="submit">Get guidance</button><button id="close-coach-action" type="button">Close</button></div>
+          <p id="coach-action-status" class="coach-action-status" role="status" hidden></p>
+          <p id="coach-action-result" class="coach-action-result" hidden></p>
+        </form>
+      </aside>
     </section>
     <nav class="bottom-nav" aria-label="App navigation"><a class="is-current" href="./app.html">Today</a><a href="#plan">Plan</a><button type="button" onclick="document.querySelector('#quick-entry').focus()">+</button><a href="#reports">Reports</a><a href="#profile">Profile</a></nav>
   </main>
