@@ -7,7 +7,7 @@
   <meta name="robots" content="noindex" />
   <title>Today - MealDaddy</title>
   <link rel="manifest" href="./manifest.webmanifest" />
-  <link rel="stylesheet" href="./styles.css?v=20260729-4" />
+  <link rel="stylesheet" href="./styles.css?v=20260729-5" />
 </head>
 <body class="app-page auth-loading">
   <header class="app-header">
@@ -33,8 +33,8 @@
     <section class="quick-log-card" aria-labelledby="quick-log-title">
       <div><p class="eyebrow">Quick log</p><h2 id="quick-log-title">What did you have?</h2></div>
       <form id="entry-form">
-        <label class="entry-field"><span class="sr-only">Describe your meal or drink</span><input id="quick-entry" autocomplete="off" placeholder="e.g. turkey sandwich, apple, and sparkling water" /></label>
-        <label class="quick-label-field"><span>Log as</span><select id="meal-label" aria-label="Entry category"><option>Breakfast</option><option>Brunch</option><option>Lunch</option><option>Dinner</option><option>Snack</option><option>Hydration</option></select></label>
+        <label class="entry-field"><span class="sr-only">Describe your meal or drink</span><input id="quick-entry" autocomplete="off" placeholder="e.g. turkey sandwich, apple, and 16 oz sparkling water" /></label>
+        <label class="quick-label-field"><span>Log as</span><select id="meal-label" aria-label="Entry category"><option>Breakfast</option><option>Brunch</option><option>Lunch</option><option>Dinner</option><option>Snack</option><option value="Hydration">Hydration only</option></select></label>
         <div class="entry-actions">
           <button class="mode-button is-active" data-entry-mode="text" type="button"><span>Text</span></button>
           <button class="mode-button" data-entry-mode="voice" type="button"><span>Voice</span></button>
@@ -42,7 +42,7 @@
           <button class="log-button" type="submit">Log</button>
         </div>
       </form>
-      <p class="privacy-line">Entries are stored in your protected account. Photos upload to a private bucket under your user ID.</p>
+      <p class="privacy-line">Include drinks in the same description as your meal—Meal Daddy will count both their nutrition and hydration. Use Hydration only for standalone drinks. Entries are stored in your protected account.</p>
     </section>
     <section class="metric-grid" aria-label="Daily nutrition totals">
       <article class="metric-card primary-metric"><span>Energy</span><strong id="energy-total">0</strong><small id="energy-goal-label">of 2,050 cal</small><progress id="energy-progress" value="0" max="2050"></progress></article>
@@ -97,7 +97,7 @@
     <div class="onboarding-panel"><div class="step-indicator"><span class="is-active"></span><span></span><span></span></div><p class="eyebrow">A few basics first</p><h1 id="onboarding-title">How do you like to eat?</h1><p>Choose the closest fit. You can adjust individual preferences anytime.</p><div class="choice-grid" id="diet-options"></div><label class="select-field">Coaching tone<select id="tone-options"><option value="supportive">Supportive</option><option value="direct">Direct</option><option value="data_focused">Data-focused</option><option value="playful">Playful</option></select></label><button class="button button-primary full-button" id="continue-onboarding" type="button" disabled>Save my starting plan</button><p class="privacy-line">These preferences are protected by row-level security and can only be accessed by your account.</p></div>
   </section>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="./app.js?v=20260729-4" type="module"></script>
-  <script src="./register-sw.js?v=20260729-4"></script>
+  <script src="./app.js?v=20260729-5" type="module"></script>
+  <script src="./register-sw.js?v=20260729-5"></script>
 </body>
 </html>

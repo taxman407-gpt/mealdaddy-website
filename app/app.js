@@ -179,9 +179,10 @@ function renderLedger() {
   }
   $("#ledger-list").innerHTML = state.entries.map((entry) => {
     const estimate = entry.nutrition_estimate || {};
+    const mealHydration = Number(estimate.hydration_ounces || 0);
     const meta = entry.kind === "hydration"
       ? `${estimate.ounces || 0} fl oz${Number(estimate.calories || 0) > 0 ? ` · ${Math.round(estimate.calories)} cal` : entry.status === "pending_estimate" ? " · Estimate pending" : ""}`
-      : entry.status === "pending_estimate" ? "Estimate pending" : `${estimate.calories || 0} cal`;
+      : entry.status === "pending_estimate" ? "Estimate pending" : `${estimate.calories || 0} cal${mealHydration > 0 ? ` · ${Math.round(mealHydration)} fl oz` : ""}`;
     const label = entry.kind === "hydration" ? "Hydration" : mealLabels.has(entry.meal_label) ? entry.meal_label : "Meal";
     const ledgerIcon = entry.kind === "hydration" ? "W" : mealLabels.has(entry.meal_label) ? entry.meal_label.charAt(0) : "M";
     const currentCategory = entry.kind === "hydration" ? "Hydration" : mealLabels.has(entry.meal_label) ? entry.meal_label : defaultMealLabel(new Date(entry.occurred_at));
@@ -203,7 +204,10 @@ function renderLedger() {
 function renderTotals() {
   const totals = state.entries.reduce((sum, entry) => {
     const n = entry.nutrition_estimate || {};
-    sum.calories += Number(n.calories || 0); sum.protein += Number(n.protein_g || 0); sum.fiber += Number(n.fiber_g || 0); sum.water += Number(n.ounces || 0);
+    sum.calories += Number(n.calories || 0);
+    sum.protein += Number(n.protein_g || 0);
+    sum.fiber += Number(n.fiber_g || 0);
+    sum.water += entry.kind === "hydration" ? Number(n.ounces || 0) : Number(n.hydration_ounces || 0);
     return sum;
   }, { calories: 0, protein: 0, fiber: 0, water: 0 });
   $("#energy-total").textContent = Math.round(totals.calories).toLocaleString();
@@ -220,7 +224,7 @@ function renderCoachFeedback(providedTotals) {
     sum.calories += Number(nutrition.calories || 0);
     sum.protein += Number(nutrition.protein_g || 0);
     sum.fiber += Number(nutrition.fiber_g || 0);
-    sum.water += Number(nutrition.ounces || 0);
+    sum.water += entry.kind === "hydration" ? Number(nutrition.ounces || 0) : Number(nutrition.hydration_ounces || 0);
     return sum;
   }, { calories: 0, protein: 0, fiber: 0, water: 0 });
   const title = $("#coach-feedback-title");
