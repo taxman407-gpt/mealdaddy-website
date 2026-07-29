@@ -16,6 +16,7 @@ const checkoutResult = query.get("checkout");
 const state = { diet: "", tone: "supportive", provider: "best_value", entries: [], photo: null, coachMode: "dinner", calorieGoal: 2050, proteinGoal: 130, fiberGoal: 30, waterGoal: 90, eatingStyles: [], goals: [], trackingDetail: "Moderate", uses: [], reminders: [] };
 const installDismissedKey = "mealdaddy-install-tip-dismissed";
 let deferredInstallPrompt = null;
+let latestReport = null;
 document.body.classList.remove("auth-loading");
 $("#account-email").textContent = user.email || "Signed in";
 $("#greeting").textContent = `Welcome back${user.user_metadata?.first_name ? `, ${user.user_metadata.first_name}` : ""}.`;
@@ -397,6 +398,134 @@ function renderCoachFeedback(providedTotals) {
     suggestion.textContent = "Keep the next meal balanced: a protein you enjoy, something colorful, and a portion that feels satisfying.";
   }
 }
+
+const reportPeriods = {
+  daily: { label: "Daily", days: 1 },
+  weekly: { label: "Weekly", days: 7 },
+  monthly: { label: "Monthly", days: 30 },
+  annual: { label: "Annual", days: 365 }
+};
+
+function reportDateKey(value) {
+  const date = new Date(value);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function reportRange(period) {
+  const settings = reportPeriods[period];
+  const end = new Date();
+  const start = new Date();
+  start.setDate(start.getDate() - (settings.days - 1));
+  start.setHours(0, 0, 0, 0);
+  return { ...settings, start, end };
+}
+
+async function loadReportEntries(start, end) {
+  const entries = [];
+  const pageSize = 1000;
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await supabase
+      .from("ledger_entries")
+      .select("id,kind,occurred_at,nutrition_estimate,status")
+      .gte("occurred_at", start.toISOString())
+      .lte("occurred_at", end.toISOString())
+      .order("occurred_at", { ascending: true })
+      .range(from, from + pageSize - 1);
+    if (error) throw error;
+    entries.push(...(data || []));
+    if (!data || data.length < pageSize) break;
+  }
+  return entries;
+}
+
+function summarizeReport(entries) {
+  const totals = entries.reduce((sum, entry) => {
+    const nutrition = entry.nutrition_estimate || {};
+    sum.calories += Number(nutrition.calories || 0);
+    sum.protein += Number(nutrition.protein_g || 0);
+    sum.carbs += Number(nutrition.carbs_g || 0);
+    sum.netCarbs += typeof nutrition.net_carbs_g === "number"
+      ? Number(nutrition.net_carbs_g)
+      : Math.max(0, Number(nutrition.carbs_g || 0) - Number(nutrition.fiber_g || 0));
+    sum.fat += Number(nutrition.fat_g || 0);
+    sum.fiber += Number(nutrition.fiber_g || 0);
+    sum.water += entry.kind === "hydration" ? Number(nutrition.ounces || 0) : Number(nutrition.hydration_ounces || 0);
+    if (entry.kind === "meal") sum.meals += 1;
+    if (entry.kind === "hydration") sum.hydrationEntries += 1;
+    return sum;
+  }, { calories: 0, protein: 0, carbs: 0, netCarbs: 0, fat: 0, fiber: 0, water: 0, meals: 0, hydrationEntries: 0 });
+  const loggedDays = new Set(entries.map((entry) => reportDateKey(entry.occurred_at))).size;
+  return { totals, loggedDays };
+}
+
+function renderReport(period, range, entries) {
+  const { totals, loggedDays } = summarizeReport(entries);
+  const divisor = period === "daily" ? 1 : Math.max(1, loggedDays);
+  const averageLabel = period === "daily" ? "" : " average/logged day";
+  const dateFormat = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" });
+  const rangeLabel = period === "daily"
+    ? dateFormat.format(range.start)
+    : `${dateFormat.format(range.start)}–${dateFormat.format(range.end)}`;
+  const metrics = [
+    ["Entries", entries.length.toLocaleString()],
+    ["Days logged", loggedDays.toLocaleString()],
+    [`Calories${averageLabel}`, Math.round(totals.calories / divisor).toLocaleString()],
+    [`Protein${averageLabel}`, `${Math.round(totals.protein / divisor)}g`],
+    [`Total/net carbs${averageLabel}`, `${Math.round(totals.carbs / divisor)}g/${Math.round(totals.netCarbs / divisor)}g`],
+    [`Fat${averageLabel}`, `${Math.round(totals.fat / divisor)}g`],
+    [`Fiber${averageLabel}`, `${Math.round(totals.fiber / divisor)}g`],
+    [`Hydration${averageLabel}`, `${Math.round(totals.water / divisor)}oz`]
+  ];
+  $("#report-range").textContent = rangeLabel;
+  $("#report-period-title").textContent = `${range.label} report`;
+  $("#report-metrics").innerHTML = metrics.map(([label, value]) => `<article><span>${label}</span><strong>${value}</strong></article>`).join("");
+  $("#report-output").hidden = false;
+  $("#report-status").textContent = entries.length
+    ? `${range.label} report generated from ${entries.length.toLocaleString()} protected ledger ${entries.length === 1 ? "entry" : "entries"}.`
+    : `No ledger entries were found for this ${range.label.toLowerCase()} period.`;
+  latestReport = { period, range, metrics, entries: entries.length, loggedDays };
+}
+
+async function generateReport(period, button) {
+  const range = reportRange(period);
+  const buttons = $$("[data-report-period]");
+  buttons.forEach((item) => { item.disabled = true; item.classList.toggle("is-active", item === button); });
+  $("#report-status").textContent = `Generating ${range.label.toLowerCase()} report...`;
+  try {
+    const entries = await loadReportEntries(range.start, range.end);
+    renderReport(period, range, entries);
+  } catch (error) {
+    $("#report-status").textContent = "The report could not be generated.";
+    toast(error.message || "The report could not be generated.");
+  } finally {
+    buttons.forEach((item) => { item.disabled = false; });
+  }
+}
+
+$$("[data-report-period]").forEach((button) => button.addEventListener("click", () => generateReport(button.dataset.reportPeriod, button)));
+
+$("#download-report").addEventListener("click", () => {
+  if (!latestReport) return;
+  const dateFormat = new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit" });
+  const lines = [
+    `Meal Daddy ${latestReport.range.label} report`,
+    `${dateFormat.format(latestReport.range.start)} to ${dateFormat.format(latestReport.range.end)}`,
+    "",
+    ...latestReport.metrics.map(([label, value]) => `${label}: ${value}`),
+    "",
+    "Nutrition values are estimates. This report was generated in your browser from your protected Meal Daddy ledger."
+  ];
+  const url = URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `meal-daddy-${latestReport.period}-report.txt`;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+
+$("#print-report").addEventListener("click", () => {
+  if (latestReport) window.print();
+});
 
 $("#diet-options").addEventListener("click", (event) => {
   const choice = event.target.closest("[data-diet]");

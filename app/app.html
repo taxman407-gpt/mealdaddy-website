@@ -7,7 +7,7 @@
   <meta name="robots" content="noindex" />
   <title>Today - MealDaddy</title>
   <link rel="manifest" href="./manifest.webmanifest" />
-  <link rel="stylesheet" href="./styles.css?v=20260729-12" />
+  <link rel="stylesheet" href="./styles.css?v=20260729-13" />
 </head>
 <body class="app-page auth-loading">
   <header class="app-header">
@@ -16,16 +16,29 @@
   </header>
   <main class="dashboard">
     <section class="today-heading"><div><p class="eyebrow" id="today-date"></p><h1 id="greeting">Welcome back.</h1><p id="goal-summary">Small choices count. Here's where today stands.</p></div><button class="diet-badge" id="profile-diet" type="button" aria-label="Edit diet and coaching preferences">Set diet</button></section>
-    <aside class="install-tip" id="install-tip" aria-label="Add Meal Daddy to your phone">
-      <div class="install-tip-copy">
-        <p><strong>Put Meal Daddy on your phone.</strong></p>
-        <p id="install-tip-instructions">Use your browser’s menu and choose Install app or Add to Home Screen. No app store needed.</p>
+    <details class="tips-dropdown">
+      <summary><span>Tips & phone shortcut</span><small>Get more from Meal Daddy</small></summary>
+      <div class="tips-dropdown-content">
+        <aside class="install-tip" id="install-tip" aria-label="Add Meal Daddy to your phone">
+          <div class="install-tip-copy">
+            <p><strong>Put Meal Daddy on your phone.</strong></p>
+            <p id="install-tip-instructions">Use your browser’s menu and choose Install app or Add to Home Screen. No app store needed.</p>
+          </div>
+          <div class="install-tip-actions">
+            <button class="install-tip-button" id="install-app" type="button" hidden>Install Meal Daddy</button>
+            <button class="install-tip-dismiss" id="dismiss-install-tip" type="button">I already added it—hide this tip</button>
+          </div>
+        </aside>
+        <div class="tips-grid">
+          <article class="signature-tip"><span>Signature tool</span><strong>Nutrition Tracking Engine™</strong><p>Log the whole meal together—including drinks, quantities, brands, sauces, and additions—to improve calories and macro estimates.</p></article>
+          <article class="signature-tip"><span>Signature tool</span><strong>Adaptive Hydration™</strong><p>Include every drink and note salty restaurant foods so hydration guidance has the context it needs.</p></article>
+          <article class="signature-tip"><span>Signature tool</span><strong>Inflammation Score™ System</strong><p>Describe processing, cooking oils, sauces, added sugars, and alcohol so inflammation-aware guidance can identify useful patterns.</p></article>
+          <article><strong>Restaurant Mode</strong><p>Open it before ordering and include the restaurant, location, cravings, and any menu choices you are considering.</p></article>
+          <article><strong>Plan Your Next Meal</strong><p>Share the ingredients you have, your available time, servings, equipment, and budget for more practical ideas.</p></article>
+          <article><strong>Feedback Loop</strong><p>Keep preferences current, correct estimates with Edit, and use Reports to turn repeated entries into more useful patterns.</p></article>
+        </div>
       </div>
-      <div class="install-tip-actions">
-        <button class="install-tip-button" id="install-app" type="button" hidden>Install Meal Daddy</button>
-        <button class="install-tip-dismiss" id="dismiss-install-tip" type="button">I already added it—hide this tip</button>
-      </div>
-    </aside>
+    </details>
     <section class="coach-launcher" aria-label="Meal planning tools">
       <div class="coach-launcher-copy"><p class="eyebrow">What are you deciding?</p><h2>Get help with your next choice.</h2></div>
       <div class="coach-buttons"><button id="plan-dinner" type="button" aria-controls="coach-action-form">Plan Your Next Meal</button><button id="restaurant-mode" type="button" aria-controls="coach-action-form">Restaurant Mode</button></div>
@@ -67,6 +80,23 @@
         <p id="coach-feedback-support">Log what you eat and drink, and I’ll help you see the day without judgment.</p>
         <p class="coach-suggestion"><strong>Suggestion</strong><span id="coach-feedback-suggestion">Start with your next meal or drink. Close enough is good enough.</span></p>
       </aside>
+    </section>
+    <section class="reports-card" id="reports" aria-labelledby="reports-title">
+      <div class="reports-heading">
+        <div><p class="eyebrow">Your patterns over time</p><h2 id="reports-title">Reports</h2><p>Choose a period to calculate nutrition and hydration averages from your protected ledger.</p></div>
+        <div class="report-periods" role="group" aria-label="Report period">
+          <button type="button" data-report-period="daily">Daily</button>
+          <button type="button" data-report-period="weekly">Weekly</button>
+          <button type="button" data-report-period="monthly">Monthly</button>
+          <button type="button" data-report-period="annual">Annual</button>
+        </div>
+      </div>
+      <p class="report-privacy">Reports are calculated in this browser without an AI request. Downloaded or printed copies stay on the device you choose.</p>
+      <div class="report-output" id="report-output" hidden>
+        <div class="report-output-heading"><div><p class="eyebrow" id="report-range"></p><h3 id="report-period-title"></h3></div><div class="report-actions"><button type="button" id="download-report">Download summary</button><button type="button" id="print-report">Print / Save PDF</button></div></div>
+        <div class="report-metrics" id="report-metrics"></div>
+      </div>
+      <p class="report-status" id="report-status" role="status" aria-live="polite">Choose Daily, Weekly, Monthly, or Annual to generate a report.</p>
     </section>
     <section class="rating-card" aria-labelledby="rating-title">
       <div>
@@ -129,7 +159,7 @@
     <div class="onboarding-panel"><div class="step-indicator"><span class="is-active"></span><span></span><span></span></div><p class="eyebrow">A few basics first</p><h1 id="onboarding-title">How do you like to eat?</h1><p>Choose the closest fit. You can adjust individual preferences anytime.</p><div class="choice-grid" id="diet-options"></div><label class="select-field">Coaching tone<select id="tone-options"><option value="supportive">Supportive</option><option value="direct">Direct</option><option value="data_focused">Data-focused</option><option value="playful">Playful</option></select></label><button class="button button-primary full-button" id="continue-onboarding" type="button" disabled>Save my starting plan</button><p class="privacy-line">These preferences are protected by row-level security and can only be accessed by your account.</p></div>
   </section>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="./app.js?v=20260729-12" type="module"></script>
-  <script src="./register-sw.js?v=20260729-12"></script>
+  <script src="./app.js?v=20260729-13" type="module"></script>
+  <script src="./register-sw.js?v=20260729-13"></script>
 </body>
 </html>
