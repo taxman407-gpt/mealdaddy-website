@@ -204,10 +204,31 @@ $("#entry-form").addEventListener("submit", async (event) => {
     if (uploadError) { toast(`Photo was not uploaded: ${uploadError.message}`); return; }
   }
   const nutrition = kind === "hydration" ? { ounces: Number(hydrationMatch[1]) } : photoPath ? { photo_path: photoPath } : null;
-  const { error } = await supabase.from("ledger_entries").insert({ user_id: user.id, client_request_id: crypto.randomUUID(), kind, occurred_at: new Date().toISOString(), description, nutrition_estimate: nutrition, status: kind === "hydration" ? "estimated" : "pending_estimate" });
+  const { data: savedEntry, error } = await supabase.from("ledger_entries")
+    .insert({ user_id: user.id, client_request_id: crypto.randomUUID(), kind, occurred_at: new Date().toISOString(), description, nutrition_estimate: nutrition, status: kind === "hydration" ? "estimated" : "pending_estimate" })
+    .select("id")
+    .single();
   if (error) { toast(error.message); return; }
-  input.value = ""; state.photo = null; $("#photo-input").value = ""; await loadLedger(); toast("Saved to your private daily ledger.");
+  input.value = ""; state.photo = null; $("#photo-input").value = "";
+  await loadLedger();
+  if (kind === "meal") {
+    toast("Meal saved. Estimating nutrition...");
+    const { error: estimateError } = await supabase.functions.invoke("estimate-entry", { body: { entryId: savedEntry.id } });
+    await loadLedger();
+    toast(estimateError ? "Meal saved, but the estimate needs another try." : "Nutrition estimate ready.");
+  } else {
+    toast("Saved to your private daily ledger.");
+  }
 });
+
+async function estimatePendingEntries() {
+  const pending = state.entries.filter((entry) => entry.kind === "meal" && entry.status === "pending_estimate").slice(0, 3);
+  for (const entry of pending) {
+    const { error } = await supabase.functions.invoke("estimate-entry", { body: { entryId: entry.id } });
+    if (error) break;
+  }
+  if (pending.length) await loadLedger();
+}
 
 document.querySelectorAll("[data-plan]").forEach((button) => button.addEventListener("click", () => startCheckout(button.dataset.plan)));
 
@@ -236,4 +257,5 @@ try {
     history.replaceState({}, "", `${location.pathname}${cleanQuery ? `?${cleanQuery}` : ""}${location.hash}`);
   }
   if (pendingPlan && $("#onboarding").hidden) await startCheckout(pendingPlan);
+  await estimatePendingEntries();
 } catch (error) { toast(error.message); }
