@@ -222,6 +222,20 @@ function renderTotals() {
   renderCoachFeedback(totals);
 }
 
+async function loadFeedback() {
+  const { data, error } = await supabase
+    .from("customer_feedback")
+    .select("rating,comment")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return;
+  const rating = document.querySelector(`input[name="rating"][value="${data.rating}"]`);
+  if (rating) rating.checked = true;
+  $("#feedback-comment").value = data.comment || "";
+  $("#feedback-status").textContent = "Your previous feedback is loaded.";
+}
+
 function renderCoachFeedback(providedTotals) {
   const totals = providedTotals || state.entries.reduce((sum, entry) => {
     const nutrition = entry.nutrition_estimate || {};
@@ -497,12 +511,34 @@ document.querySelectorAll('input[name="provider"]').forEach((input) => input.add
   toast(error ? error.message : "AI provider preference saved. Provider connections are not active yet.");
 }));
 
+$("#feedback-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const rating = Number(new FormData(event.currentTarget).get("rating"));
+  const comment = $("#feedback-comment").value.trim();
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+    toast("Choose a rating from one to five stars.");
+    return;
+  }
+  const button = event.currentTarget.querySelector('button[type="submit"]');
+  button.disabled = true;
+  $("#feedback-status").textContent = "Saving...";
+  const { error } = await supabase.from("customer_feedback").upsert({
+    user_id: user.id,
+    rating,
+    comment,
+    updated_at: new Date().toISOString()
+  }, { onConflict: "user_id" });
+  button.disabled = false;
+  $("#feedback-status").textContent = error ? "Feedback could not be saved." : "Thank you—your feedback is saved.";
+  toast(error ? error.message : "Thank you for helping Meal Daddy improve.");
+});
+
 $("#refresh-ledger").addEventListener("click", () => loadLedger().catch((error) => toast(error.message)));
 $("#sign-out").addEventListener("click", async () => { await supabase.auth.signOut(); location.replace("./auth.html"); });
 supabase.auth.onAuthStateChange((event) => { if (event === "SIGNED_OUT") location.replace("./auth.html"); });
 
 try {
-  await Promise.all([loadProfile(), loadLedger(), loadMembership()]);
+  await Promise.all([loadProfile(), loadLedger(), loadMembership(), loadFeedback()]);
   if (location.hash === "#onboarding") showOnboarding();
   if (checkoutResult === "success") {
     $("#billing-status").textContent = "Your checkout was completed. Membership status will update shortly.";
