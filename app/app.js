@@ -8,6 +8,7 @@ if (!session) throw new Error("Authentication required");
 
 const user = session.user;
 const allowedPlans = new Set(["core", "byo"]);
+const mealLabels = new Set(["Breakfast", "Brunch", "Lunch", "Dinner", "Snack"]);
 const query = new URLSearchParams(location.search);
 let pendingPlan = allowedPlans.has(query.get("plan")) ? query.get("plan") : null;
 const checkoutResult = query.get("checkout");
@@ -16,6 +17,17 @@ document.body.classList.remove("auth-loading");
 $("#account-email").textContent = user.email || "Signed in";
 $("#greeting").textContent = `Welcome back${user.user_metadata?.first_name ? `, ${user.user_metadata.first_name}` : ""}.`;
 $("#today-date").textContent = new Intl.DateTimeFormat(undefined, { weekday: "long", month: "long", day: "numeric" }).format(new Date());
+
+function defaultMealLabel(date = new Date()) {
+  const hour = date.getHours();
+  if (hour < 10) return "Breakfast";
+  if (hour < 12) return "Brunch";
+  if (hour < 16) return "Lunch";
+  if (hour < 21) return "Dinner";
+  return "Snack";
+}
+
+$("#meal-label").value = defaultMealLabel();
 
 function escapeHtml(value = "") {
   return value.replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[char]);
@@ -122,7 +134,7 @@ async function loadMembership() {
 async function loadLedger() {
   const start = new Date();
   start.setHours(0, 0, 0, 0);
-  const { data, error } = await supabase.from("ledger_entries").select("id,kind,occurred_at,description,nutrition_estimate,status").gte("occurred_at", start.toISOString()).order("occurred_at", { ascending: false });
+  const { data, error } = await supabase.from("ledger_entries").select("id,kind,occurred_at,description,meal_label,nutrition_estimate,status").gte("occurred_at", start.toISOString()).order("occurred_at", { ascending: false });
   if (error) throw error;
   state.entries = data || [];
   renderLedger();
@@ -137,7 +149,23 @@ function renderLedger() {
   $("#ledger-list").innerHTML = state.entries.map((entry) => {
     const estimate = entry.nutrition_estimate || {};
     const meta = entry.kind === "hydration" ? `${estimate.ounces || 0} fl oz` : entry.status === "pending_estimate" ? "Estimate pending" : `${estimate.calories || 0} cal`;
-    return `<li class="ledger-item"><span class="ledger-icon" aria-hidden="true">${entry.kind === "hydration" ? "W" : "M"}</span><span><strong>${entry.kind === "hydration" ? "Hydration" : "Meal"}</strong><small>${escapeHtml(entry.description)}</small></span><small>${meta}</small></li>`;
+    const label = entry.kind === "hydration" ? "Hydration" : mealLabels.has(entry.meal_label) ? entry.meal_label : "Meal";
+    const edit = entry.kind === "meal"
+      ? `<button class="ledger-edit-button" type="button" data-edit-entry="${entry.id}" aria-label="Edit ${escapeHtml(label)}">Edit</button>`
+      : "";
+    const editor = entry.kind === "meal"
+      ? `<form class="ledger-edit-form" data-edit-form="${entry.id}" hidden>
+          <label><span>Meal</span><select name="meal_label">${[...mealLabels].map((option) => `<option${option === entry.meal_label ? " selected" : ""}>${option}</option>`).join("")}</select></label>
+          <label><span>Description</span><input name="description" value="${escapeHtml(entry.description)}" required maxlength="1200" /></label>
+          <div><button class="button button-primary" type="submit">Save</button><button class="button button-quiet" type="button" data-cancel-edit="${entry.id}">Cancel</button></div>
+        </form>`
+      : "";
+    return `<li class="ledger-item">
+      <span class="ledger-icon" aria-hidden="true">${entry.kind === "hydration" ? "W" : "M"}</span>
+      <span class="ledger-main"><strong>${escapeHtml(label)}</strong><small>${escapeHtml(entry.description)}</small></span>
+      <span class="ledger-actions"><small>${meta}</small>${edit}</span>
+      ${editor}
+    </li>`;
   }).join("");
 }
 
@@ -192,6 +220,57 @@ function startVoiceCapture() {
 
 $("#photo-input").addEventListener("change", (event) => { state.photo = event.target.files[0] || null; if (state.photo) toast("Photo ready for private upload."); });
 
+$("#ledger-list").addEventListener("click", (event) => {
+  const editButton = event.target.closest("[data-edit-entry]");
+  const cancelButton = event.target.closest("[data-cancel-edit]");
+  if (editButton) {
+    $(`[data-edit-form="${editButton.dataset.editEntry}"]`).hidden = false;
+    editButton.hidden = true;
+  }
+  if (cancelButton) {
+    $(`[data-edit-form="${cancelButton.dataset.cancelEdit}"]`).hidden = true;
+    $(`[data-edit-entry="${cancelButton.dataset.cancelEdit}"]`).hidden = false;
+  }
+});
+
+$("#ledger-list").addEventListener("submit", async (event) => {
+  const form = event.target.closest("[data-edit-form]");
+  if (!form) return;
+  event.preventDefault();
+  const entry = state.entries.find((item) => item.id === form.dataset.editForm && item.kind === "meal");
+  if (!entry) return;
+  const formData = new FormData(form);
+  const description = String(formData.get("description") || "").trim();
+  const mealLabel = String(formData.get("meal_label") || "");
+  if (!description || !mealLabels.has(mealLabel)) {
+    toast("Choose a meal label and enter a description.");
+    return;
+  }
+  const descriptionChanged = description !== entry.description;
+  const saveButton = form.querySelector('button[type="submit"]');
+  saveButton.disabled = true;
+  const changes = { description, meal_label: mealLabel };
+  if (descriptionChanged) {
+    changes.nutrition_estimate = null;
+    changes.status = "pending_estimate";
+  }
+  const { error } = await supabase.from("ledger_entries").update(changes).eq("id", entry.id).eq("user_id", user.id);
+  if (error) {
+    toast(error.message);
+    saveButton.disabled = false;
+    return;
+  }
+  await loadLedger();
+  if (descriptionChanged) {
+    toast("Meal updated. Recalculating nutrition...");
+    const { error: estimateError } = await supabase.functions.invoke("estimate-entry", { body: { entryId: entry.id } });
+    await loadLedger();
+    toast(estimateError ? "Meal updated. Nutrition estimate is pending." : "Meal and nutrition estimate updated.");
+  } else {
+    toast("Meal label updated.");
+  }
+});
+
 $("#entry-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const input = $("#quick-entry"); const description = input.value.trim() || (state.photo ? "Meal photo" : "New meal");
@@ -204,8 +283,9 @@ $("#entry-form").addEventListener("submit", async (event) => {
     if (uploadError) { toast(`Photo was not uploaded: ${uploadError.message}`); return; }
   }
   const nutrition = kind === "hydration" ? { ounces: Number(hydrationMatch[1]) } : photoPath ? { photo_path: photoPath } : null;
+  const mealLabel = mealLabels.has($("#meal-label").value) ? $("#meal-label").value : defaultMealLabel();
   const { data: savedEntry, error } = await supabase.from("ledger_entries")
-    .insert({ user_id: user.id, client_request_id: crypto.randomUUID(), kind, occurred_at: new Date().toISOString(), description, nutrition_estimate: nutrition, status: kind === "hydration" ? "estimated" : "pending_estimate" })
+    .insert({ user_id: user.id, client_request_id: crypto.randomUUID(), kind, occurred_at: new Date().toISOString(), description, meal_label: kind === "meal" ? mealLabel : null, nutrition_estimate: nutrition, status: kind === "hydration" ? "estimated" : "pending_estimate" })
     .select("id")
     .single();
   if (error) { toast(error.message); return; }

@@ -66,6 +66,8 @@ h2 { font-size: clamp(1.65rem, 3vw, 2.6rem); line-height: 1.06; letter-spacing: 
 .quick-log-card .eyebrow { color: var(--lime); }.quick-log-card h2 { margin-bottom: 22px; }
 .entry-field input { width: 100%; min-height: 62px; border: 0; border-radius: 17px; padding: 0 18px; color: var(--ink); background: white; font-size: 1rem; outline: none; }
 .entry-field input:focus { box-shadow: 0 0 0 4px rgba(223,243,107,.42); }
+.quick-label-field { display: inline-flex; align-items: center; gap: 9px; margin-top: 10px; color: rgba(255,255,255,.72); font-size: .78rem; font-weight: 760; }
+.quick-label-field select { min-height: 38px; border: 1px solid rgba(255,255,255,.22); border-radius: 11px; padding: 0 32px 0 10px; color: white; background: var(--forest-2); }
 .entry-actions { display: flex; gap: 8px; margin-top: 10px; }
 .mode-button, .log-button { display: inline-flex; min-height: 44px; align-items: center; gap: 6px; border: 1px solid rgba(255,255,255,.18); border-radius: 13px; padding: 0 13px; color: white; background: rgba(255,255,255,.08); font-size: .82rem; font-weight: 760; }
 .mode-button.is-active { color: var(--forest); background: var(--lime); }.mode-button input { position: absolute; width: 1px; height: 1px; opacity: 0; }
@@ -81,7 +83,14 @@ h2 { font-size: clamp(1.65rem, 3vw, 2.6rem); line-height: 1.06; letter-spacing: 
 .ledger-list { display: grid; gap: 2px; margin: 6px 0 0; padding: 0; list-style: none; }
 .ledger-item { display: grid; grid-template-columns: 42px 1fr auto; gap: 12px; align-items: center; border-top: 1px solid var(--line); padding: 15px 0; }
 .ledger-icon { display: grid; width: 38px; height: 38px; place-items: center; border-radius: 12px; background: var(--soft); }
-.ledger-item span:nth-child(2) { display: grid; gap: 3px; }.ledger-item small { color: var(--muted); font-size: .73rem; }
+.ledger-main { display: grid; gap: 3px; }.ledger-item small { color: var(--muted); font-size: .73rem; }
+.ledger-actions { display: grid; justify-items: end; gap: 6px; }
+.ledger-edit-button { border: 0; padding: 3px 0; color: var(--forest-2); background: transparent; font-size: .75rem; font-weight: 800; }
+.ledger-edit-form { grid-column: 2 / -1; display: grid; grid-template-columns: minmax(120px, .35fr) 1fr; gap: 10px; border-radius: 14px; padding: 12px; background: var(--soft); }
+.ledger-edit-form label { display: grid; gap: 5px; color: var(--muted); font-size: .7rem; font-weight: 750; }
+.ledger-edit-form input, .ledger-edit-form select { width: 100%; min-height: 42px; border: 1px solid var(--line); border-radius: 10px; padding: 0 10px; color: var(--ink); background: white; }
+.ledger-edit-form > div { grid-column: 1 / -1; display: flex; gap: 8px; }
+.ledger-edit-form .button { min-height: 40px; padding-inline: 15px; font-size: .78rem; }
 .coach-card { color: white; background: var(--forest); }.coach-label { color: var(--lime); font-size: .72rem; font-weight: 850; text-transform: uppercase; letter-spacing: .1em; }
 .coach-card h2 { margin-top: 26px; font-size: 1.55rem; }.coach-card p { color: rgba(255,255,255,.68); line-height: 1.55; }
 .coach-card div { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 30px; }.coach-card button { min-height: 39px; border: 1px solid rgba(255,255,255,.18); border-radius: 11px; padding: 0 12px; color: white; background: rgba(255,255,255,.08); font-size: .76rem; font-weight: 750; }
@@ -118,7 +127,7 @@ h2 { font-size: clamp(1.65rem, 3vw, 2.6rem); line-height: 1.06; letter-spacing: 
 
 @media (max-width: 480px) {
   .today-heading { display: grid; }.quick-log-card { border-radius: 21px; padding: 20px 16px; }.entry-actions { display: grid; grid-template-columns: repeat(3, 1fr); }.mode-button { justify-content: center; padding: 0 7px; }.log-button { grid-column: 1 / -1; justify-content: center; margin: 0; }
-  .metric-card { padding: 15px; }.metric-card strong { font-size: 1.4rem; }.ledger-card, .coach-card { padding: 19px; }.ledger-item { grid-template-columns: 38px 1fr; }.ledger-item > small:last-child { grid-column: 2; }
+  .metric-card { padding: 15px; }.metric-card strong { font-size: 1.4rem; }.ledger-card, .coach-card { padding: 19px; }.ledger-item { grid-template-columns: 38px 1fr auto; }.ledger-edit-form { grid-column: 1 / -1; grid-template-columns: 1fr; }.ledger-edit-form > div { grid-column: auto; }.ledger-actions { align-self: start; }
   .choice-grid { grid-template-columns: 1fr; }.onboarding { padding: 10px; place-items: end center; }.onboarding-panel { max-height: 94vh; overflow-y: auto; border-radius: 26px 26px 16px 16px; }
 }
 
