@@ -13,7 +13,7 @@ const entryCategories = [...mealLabels, "Hydration"];
 const query = new URLSearchParams(location.search);
 let pendingPlan = allowedPlans.has(query.get("plan")) ? query.get("plan") : null;
 const checkoutResult = query.get("checkout");
-const state = { diet: "", tone: "supportive", provider: "best_value", entries: [], photo: null, coachMode: "dinner" };
+const state = { diet: "", tone: "supportive", provider: "best_value", entries: [], photo: null, coachMode: "dinner", calorieGoal: 2050, proteinGoal: 130, fiberGoal: 30, waterGoal: 90 };
 document.body.classList.remove("auth-loading");
 $("#account-email").textContent = user.email || "Signed in";
 $("#greeting").textContent = `Welcome back${user.user_metadata?.first_name ? `, ${user.user_metadata.first_name}` : ""}.`;
@@ -108,12 +108,15 @@ async function loadProfile() {
   if (goals.length) $("#goal-summary").textContent = `Today's focus: ${goals.join(" · ")}`;
   const calorieGoal = Number(profile.calorie_goal || 2050);
   const proteinGoal = Number(profile.protein_goal || 130);
+  state.calorieGoal = calorieGoal;
+  state.proteinGoal = proteinGoal;
   $("#energy-progress").max = calorieGoal;
   $("#protein-progress").max = proteinGoal;
   $("#energy-goal-label").textContent = `of ${calorieGoal.toLocaleString()} cal`;
   $("#protein-goal-label").textContent = `of ${proteinGoal}g`;
   $("#profile-diet").textContent = state.diet;
   $("#tone-options").value = state.tone;
+  renderCoachFeedback();
   const provider = document.querySelector(`input[name="provider"][value="${state.provider}"]`);
   if (provider) provider.checked = true;
 }
@@ -195,6 +198,65 @@ function renderTotals() {
   $("#fiber-total").textContent = `${Math.round(totals.fiber)}g`;
   $("#water-total").textContent = `${Math.round(totals.water)}oz`;
   $("#energy-progress").value = totals.calories; $("#protein-progress").value = totals.protein; $("#fiber-progress").value = totals.fiber; $("#water-progress").value = totals.water;
+  renderCoachFeedback(totals);
+}
+
+function renderCoachFeedback(providedTotals) {
+  const totals = providedTotals || state.entries.reduce((sum, entry) => {
+    const nutrition = entry.nutrition_estimate || {};
+    sum.calories += Number(nutrition.calories || 0);
+    sum.protein += Number(nutrition.protein_g || 0);
+    sum.fiber += Number(nutrition.fiber_g || 0);
+    sum.water += Number(nutrition.ounces || 0);
+    return sum;
+  }, { calories: 0, protein: 0, fiber: 0, water: 0 });
+  const title = $("#coach-feedback-title");
+  const support = $("#coach-feedback-support");
+  const suggestion = $("#coach-feedback-suggestion");
+  if (!title || !support || !suggestion) return;
+
+  const meals = state.entries.filter((entry) => entry.kind === "meal");
+  const pending = meals.some((entry) => entry.status === "pending_estimate");
+  if (!state.entries.length) {
+    title.textContent = "Ready when you are.";
+    support.textContent = "No pressure to make today perfect. Log your next meal or drink and we’ll take it one choice at a time.";
+    suggestion.textContent = "Start with what you actually had—close enough is good enough.";
+    return;
+  }
+  if (pending) {
+    title.textContent = "Nice work logging it.";
+    support.textContent = "Your entry is saved. I’m finishing the nutrition estimate so your totals and guidance stay useful.";
+    suggestion.textContent = "You can keep logging while the estimate finishes.";
+    return;
+  }
+
+  const caloriePercent = totals.calories / Math.max(state.calorieGoal, 1);
+  const proteinPercent = totals.protein / Math.max(state.proteinGoal, 1);
+  const fiberPercent = totals.fiber / state.fiberGoal;
+  const waterPercent = totals.water / state.waterGoal;
+  const supportiveOpeners = {
+    supportive: "You’re building awareness, and that matters.",
+    direct: "Here’s where today stands.",
+    data_focused: "Your daily totals are taking shape.",
+    playful: "You’re on the board—nice work."
+  };
+  title.textContent = supportiveOpeners[state.tone] || supportiveOpeners.supportive;
+  support.textContent = `So far: ${Math.round(totals.calories).toLocaleString()} calories, ${Math.round(totals.protein)}g protein, ${Math.round(totals.fiber)}g fiber, and ${Math.round(totals.water)} oz hydration.`;
+
+  if (caloriePercent >= 1.1) {
+    suggestion.textContent = "You’re above your calorie target, but one day is information—not failure. Favor water and a satisfying protein-and-produce choice if you’re hungry.";
+  } else if (waterPercent < 0.35 && new Date().getHours() >= 12) {
+    suggestion.textContent = "Hydration is the clearest opportunity right now. Have 12–16 oz of water with your next meal or break.";
+  } else if (proteinPercent + 0.15 < caloriePercent) {
+    const remaining = Math.max(0, Math.round(state.proteinGoal - totals.protein));
+    suggestion.textContent = `Protein is trailing your overall intake. Aim for a protein-forward next meal; about ${Math.min(40, Math.max(20, remaining))}g would move you closer.`;
+  } else if (fiberPercent < 0.5 && caloriePercent >= 0.4) {
+    suggestion.textContent = "Fiber could use some support. Add a vegetable, beans, berries, or a whole grain to the next thing you eat.";
+  } else if (proteinPercent >= 0.8 && waterPercent >= 0.7) {
+    suggestion.textContent = "Protein and hydration are both in a strong place. Keep your next choice simple and guided by hunger.";
+  } else {
+    suggestion.textContent = "Keep the next meal balanced: a protein you enjoy, something colorful, and a portion that feels satisfying.";
+  }
 }
 
 $("#diet-options").addEventListener("click", (event) => {
@@ -238,14 +300,14 @@ $("#photo-input").addEventListener("change", (event) => { state.photo = event.ta
 function openCoachAction(mode) {
   state.coachMode = mode;
   const restaurantMode = mode === "restaurant";
-  $("#coach-action-title").textContent = restaurantMode ? "Restaurant mode" : "Plan dinner";
+  $("#coach-action-title").textContent = restaurantMode ? "Restaurant Mode" : "Plan Your Next Meal";
   $("#coach-action-prompt").textContent = restaurantMode
     ? "Enter a restaurant, menu item, or what you are considering ordering."
     : "What ingredients do you have, how much time do you have, or what sounds good?";
   $("#coach-action-context").placeholder = restaurantMode
     ? "e.g. Texas Roadhouse — choosing between sirloin and grilled salmon"
     : "e.g. chicken thighs, broccoli, 30 minutes, cooking for two";
-  $("#run-coach-action").textContent = restaurantMode ? "Get ordering guidance" : "Build my dinner";
+  $("#run-coach-action").textContent = restaurantMode ? "Get ordering guidance" : "Plan my meal";
   $("#coach-action-form").hidden = false;
   $("#coach-action-status").hidden = true;
   $("#coach-action-result").hidden = true;
@@ -269,7 +331,7 @@ $("#coach-action-form").addEventListener("submit", async (event) => {
   const status = $("#coach-action-status");
   const result = $("#coach-action-result");
   button.disabled = true;
-  status.textContent = state.coachMode === "restaurant" ? "Reviewing your options..." : "Building a practical dinner...";
+  status.textContent = state.coachMode === "restaurant" ? "Reviewing your options..." : "Building a practical meal...";
   status.hidden = false;
   result.hidden = true;
   const { data, error } = await supabase.functions.invoke("coach-action", {
