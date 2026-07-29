@@ -298,6 +298,9 @@ h2 { font-size: clamp(1.65rem, 3vw, 2.6rem); line-height: 1.06; letter-spacing: 
 .pricing-features li::before { content: "✓"; position: absolute; left: 0; color: var(--forest); font-weight: 900; }
 .pricing-card .button { margin-top: auto; }
 .pricing-card button:disabled { cursor: wait; opacity: .55; }
+.pricing-card-coming-soon { background: rgba(255,255,255,.48); }
+.coming-soon-copy { margin: auto 0 16px; color: var(--forest); font-size: .88rem; font-weight: 800; line-height: 1.45; }
+.coming-soon-button { cursor: not-allowed; opacity: .65; text-align: center; }
 .pricing-note { max-width: 850px; margin: 20px auto 0; color: var(--muted); font-size: .78rem; line-height: 1.55; text-align: center; }
 .billing-status { min-height: 1.4rem; margin: 14px 0 0; color: var(--forest); font-weight: 750; text-align: center; }
 .compact-pricing .pricing-card { min-height: 275px; }

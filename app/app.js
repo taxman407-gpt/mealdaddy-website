@@ -7,7 +7,7 @@ const session = await requireSession();
 if (!session) throw new Error("Authentication required");
 
 const user = session.user;
-const allowedPlans = new Set(["core", "byo"]);
+const allowedPlans = new Set(["core"]);
 const mealLabels = new Set(["Breakfast", "Brunch", "Lunch", "Dinner", "Snack"]);
 const entryCategories = [...mealLabels, "Hydration"];
 const query = new URLSearchParams(location.search);

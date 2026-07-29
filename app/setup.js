@@ -5,7 +5,7 @@ if (!session) throw new Error("Authentication required");
 const user = session.user;
 const $ = (selector) => document.querySelector(selector);
 const params = new URLSearchParams(location.search);
-const selectedPlan = ["core", "byo"].includes(params.get("plan")) ? params.get("plan") : "";
+const selectedPlan = params.get("plan") === "core" ? "core" : "";
 
 const choices = {
   goals: ["Lose Weight", "Maintain Weight", "Gain Muscle", "Eat Healthier", "Reduce Inflammation", "Better Blood Sugar", "Heart Healthy", "Meal Planning", "Other"],

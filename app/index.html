@@ -7,7 +7,7 @@
   <meta name="description" content="MealDaddy turns everyday meals into a plan you can actually follow." />
   <title>MealDaddy - Eat with a plan</title>
   <link rel="manifest" href="./manifest.webmanifest" />
-  <link rel="stylesheet" href="./styles.css" />
+  <link rel="stylesheet" href="./styles.css?v=20260729-16" />
 </head>
 <body class="marketing-page">
   <header class="marketing-nav">
@@ -63,23 +63,24 @@
           </ul>
           <a class="button button-primary full-button" href="./auth.html?returnTo=./app.html%3Fplan%3Dcore">Start Core</a>
         </article>
-        <article class="pricing-card">
-          <span class="plan-label">For API key owners</span>
+        <article class="pricing-card pricing-card-coming-soon">
+          <span class="plan-label">Coming soon</span>
           <h3>Bring Your Own API</h3>
-          <p class="pricing-price"><strong>$6.99</strong><span>/month</span></p>
+          <p class="pricing-price"><strong>$6.99</strong><span>/month when available</span></p>
           <ul class="pricing-features">
             <li>Use a supported provider account you control</li>
             <li>Provider usage is billed separately by that provider</li>
             <li>Same secure Meal Daddy app experience</li>
             <li>Provider choice is disclosed before AI processing</li>
           </ul>
-          <a class="button button-quiet full-button" href="./auth.html?returnTo=./app.html%3Fplan%3Dbyo">Choose BYO API</a>
+          <p class="coming-soon-copy">In development. No charge and no ordering at present.</p>
+          <span class="button button-quiet full-button coming-soon-button" aria-disabled="true">Coming soon</span>
         </article>
       </div>
-      <p class="pricing-note">Eligible new customers receive 7 days free. Trial availability is limited to the first 2,000 eligible starts each week. A payment method is required; cancel before the trial ends to avoid the monthly charge.</p>
+      <p class="pricing-note">Meal Daddy Core: eligible new customers receive 7 days free. Trial availability is limited to the first 2,000 eligible starts each week. A payment method is required; cancel before the trial ends to avoid the monthly charge. Bring Your Own API is not currently available for purchase.</p>
     </section>
   </main>
   <footer class="marketing-footer"><span>MealDaddy.AI</span><span>General wellness guidance, not medical advice.</span></footer>
-  <script src="./register-sw.js"></script>
+  <script src="./register-sw.js?v=20260729-16"></script>
 </body>
 </html>

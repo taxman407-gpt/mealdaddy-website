@@ -7,7 +7,7 @@
   <meta name="robots" content="noindex" />
   <title>Today - MealDaddy</title>
   <link rel="manifest" href="./manifest.webmanifest" />
-  <link rel="stylesheet" href="./styles.css?v=20260729-15" />
+  <link rel="stylesheet" href="./styles.css?v=20260729-16" />
 </head>
 <body class="app-page auth-loading">
   <header class="app-header">
@@ -157,21 +157,22 @@
         <p class="pricing-price"><strong>$9.99</strong><span>/month</span></p>
         <button class="button button-primary full-button" data-plan="core" type="button">Continue with Core</button>
       </article>
-      <article class="pricing-card">
-        <span class="plan-label">Provider usage billed separately</span>
+      <article class="pricing-card pricing-card-coming-soon">
+        <span class="plan-label">Coming soon</span>
         <h3>Bring Your Own API</h3>
-        <p class="pricing-price"><strong>$6.99</strong><span>/month</span></p>
-        <button class="button button-quiet full-button" data-plan="byo" type="button">Continue with BYO API</button>
+        <p class="pricing-price"><strong>$6.99</strong><span>/month when available</span></p>
+        <p class="coming-soon-copy">In development. No charge and no ordering at present.</p>
+        <span class="button button-quiet full-button coming-soon-button" aria-disabled="true">Coming soon</span>
       </article>
     </div>
-    <p class="pricing-note" id="trial-note">Eligible new customers receive 7 days free, limited to the first 2,000 eligible starts each week. A payment method is required. Cancel before the trial ends to avoid the monthly charge.</p>
+    <p class="pricing-note" id="trial-note">Meal Daddy Core: eligible new customers receive 7 days free, limited to the first 2,000 eligible starts each week. A payment method is required. Cancel before the trial ends to avoid the monthly charge. Bring Your Own API is not currently available for purchase.</p>
     <p class="billing-status" id="billing-status" role="status" aria-live="polite"></p>
   </section>
   <section class="onboarding" id="onboarding" role="dialog" aria-modal="true" aria-labelledby="onboarding-title" hidden>
     <div class="onboarding-panel"><div class="step-indicator"><span class="is-active"></span><span></span><span></span></div><p class="eyebrow">A few basics first</p><h1 id="onboarding-title">How do you like to eat?</h1><p>Choose the closest fit. You can adjust individual preferences anytime.</p><div class="choice-grid" id="diet-options"></div><label class="select-field">Coaching tone<select id="tone-options"><option value="supportive">Supportive</option><option value="direct">Direct</option><option value="data_focused">Data-focused</option><option value="playful">Playful</option></select></label><button class="button button-primary full-button" id="continue-onboarding" type="button" disabled>Save my starting plan</button><p class="privacy-line">These preferences are protected by row-level security and can only be accessed by your account.</p></div>
   </section>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="./app.js?v=20260729-15" type="module"></script>
-  <script src="./register-sw.js?v=20260729-15"></script>
+  <script src="./app.js?v=20260729-16" type="module"></script>
+  <script src="./register-sw.js?v=20260729-16"></script>
 </body>
 </html>
