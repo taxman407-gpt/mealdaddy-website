@@ -14,10 +14,76 @@ const query = new URLSearchParams(location.search);
 let pendingPlan = allowedPlans.has(query.get("plan")) ? query.get("plan") : null;
 const checkoutResult = query.get("checkout");
 const state = { diet: "", tone: "supportive", provider: "best_value", entries: [], photo: null, coachMode: "dinner", calorieGoal: 2050, proteinGoal: 130, fiberGoal: 30, waterGoal: 90, eatingStyles: [], goals: [], trackingDetail: "Moderate", uses: [], reminders: [] };
+const installDismissedKey = "mealdaddy-install-tip-dismissed";
+let deferredInstallPrompt = null;
 document.body.classList.remove("auth-loading");
 $("#account-email").textContent = user.email || "Signed in";
 $("#greeting").textContent = `Welcome back${user.user_metadata?.first_name ? `, ${user.user_metadata.first_name}` : ""}.`;
 $("#today-date").textContent = new Intl.DateTimeFormat(undefined, { weekday: "long", month: "long", day: "numeric" }).format(new Date());
+
+function isRunningInstalled() {
+  return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+}
+
+function installTipWasDismissed() {
+  try {
+    return localStorage.getItem(installDismissedKey) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function hideInstallTip(persist = false) {
+  if (persist) {
+    try {
+      localStorage.setItem(installDismissedKey, "true");
+    } catch {
+      // The tip still hides for this page when device storage is unavailable.
+    }
+  }
+  $("#install-tip").hidden = true;
+}
+
+function browserInstallInstructions() {
+  const agent = navigator.userAgent.toLowerCase();
+  if (/iphone|ipad|ipod/.test(agent)) {
+    return "In Safari, tap Share, then Add to Home Screen. No app store needed.";
+  }
+  if (agent.includes("android") && agent.includes("chrome")) {
+    return "In Chrome, tap the three dots, then Install app or Add to Home Screen. No app store needed.";
+  }
+  return "Use your browser’s menu and choose Install app or Add to Home Screen. No app store needed.";
+}
+
+if (isRunningInstalled() || installTipWasDismissed()) {
+  hideInstallTip();
+} else {
+  $("#install-tip-instructions").textContent = browserInstallInstructions();
+}
+
+window.addEventListener("beforeinstallprompt", (event) => {
+  event.preventDefault();
+  deferredInstallPrompt = event;
+  $("#install-app").hidden = false;
+  $("#install-tip").hidden = false;
+  $("#install-tip-instructions").textContent = "Your browser can install Meal Daddy now for faster access.";
+});
+
+$("#install-app").addEventListener("click", async () => {
+  if (!deferredInstallPrompt) return;
+  await deferredInstallPrompt.prompt();
+  const choice = await deferredInstallPrompt.userChoice;
+  deferredInstallPrompt = null;
+  $("#install-app").hidden = true;
+  if (choice.outcome === "accepted") hideInstallTip();
+});
+
+window.addEventListener("appinstalled", () => {
+  deferredInstallPrompt = null;
+  hideInstallTip();
+});
+
+$("#dismiss-install-tip").addEventListener("click", () => hideInstallTip(true));
 
 function defaultMealLabel(date = new Date()) {
   const hour = date.getHours();

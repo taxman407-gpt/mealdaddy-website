@@ -7,7 +7,7 @@
   <meta name="robots" content="noindex" />
   <title>Today - MealDaddy</title>
   <link rel="manifest" href="./manifest.webmanifest" />
-  <link rel="stylesheet" href="./styles.css?v=20260729-11" />
+  <link rel="stylesheet" href="./styles.css?v=20260729-12" />
 </head>
 <body class="app-page auth-loading">
   <header class="app-header">
@@ -16,9 +16,15 @@
   </header>
   <main class="dashboard">
     <section class="today-heading"><div><p class="eyebrow" id="today-date"></p><h1 id="greeting">Welcome back.</h1><p id="goal-summary">Small choices count. Here's where today stands.</p></div><button class="diet-badge" id="profile-diet" type="button" aria-label="Edit diet and coaching preferences">Set diet</button></section>
-    <aside class="install-tip" aria-label="Add Meal Daddy to your phone">
-      <span class="install-tip-icon" aria-hidden="true">+</span>
-      <p><strong>Put Meal Daddy on your phone.</strong> In Chrome, tap the three dots in the lower-right corner, scroll to <strong>Install and create</strong>, then choose <strong>Add to Home Screen</strong> or <strong>Create shortcut</strong>. That’s it—no app store needed.</p>
+    <aside class="install-tip" id="install-tip" aria-label="Add Meal Daddy to your phone">
+      <div class="install-tip-copy">
+        <p><strong>Put Meal Daddy on your phone.</strong></p>
+        <p id="install-tip-instructions">Use your browser’s menu and choose Install app or Add to Home Screen. No app store needed.</p>
+      </div>
+      <div class="install-tip-actions">
+        <button class="install-tip-button" id="install-app" type="button" hidden>Install Meal Daddy</button>
+        <button class="install-tip-dismiss" id="dismiss-install-tip" type="button">I already added it—hide this tip</button>
+      </div>
     </aside>
     <section class="coach-launcher" aria-label="Meal planning tools">
       <div class="coach-launcher-copy"><p class="eyebrow">What are you deciding?</p><h2>Get help with your next choice.</h2></div>
@@ -123,7 +129,7 @@
     <div class="onboarding-panel"><div class="step-indicator"><span class="is-active"></span><span></span><span></span></div><p class="eyebrow">A few basics first</p><h1 id="onboarding-title">How do you like to eat?</h1><p>Choose the closest fit. You can adjust individual preferences anytime.</p><div class="choice-grid" id="diet-options"></div><label class="select-field">Coaching tone<select id="tone-options"><option value="supportive">Supportive</option><option value="direct">Direct</option><option value="data_focused">Data-focused</option><option value="playful">Playful</option></select></label><button class="button button-primary full-button" id="continue-onboarding" type="button" disabled>Save my starting plan</button><p class="privacy-line">These preferences are protected by row-level security and can only be accessed by your account.</p></div>
   </section>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="./app.js?v=20260729-11" type="module"></script>
-  <script src="./register-sw.js?v=20260729-11"></script>
+  <script src="./app.js?v=20260729-12" type="module"></script>
+  <script src="./register-sw.js?v=20260729-12"></script>
 </body>
 </html>
