@@ -7,7 +7,7 @@
   <meta name="robots" content="noindex" />
   <title>Today - MealDaddy</title>
   <link rel="manifest" href="./manifest.webmanifest" />
-  <link rel="stylesheet" href="./styles.css?v=20260729-8" />
+  <link rel="stylesheet" href="./styles.css?v=20260729-9" />
 </head>
 <body class="app-page auth-loading">
   <header class="app-header">
@@ -66,7 +66,7 @@
       <div>
         <p class="eyebrow">Help Meal Daddy improve</p>
         <h2 id="rating-title">How is your experience?</h2>
-        <p>Your rating and comment stay private unless you separately agree to share them publicly.</p>
+        <p>Your rating and comment stay private unless you choose to let Meal Daddy share them publicly.</p>
       </div>
       <form id="feedback-form">
         <fieldset class="star-rating">
@@ -78,6 +78,10 @@
           <label><input type="radio" name="rating" value="5" /><span aria-hidden="true">★</span><span class="sr-only">5 stars</span></label>
         </fieldset>
         <label class="feedback-comment"><span>Comment <small>(optional)</small></span><textarea id="feedback-comment" rows="3" maxlength="2000" placeholder="What is working well, or what should we improve?"></textarea></label>
+        <label class="feedback-consent">
+          <input id="feedback-public-consent" type="checkbox" />
+          <span><strong>Meal Daddy may display my rating and comment publicly.</strong><small>Your name, email, and account details will not be displayed. This does not guarantee publication. You can withdraw permission by unchecking this box and saving again.</small></span>
+        </label>
         <div class="feedback-actions"><button class="button button-primary" type="submit">Save feedback</button><span id="feedback-status" role="status" aria-live="polite"></span></div>
       </form>
     </section>
@@ -119,7 +123,7 @@
     <div class="onboarding-panel"><div class="step-indicator"><span class="is-active"></span><span></span><span></span></div><p class="eyebrow">A few basics first</p><h1 id="onboarding-title">How do you like to eat?</h1><p>Choose the closest fit. You can adjust individual preferences anytime.</p><div class="choice-grid" id="diet-options"></div><label class="select-field">Coaching tone<select id="tone-options"><option value="supportive">Supportive</option><option value="direct">Direct</option><option value="data_focused">Data-focused</option><option value="playful">Playful</option></select></label><button class="button button-primary full-button" id="continue-onboarding" type="button" disabled>Save my starting plan</button><p class="privacy-line">These preferences are protected by row-level security and can only be accessed by your account.</p></div>
   </section>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="./app.js?v=20260729-8" type="module"></script>
-  <script src="./register-sw.js?v=20260729-8"></script>
+  <script src="./app.js?v=20260729-9" type="module"></script>
+  <script src="./register-sw.js?v=20260729-9"></script>
 </body>
 </html>

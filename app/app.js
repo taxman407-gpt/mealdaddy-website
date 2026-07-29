@@ -225,7 +225,7 @@ function renderTotals() {
 async function loadFeedback() {
   const { data, error } = await supabase
     .from("customer_feedback")
-    .select("rating,comment")
+    .select("rating,comment,public_display_consent")
     .eq("user_id", user.id)
     .maybeSingle();
   if (error) throw error;
@@ -233,6 +233,7 @@ async function loadFeedback() {
   const rating = document.querySelector(`input[name="rating"][value="${data.rating}"]`);
   if (rating) rating.checked = true;
   $("#feedback-comment").value = data.comment || "";
+  $("#feedback-public-consent").checked = Boolean(data.public_display_consent);
   $("#feedback-status").textContent = "Your previous feedback is loaded.";
 }
 
@@ -515,6 +516,7 @@ $("#feedback-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const rating = Number(new FormData(event.currentTarget).get("rating"));
   const comment = $("#feedback-comment").value.trim();
+  const publicDisplayConsent = $("#feedback-public-consent").checked;
   if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
     toast("Choose a rating from one to five stars.");
     return;
@@ -526,11 +528,16 @@ $("#feedback-form").addEventListener("submit", async (event) => {
     user_id: user.id,
     rating,
     comment,
+    public_display_consent: publicDisplayConsent,
+    public_consent_updated_at: publicDisplayConsent ? new Date().toISOString() : null,
     updated_at: new Date().toISOString()
   }, { onConflict: "user_id" });
   button.disabled = false;
-  $("#feedback-status").textContent = error ? "Feedback could not be saved." : "Thank you—your feedback is saved.";
-  toast(error ? error.message : "Thank you for helping Meal Daddy improve.");
+  const successMessage = publicDisplayConsent
+    ? "Thank you—your feedback and sharing permission are saved."
+    : "Thank you—your private feedback is saved.";
+  $("#feedback-status").textContent = error ? "Feedback could not be saved." : successMessage;
+  toast(error ? error.message : successMessage);
 });
 
 $("#refresh-ledger").addEventListener("click", () => loadLedger().catch((error) => toast(error.message)));
