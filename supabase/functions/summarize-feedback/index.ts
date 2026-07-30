@@ -247,7 +247,9 @@ Deno.serve(async (request) => {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const publishableKey = namedKey("SUPABASE_PUBLISHABLE_KEYS", "SUPABASE_ANON_KEY");
-  const secretKey = namedKey("SUPABASE_SECRET_KEYS", "SUPABASE_SERVICE_ROLE_KEY");
+  // supabase-js 2.54 treats sb_secret keys as Bearer JWTs; use the legacy server key until migration to @supabase/server.
+  const secretKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ??
+    namedKey("SUPABASE_SECRET_KEYS", "SUPABASE_SERVICE_ROLE_KEY");
   const openAiKey = Deno.env.get("OPENAI_API_KEY");
   const allowedEmails = (Deno.env.get("FEEDBACK_ADMIN_EMAILS") ?? "")
     .split(",")
@@ -262,7 +264,13 @@ Deno.serve(async (request) => {
   });
   const { data: { user }, error: authError } = await authClient.auth.getUser();
   if (authError || !user) return json({ error: "Authentication required." }, 401);
-  if (!user.email || !allowedEmails.includes(user.email.toLowerCase())) {
+  if (!allowedEmails.length) {
+    return json({ error: "Owner access is not configured in the feedback service." }, 503);
+  }
+  if (!user.email) {
+    return json({ error: "This signed-in account does not have a confirmed email address." }, 403);
+  }
+  if (!allowedEmails.includes(user.email.trim().toLowerCase())) {
     return json({ error: "This account is not authorized to view feedback insights." }, 403);
   }
 
