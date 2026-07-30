@@ -40,6 +40,7 @@ function profileContext(profile: Record<string, any> | null) {
     goals: answers.primary_goals,
     calorie_goal: answers.calorie_goal,
     protein_goal: answers.protein_goal,
+    net_carb_goal: answers.net_carb_goal,
     eating_styles: answers.eating_styles,
     foods_to_avoid: answers.foods_to_avoid,
     medical_restrictions: answers.medical_restrictions,
@@ -80,10 +81,55 @@ Deno.serve(async (request) => {
 
   let mode = "";
   let context = "";
+  let nutritionContext: {
+    calories: number;
+    protein: number;
+    totalCarbs: number;
+    netCarbs: number;
+    netCarbGoal: number | null;
+  } | null = null;
   try {
     const body = await request.json();
     mode = typeof body.mode === "string" ? body.mode : "";
     context = typeof body.context === "string" ? body.context.trim().slice(0, 1000) : "";
+    if (body.nutritionContext && typeof body.nutritionContext === "object") {
+      const calories = Number(body.nutritionContext.calories);
+      const protein = Number(body.nutritionContext.protein);
+      const totalCarbs = Number(body.nutritionContext.totalCarbs);
+      const netCarbs = Number(body.nutritionContext.netCarbs);
+      const suppliedGoal = body.nutritionContext.netCarbGoal;
+      const netCarbGoal = suppliedGoal === null || suppliedGoal === undefined
+        ? null
+        : Number(suppliedGoal);
+      if (
+        !Number.isFinite(calories) ||
+        !Number.isFinite(protein) ||
+        !Number.isFinite(totalCarbs) ||
+        !Number.isFinite(netCarbs) ||
+        calories < 0 ||
+        calories > 20_000 ||
+        protein < 0 ||
+        protein > 2_000 ||
+        totalCarbs < 0 ||
+        totalCarbs > 2_000 ||
+        netCarbs < 0 ||
+        netCarbs > 2_000 ||
+        (netCarbGoal !== null && (
+          !Number.isFinite(netCarbGoal) ||
+          netCarbGoal < 1 ||
+          netCarbGoal > 1_000
+        ))
+      ) {
+        return json({ error: "Invalid nutrition context." }, 400);
+      }
+      nutritionContext = {
+        calories: Math.round(calories),
+        protein: Math.round(protein),
+        totalCarbs: Math.round(totalCarbs),
+        netCarbs: Math.round(netCarbs),
+        netCarbGoal: netCarbGoal === null ? null : Math.round(netCarbGoal)
+      };
+    }
   } catch {
     return json({ error: "Invalid request." }, 400);
   }
@@ -130,6 +176,9 @@ Deno.serve(async (request) => {
   const task = mode === "dinner"
     ? "Create one practical dinner plan. Give a concise menu, portions or protein target when useful, and a short preparation sequence. Prefer the user's ingredients and constraints. Keep it achievable tonight."
     : "Give concise restaurant ordering guidance. Recommend one or two practical choices, useful modifications, and a simple ordering script when helpful. If the exact menu is unknown, state that and give reliable category-level guidance.";
+  const nutritionGuardrail = nutritionContext?.netCarbGoal
+    ? `The user's saved hard daily net-carb ceiling is ${nutritionContext.netCarbGoal}g. They have logged approximately ${nutritionContext.netCarbs}g today, leaving ${Math.max(0, nutritionContext.netCarbGoal - nutritionContext.netCarbs)}g. Treat the remaining allowance as a hard constraint whenever possible. Estimate net carbs for each recommendation and show projected daily net carbs. Never recommend an option over the ceiling if a lower-carb option can meet the request. If the user is already at or over the ceiling, choose options with as close to zero additional net carbs as practical and say so clearly.`
+    : "Treat any explicit numeric nutrition limit in the user's request as a hard constraint unless safety requires otherwise.";
 
   const openAiResponse = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
@@ -147,14 +196,14 @@ Deno.serve(async (request) => {
           role: "system",
           content: [{
             type: "input_text",
-            text: `You are Meal Daddy, a practical nutrition and meal-planning coach. ${task} Respect listed allergies, restrictions, preferences, budget, and household needs. Do not diagnose, prescribe, or replace medical advice. Use a supportive, direct tone and return plain text under 220 words.`
+            text: `You are Meal Daddy, a practical nutrition and meal-planning coach. ${task} ${nutritionGuardrail} Respect listed allergies, restrictions, preferences, budget, and household needs. Do not diagnose, prescribe, or replace medical advice. Use a supportive, direct tone and return plain text under 220 words.`
           }]
         },
         {
           role: "user",
           content: [{
             type: "input_text",
-            text: `Saved profile:\n${JSON.stringify(profileContext(profile))}\n\nUser request:\n${context}`
+            text: `Saved profile:\n${JSON.stringify(profileContext(profile))}\n\nToday's nutrition context:\n${JSON.stringify(nutritionContext)}\n\nUser request:\n${context}`
           }]
         }
       ],

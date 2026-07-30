@@ -1,5 +1,5 @@
 import { supabase, requireSession } from "./supabase-client.js";
-import { buildProteinGuidance } from "./feedback-guidance.js?v=20260729-20";
+import { buildProteinGuidance } from "./feedback-guidance.js?v=20260729-21";
 
 const dietStyles = ["Mediterranean", "Low-carb", "Pescatarian", "DASH", "Vegetarian", "High-protein", "Flexible"];
 const $ = (selector) => document.querySelector(selector);
@@ -14,7 +14,7 @@ const entryCategories = [...mealLabels, "Hydration"];
 const query = new URLSearchParams(location.search);
 let pendingPlan = allowedPlans.has(query.get("plan")) ? query.get("plan") : null;
 const checkoutResult = query.get("checkout");
-const state = { diet: "", tone: "supportive", provider: "best_value", entries: [], photo: null, coachPhoto: null, restaurantLocation: null, coachMode: "dinner", calorieGoal: 2050, proteinGoal: 130, fiberGoal: 30, waterGoal: 90, eatingStyles: [], goals: [], trackingDetail: "Moderate", uses: [], reminders: [], favoriteProteins: [], foodsLoved: "", foodsDisliked: "", foodsToAvoid: "", biggestChallenge: "", suggestedProteinTarget: 40 };
+const state = { diet: "", tone: "supportive", provider: "best_value", entries: [], photo: null, coachPhoto: null, restaurantLocation: null, coachMode: "dinner", calorieGoal: 2050, proteinGoal: 130, netCarbGoal: 0, fiberGoal: 30, waterGoal: 90, eatingStyles: [], goals: [], trackingDetail: "Moderate", uses: [], reminders: [], favoriteProteins: [], foodsLoved: "", foodsDisliked: "", foodsToAvoid: "", biggestChallenge: "", suggestedProteinTarget: 40, currentTotals: { calories: 0, protein: 0, carbs: 0, netCarbs: 0, fat: 0, fiber: 0, water: 0 } };
 const installDismissedKey = "mealdaddy-install-tip-dismissed";
 let deferredInstallPrompt = null;
 let latestReport = null;
@@ -187,6 +187,15 @@ async function loadProfile() {
   state.foodsDisliked = profile.foods_disliked || "";
   state.foodsToAvoid = profile.foods_to_avoid || "";
   state.biggestChallenge = profile.biggest_challenge || "";
+  const normalizedStyles = [state.diet, ...state.eatingStyles].map((value) => String(value || "").toLowerCase().replaceAll("-", " "));
+  const defaultNetCarbGoal = normalizedStyles.some((value) => value.includes("keto"))
+    ? 25
+    : normalizedStyles.some((value) => value.includes("low carb"))
+      ? 40
+      : 0;
+  state.netCarbGoal = Object.hasOwn(profile, "net_carb_goal")
+    ? Math.max(0, Number(profile.net_carb_goal) || 0)
+    : defaultNetCarbGoal;
   if (state.goals.length) $("#goal-summary").textContent = `Today's focus: ${state.goals.join(" · ")}`;
   const calorieGoal = Number(profile.calorie_goal || 2050);
   const proteinGoal = Number(profile.protein_goal || 130);
@@ -196,6 +205,9 @@ async function loadProfile() {
   $("#protein-progress").max = proteinGoal;
   $("#energy-goal-label").textContent = `of ${calorieGoal.toLocaleString()} cal`;
   $("#protein-goal-label").textContent = `of ${proteinGoal}g`;
+  $("#carbs-goal-label").textContent = state.netCarbGoal
+    ? `${state.netCarbGoal}g net daily ceiling`
+    : "estimated total/net";
   $("#profile-diet").textContent = state.diet;
   $("#tone-options").value = state.tone;
   renderCoachFeedback();
@@ -332,6 +344,7 @@ function renderCoachFeedback(providedTotals) {
     sum.water += entry.kind === "hydration" ? Number(nutrition.ounces || 0) : Number(nutrition.hydration_ounces || 0);
     return sum;
   }, { calories: 0, protein: 0, carbs: 0, netCarbs: 0, fat: 0, fiber: 0, water: 0 });
+  state.currentTotals = totals;
   const title = $("#coach-feedback-title");
   const support = $("#coach-feedback-support");
   const suggestion = $("#coach-feedback-suggestion");
@@ -384,11 +397,20 @@ function renderCoachFeedback(providedTotals) {
   if (fiberFocus) summaryMetrics.push(`${Math.round(totals.fiber)}g fiber`);
   if (hydrationFocus) summaryMetrics.push(`${Math.round(totals.water)} oz hydration`);
   support.textContent = `So far: ${new Intl.ListFormat(undefined, { style: "long", type: "conjunction" }).format(summaryMetrics)}.`;
+  const roundedNetCarbs = Math.round(totals.netCarbs);
+  const netCarbRemaining = state.netCarbGoal
+    ? Math.max(0, Math.round(state.netCarbGoal - totals.netCarbs))
+    : null;
+  const netCarbGuardrail = state.netCarbGoal
+    ? roundedNetCarbs >= state.netCarbGoal
+      ? `You’re at about ${roundedNetCarbs}g net carbs against your ${state.netCarbGoal}g daily ceiling. For the rest of today, choose options with as close to zero additional net carbs as practical.`
+      : `You have about ${netCarbRemaining}g net carbs left before your ${state.netCarbGoal}g daily ceiling, so keep the next choice within that allowance.`
+    : "";
 
   if (caloriePercent >= 1.1) {
-    suggestion.textContent = `You’re above your calorie target, but one day is information—not failure. Favor water and a satisfying protein-and-produce choice if you’re hungry.${carbFocus ? ` Your estimated ${preferenceLabel} tally is ${Math.round(totals.netCarbs)}g net carbs so far.` : ""}`;
+    suggestion.textContent = "You’re above your calorie target, but one day is information—not failure. Favor water and a satisfying protein-and-produce choice if you’re hungry.";
   } else if (waterPercent < 0.35 && new Date().getHours() >= 12) {
-    suggestion.textContent = `Hydration is the clearest opportunity right now. Have 12–16 oz of water with your next meal or break.${carbFocus ? ` Your estimated ${preferenceLabel} tally is ${Math.round(totals.netCarbs)}g net carbs so far.` : ""}`;
+    suggestion.textContent = "Hydration is the clearest opportunity right now. Have 12–16 oz of water with your next meal or break.";
   } else if (proteinPercent + 0.15 < caloriePercent) {
     const remaining = Math.max(0, Math.round(state.proteinGoal - totals.protein));
     state.suggestedProteinTarget = Math.min(40, Math.max(20, remaining));
@@ -403,19 +425,20 @@ function renderCoachFeedback(providedTotals) {
       goals: state.goals,
       biggestChallenge: state.biggestChallenge
     });
-    suggestion.textContent = `Protein is trailing your overall intake.${carbFocus ? ` You’re at ${Math.round(totals.netCarbs)}g estimated net carbs so far, so these choices also fit a ${preferenceLabel} direction.` : ""} ${proteinGuidance.text}`;
+    suggestion.textContent = `Protein is trailing your overall intake. ${proteinGuidance.text}`;
     personalizeButton.hidden = false;
   } else if (fiberPercent < 0.5 && caloriePercent >= 0.4) {
     suggestion.textContent = carbFocus
-      ? `Fiber could use some support. Choose a ${preferenceLabel} source such as leafy greens, avocado, chia, or flax; you’re at ${Math.round(totals.netCarbs)}g estimated net carbs so far.`
+      ? `Fiber could use some support. Choose a ${preferenceLabel} source such as leafy greens, avocado, chia, or flax.`
       : "Fiber could use some support. Add a vegetable, beans, berries, or a whole grain to the next thing you eat.";
   } else if (proteinPercent >= 0.8 && waterPercent >= 0.7) {
-    suggestion.textContent = `Protein and hydration are both in a strong place. Keep your next choice simple and guided by hunger.${carbFocus ? ` Your estimated ${preferenceLabel} tally is ${Math.round(totals.netCarbs)}g net carbs so far.` : ""}`;
+    suggestion.textContent = "Protein and hydration are both in a strong place. Keep your next choice simple and guided by hunger.";
   } else if (carbFocus) {
-    suggestion.textContent = `For your ${preferenceLabel} preference, keep the next meal centered on a protein you enjoy and non-starchy vegetables. You’re at ${Math.round(totals.netCarbs)}g estimated net carbs so far.`;
+    suggestion.textContent = `For your ${preferenceLabel} preference, keep the next meal centered on a protein you enjoy and non-starchy vegetables.`;
   } else {
     suggestion.textContent = "Keep the next meal balanced: a protein you enjoy, something colorful, and a portion that feels satisfying.";
   }
+  if (netCarbGuardrail) suggestion.textContent += ` ${netCarbGuardrail}`;
 }
 
 const reportPeriods = {
@@ -674,7 +697,10 @@ $("#plan-dinner").addEventListener("click", () => openCoachAction("dinner"));
 $("#restaurant-mode").addEventListener("click", () => openCoachAction("restaurant"));
 $("#personalize-feedback").addEventListener("click", () => {
   openCoachAction("dinner");
-  $("#coach-action-context").value = `Help me choose a practical next meal or snack with about ${state.suggestedProteinTarget}g protein. Start with my saved favorite proteins, foods I love, foods I dislike, foods I must avoid, eating style, and biggest challenge. Give me two or three concrete choices with portions. If my saved profile is not enough, ask me one short question instead of making a generic recommendation.`;
+  const carbConstraint = state.netCarbGoal
+    ? `My saved daily ceiling is ${state.netCarbGoal}g net carbs. I have already logged about ${Math.round(state.currentTotals.netCarbs)}g today, leaving about ${Math.max(0, Math.round(state.netCarbGoal - state.currentTotals.netCarbs))}g. Treat that as a hard limit whenever possible.`
+    : "";
+  $("#coach-action-context").value = `${carbConstraint} Help me choose a practical next meal or snack with about ${state.suggestedProteinTarget}g protein. Start with my saved favorite proteins, foods I love, foods I dislike, foods I must avoid, eating style, and biggest challenge. Give me two or three concrete choices with portions. Estimate net carbs for each choice and show my projected daily net carbs when I have a saved ceiling. Do not recommend an option that would exceed it when a lower-carb option exists. If my saved profile is not enough, ask me one short question instead of making a generic recommendation.`.trim();
   $("#coach-action-form").scrollIntoView({ behavior: "smooth", block: "center" });
   $("#coach-action-context").focus();
 });
@@ -725,7 +751,14 @@ $("#coach-action-form").addEventListener("submit", async (event) => {
         mode: state.coachMode,
         context,
         photoPath,
-        location: state.coachMode === "restaurant" ? state.restaurantLocation : null
+        location: state.coachMode === "restaurant" ? state.restaurantLocation : null,
+        nutritionContext: {
+          calories: Math.round(state.currentTotals.calories),
+          protein: Math.round(state.currentTotals.protein),
+          totalCarbs: Math.round(state.currentTotals.carbs),
+          netCarbs: Math.round(state.currentTotals.netCarbs),
+          netCarbGoal: state.netCarbGoal || null
+        }
       }
     });
     if (error || !data?.guidance) {

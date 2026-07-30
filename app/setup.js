@@ -32,10 +32,11 @@ const steps = [
     ["age", "Age", "number", "Optional"], ["biological_sex", "Biological sex", "single", choices.sex],
     ["height", "Height", "text", "e.g. 5 ft 10 in"], ["current_weight", "Current weight", "number", "lb"], ["goal_weight", "Goal weight", "number", "Optional"]
   ]},
-  { title: "Nutrition", intro: "Use what you know; Meal Daddy can help fill gaps later.", fields: [
+  { title: "Nutrition", intro: "Set your own targets. Meal Daddy will use them as daily guardrails, and you can change them anytime.", fields: [
     ["calorie_goal_known", "Do you know your calorie goal?", "single", choices.calorieKnowledge],
     ["calorie_goal", "Calories per day", "number", "Optional"], ["protein_goal", "Protein goal (grams)", "number", "Optional"],
-    ["eating_styles", "Preferred eating style", "multi", choices.eatingStyles]
+    ["eating_styles", "Preferred eating style", "multi", choices.eatingStyles],
+    ["net_carb_goal", "Your daily net-carb ceiling (grams)", "number", "Optional — enter your own; for example, 40 for low carb or 25 for keto"]
   ]},
   { title: "Health", intro: "All health questions are optional.", fields: [
     ["foods_to_avoid", "Foods you must avoid", "textarea", "Allergies, intolerances, religious needs, or personal choices"],
@@ -73,6 +74,11 @@ function normalizeGoalAnswers() {
     answers.primary_goals = [answers.primary_goal];
     delete answers.primary_goal;
   }
+  if (!Object.hasOwn(answers, "net_carb_goal")) {
+    const eatingStyles = Array.isArray(answers.eating_styles) ? answers.eating_styles : [];
+    if (eatingStyles.includes("Keto")) answers.net_carb_goal = "25";
+    else if (eatingStyles.includes("Low Carb")) answers.net_carb_goal = "40";
+  }
 }
 normalizeGoalAnswers();
 
@@ -107,7 +113,8 @@ function collectVisibleAnswers() {
 function renderSummary() {
   const rows = [
     ["Goals", (answers.primary_goals || []).join(", ")], ["Calories", answers.calorie_goal ? `${answers.calorie_goal}/day` : "Help me determine it"],
-    ["Protein", answers.protein_goal ? `${answers.protein_goal}g/day` : "Not set"], ["Eating style", (answers.eating_styles || []).join(", ") || "Flexible"],
+    ["Protein", answers.protein_goal ? `${answers.protein_goal}g/day` : "Not set"], ["Net-carb ceiling", answers.net_carb_goal ? `${answers.net_carb_goal}g/day` : "Not set"],
+    ["Eating style", (answers.eating_styles || []).join(", ") || "Flexible"],
     ["Foods to avoid", answers.foods_to_avoid || "None listed"], ["Restaurants", answers.favorite_restaurants || "None listed"],
     ["Garden", answers.has_garden || "Not specified"], ["Tracking", answers.tracking_detail || "Moderate"],
     ["Coaching", answers.coaching_style || "Friendly"], ["Biggest challenge", answers.biggest_challenge || "Not specified"]
