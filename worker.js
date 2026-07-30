@@ -1,4 +1,4 @@
-const release = "20260729-19";
+const release = "20260729-20";
 
 export default {
   async fetch(request, env) {

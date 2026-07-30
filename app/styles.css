@@ -162,6 +162,7 @@ h2 { font-size: clamp(1.65rem, 3vw, 2.6rem); line-height: 1.06; letter-spacing: 
 .coach-card h2 { margin: 26px 0 12px; font-size: 1.55rem; }.coach-card p { color: rgba(255,255,255,.78); line-height: 1.55; }
 .coach-suggestion { display: grid; gap: 5px; margin: 22px 0 0; border-top: 1px solid rgba(255,255,255,.14); padding-top: 18px; }
 .coach-suggestion strong { color: var(--lime); font-size: .7rem; letter-spacing: .09em; text-transform: uppercase; }
+.coach-suggestion button { justify-self: start; min-height: 36px; margin-top: 7px; border-color: rgba(223,243,107,.58); color: var(--forest); background: var(--lime); }
 .coach-buttons { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 30px; }.coach-card button { min-height: 39px; border: 1px solid rgba(255,255,255,.18); border-radius: 11px; padding: 0 12px; color: white; background: rgba(255,255,255,.08); font-size: .76rem; font-weight: 750; }
 .coach-action-form { display: grid; gap: 12px; margin-top: 18px; border-top: 1px solid rgba(255,255,255,.14); padding-top: 18px; }
 .coach-action-form label { display: grid; gap: 7px; color: rgba(255,255,255,.72); font-size: .76rem; line-height: 1.45; }

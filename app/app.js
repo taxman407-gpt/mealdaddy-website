@@ -1,4 +1,5 @@
 import { supabase, requireSession } from "./supabase-client.js";
+import { buildProteinGuidance } from "./feedback-guidance.js?v=20260729-20";
 
 const dietStyles = ["Mediterranean", "Low-carb", "Pescatarian", "DASH", "Vegetarian", "High-protein", "Flexible"];
 const $ = (selector) => document.querySelector(selector);
@@ -13,7 +14,7 @@ const entryCategories = [...mealLabels, "Hydration"];
 const query = new URLSearchParams(location.search);
 let pendingPlan = allowedPlans.has(query.get("plan")) ? query.get("plan") : null;
 const checkoutResult = query.get("checkout");
-const state = { diet: "", tone: "supportive", provider: "best_value", entries: [], photo: null, coachPhoto: null, restaurantLocation: null, coachMode: "dinner", calorieGoal: 2050, proteinGoal: 130, fiberGoal: 30, waterGoal: 90, eatingStyles: [], goals: [], trackingDetail: "Moderate", uses: [], reminders: [] };
+const state = { diet: "", tone: "supportive", provider: "best_value", entries: [], photo: null, coachPhoto: null, restaurantLocation: null, coachMode: "dinner", calorieGoal: 2050, proteinGoal: 130, fiberGoal: 30, waterGoal: 90, eatingStyles: [], goals: [], trackingDetail: "Moderate", uses: [], reminders: [], favoriteProteins: [], foodsLoved: "", foodsDisliked: "", foodsToAvoid: "", biggestChallenge: "", suggestedProteinTarget: 40 };
 const installDismissedKey = "mealdaddy-install-tip-dismissed";
 let deferredInstallPrompt = null;
 let latestReport = null;
@@ -181,6 +182,11 @@ async function loadProfile() {
   state.trackingDetail = profile.tracking_detail || "Moderate";
   state.uses = Array.isArray(profile.mealdaddy_uses) ? profile.mealdaddy_uses : [];
   state.reminders = Array.isArray(profile.reminders) ? profile.reminders : [];
+  state.favoriteProteins = Array.isArray(profile.favorite_proteins) ? profile.favorite_proteins : [];
+  state.foodsLoved = profile.foods_loved || "";
+  state.foodsDisliked = profile.foods_disliked || "";
+  state.foodsToAvoid = profile.foods_to_avoid || "";
+  state.biggestChallenge = profile.biggest_challenge || "";
   if (state.goals.length) $("#goal-summary").textContent = `Today's focus: ${state.goals.join(" · ")}`;
   const calorieGoal = Number(profile.calorie_goal || 2050);
   const proteinGoal = Number(profile.protein_goal || 130);
@@ -329,7 +335,9 @@ function renderCoachFeedback(providedTotals) {
   const title = $("#coach-feedback-title");
   const support = $("#coach-feedback-support");
   const suggestion = $("#coach-feedback-suggestion");
-  if (!title || !support || !suggestion) return;
+  const personalizeButton = $("#personalize-feedback");
+  if (!title || !support || !suggestion || !personalizeButton) return;
+  personalizeButton.hidden = true;
 
   const pending = state.entries.some((entry) => entry.status === "pending_estimate");
   if (!state.entries.length) {
@@ -383,9 +391,20 @@ function renderCoachFeedback(providedTotals) {
     suggestion.textContent = `Hydration is the clearest opportunity right now. Have 12–16 oz of water with your next meal or break.${carbFocus ? ` Your estimated ${preferenceLabel} tally is ${Math.round(totals.netCarbs)}g net carbs so far.` : ""}`;
   } else if (proteinPercent + 0.15 < caloriePercent) {
     const remaining = Math.max(0, Math.round(state.proteinGoal - totals.protein));
-    suggestion.textContent = carbFocus
-      ? `Protein is trailing your overall intake. A protein-forward, non-starchy next meal would support your ${preferenceLabel} preference; you’re at ${Math.round(totals.netCarbs)}g estimated net carbs so far. About ${Math.min(40, Math.max(20, remaining))}g protein would move you closer to your protein goal.`
-      : `Protein is trailing your overall intake. Aim for a protein-forward next meal; about ${Math.min(40, Math.max(20, remaining))}g would move you closer.`;
+    state.suggestedProteinTarget = Math.min(40, Math.max(20, remaining));
+    const proteinGuidance = buildProteinGuidance({
+      targetProtein: state.suggestedProteinTarget,
+      favoriteProteins: state.favoriteProteins,
+      foodsLoved: state.foodsLoved,
+      foodsDisliked: state.foodsDisliked,
+      foodsToAvoid: state.foodsToAvoid,
+      diet: state.diet,
+      eatingStyles: state.eatingStyles,
+      goals: state.goals,
+      biggestChallenge: state.biggestChallenge
+    });
+    suggestion.textContent = `Protein is trailing your overall intake.${carbFocus ? ` You’re at ${Math.round(totals.netCarbs)}g estimated net carbs so far, so these choices also fit a ${preferenceLabel} direction.` : ""} ${proteinGuidance.text}`;
+    personalizeButton.hidden = false;
   } else if (fiberPercent < 0.5 && caloriePercent >= 0.4) {
     suggestion.textContent = carbFocus
       ? `Fiber could use some support. Choose a ${preferenceLabel} source such as leafy greens, avocado, chia, or flax; you’re at ${Math.round(totals.netCarbs)}g estimated net carbs so far.`
@@ -653,6 +672,12 @@ function openCoachAction(mode) {
 
 $("#plan-dinner").addEventListener("click", () => openCoachAction("dinner"));
 $("#restaurant-mode").addEventListener("click", () => openCoachAction("restaurant"));
+$("#personalize-feedback").addEventListener("click", () => {
+  openCoachAction("dinner");
+  $("#coach-action-context").value = `Help me choose a practical next meal or snack with about ${state.suggestedProteinTarget}g protein. Start with my saved favorite proteins, foods I love, foods I dislike, foods I must avoid, eating style, and biggest challenge. Give me two or three concrete choices with portions. If my saved profile is not enough, ask me one short question instead of making a generic recommendation.`;
+  $("#coach-action-form").scrollIntoView({ behavior: "smooth", block: "center" });
+  $("#coach-action-context").focus();
+});
 $("#close-coach-action").addEventListener("click", () => {
   $("#coach-action-form").hidden = true;
   clearCoachPhoto();
