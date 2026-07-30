@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#173f35" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Account & Privacy - MealDaddy</title>
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="stylesheet" href="./styles.css?v=20260729-19" />
+</head>
+<body class="app-page auth-loading account-page">
+  <header class="app-header">
+    <a class="brand" href="./app.html"><span class="brand-mark">M</span><span>MealDaddy</span></a>
+    <div class="account-actions">
+      <a class="text-link" href="./app.html">Today</a>
+      <button class="text-button" id="sign-out" type="button">Sign out</button>
+    </div>
+  </header>
+
+  <main class="account-shell">
+    <section class="account-heading">
+      <p class="eyebrow">Your account, your choices</p>
+      <h1>Account & Privacy</h1>
+      <p>Manage billing, take your records with you, or permanently leave without contacting support.</p>
+      <div class="account-trust-row" aria-label="Account protections">
+        <span>Stripe-secured billing</span>
+        <span>Portable records</span>
+        <span>Self-service deletion</span>
+      </div>
+    </section>
+
+    <section class="account-card membership-card" aria-labelledby="membership-title">
+      <div class="account-card-heading">
+        <div>
+          <p class="eyebrow">Membership</p>
+          <h2 id="membership-title">Loading membership...</h2>
+          <p id="membership-copy">Checking your secure billing status.</p>
+        </div>
+        <span class="status-pill" id="membership-status">Loading</span>
+      </div>
+      <dl class="account-detail-list">
+        <div><dt>Email</dt><dd id="account-email">Loading...</dd></div>
+        <div><dt>Member since</dt><dd id="member-since">Loading...</dd></div>
+        <div id="membership-date-row"><dt id="membership-date-label">Next billing date</dt><dd id="membership-date">—</dd></div>
+      </dl>
+      <div class="account-actions-row" id="billing-actions">
+        <button class="button button-primary" id="manage-billing" type="button">Manage billing & invoices</button>
+        <button class="button button-danger-outline" id="cancel-membership" type="button">Cancel membership</button>
+      </div>
+      <p class="account-explainer">Cancellation opens a secure Stripe confirmation page. You do not have to email or call. Access continues through the current trial or paid period, and Stripe shows the exact end date before you confirm.</p>
+      <p class="account-status" id="billing-message" role="status" aria-live="polite"></p>
+    </section>
+
+    <section class="account-card export-card" aria-labelledby="export-title">
+      <div class="account-card-heading">
+        <div>
+          <p class="eyebrow">Your data</p>
+          <h2 id="export-title">Download your records</h2>
+          <p>Keep a complete structured copy or a spreadsheet-friendly meal history.</p>
+        </div>
+        <span class="privacy-icon" aria-hidden="true">↓</span>
+      </div>
+      <div class="export-options">
+        <article>
+          <h3>Complete account copy</h3>
+          <p>Account details, setup answers, meal and hydration entries, nutrition estimates, membership status, and ratings/comments.</p>
+          <button class="button button-primary" id="download-json" type="button">Download all data (.json)</button>
+        </article>
+        <article>
+          <h3>Meal history</h3>
+          <p>Every ledger entry in a table that opens in Excel, Google Sheets, or Numbers.</p>
+          <button class="button button-quiet" id="download-csv" type="button">Download meal history (.csv)</button>
+        </article>
+      </div>
+      <p class="account-explainer">The download is assembled in this browser and is not sent to an AI provider. Stripe keeps card details and invoices in its separate secure billing system; Meal Daddy does not store your card number.</p>
+      <p class="account-status" id="export-message" role="status" aria-live="polite"></p>
+    </section>
+
+    <section class="account-card privacy-card" aria-labelledby="privacy-title">
+      <div class="account-card-heading">
+        <div>
+          <p class="eyebrow">Plain-language privacy</p>
+          <h2 id="privacy-title">How Meal Daddy handles information</h2>
+        </div>
+        <span class="privacy-icon" aria-hidden="true">✓</span>
+      </div>
+      <div class="privacy-grid">
+        <article><strong>Account & food records</strong><p>Stored in your protected Meal Daddy account so they can sync across your devices. Row-level security limits access to your account.</p></article>
+        <article><strong>Meal photos</strong><p>Uploaded privately only when you choose a photo. Processing photos are temporary and removed after the request; deletion also removes any remaining uploads.</p></article>
+        <article><strong>AI processing</strong><p>Only the information needed for a meal estimate or requested guidance is sent to the approved AI service. Provider selection changes which AI service processes that request.</p></article>
+        <article><strong>Location</strong><p>Restaurant Mode asks only when you tap the location control. Approximate location can inform that request and is not saved to your profile or ledger.</p></article>
+        <article><strong>Payments</strong><p>Stripe processes payment methods, subscription status, and invoices. Meal Daddy receives billing status and Stripe reference IDs, not your complete card number.</p></article>
+        <article><strong>Health context</strong><p>Optional nutrition and health preferences help personalize general wellness guidance. Meal Daddy is not medical care and does not diagnose or treat conditions.</p></article>
+      </div>
+      <p class="account-explainer"><strong>Launch note:</strong> this transparent product summary does not replace the formal Privacy Policy and Terms that should be reviewed and published before broad public launch.</p>
+    </section>
+
+    <section class="account-card danger-card" aria-labelledby="delete-title">
+      <div class="account-card-heading">
+        <div>
+          <p class="eyebrow">Permanent deletion</p>
+          <h2 id="delete-title">Delete my account</h2>
+          <p>This is intentionally harder than cancellation because it cannot be undone.</p>
+        </div>
+        <span class="danger-icon" aria-hidden="true">!</span>
+      </div>
+      <ul class="deletion-list">
+        <li>Your subscription is canceled immediately so it cannot renew.</li>
+        <li>Your profile, setup answers, ledger, nutrition estimates, feedback history, and remaining private photos are permanently deleted.</li>
+        <li>Past invoices and records Stripe must keep for financial or legal purposes are not erased from Stripe.</li>
+        <li>Deleting does not automatically refund a prior charge. Use billing management first if you only want to stop renewal.</li>
+      </ul>
+      <label class="confirm-check">
+        <input id="delete-understood" type="checkbox" />
+        <span>I understand that my Meal Daddy data cannot be recovered.</span>
+      </label>
+      <label class="delete-confirm-field">
+        <span>Type <strong>DELETE MY ACCOUNT</strong> to confirm</span>
+        <input id="delete-confirmation" type="text" autocomplete="off" spellcheck="false" />
+      </label>
+      <button class="button button-danger" id="delete-account" type="button" disabled>Permanently delete my account</button>
+      <p class="account-status danger-status" id="delete-message" role="alert" aria-live="assertive"></p>
+    </section>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="./account.js?v=20260729-19"></script>
+  <script src="./register-sw.js?v=20260729-19"></script>
+</body>
+</html>

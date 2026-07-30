@@ -13,6 +13,7 @@ const returnTo = new URLSearchParams(location.search).get("returnTo") || "./app.
 const safeReturnTo = returnTo.startsWith("/") || returnTo.startsWith("./") ? returnTo : "./app.html";
 const signupTarget = new URL(safeReturnTo, location.href);
 signupTarget.hash = "onboarding";
+const accountWasDeleted = new URLSearchParams(location.search).get("account") === "deleted";
 
 function setMode(nextMode) {
   mode = nextMode;
@@ -73,3 +74,6 @@ document.querySelector("#reset-password").addEventListener("click", async () => 
 
 const { data } = await supabase.auth.getSession();
 if (data.session) location.replace(safeReturnTo);
+if (accountWasDeleted) {
+  status.textContent = "Your Meal Daddy account and private app data were permanently deleted, and billing was stopped.";
+}

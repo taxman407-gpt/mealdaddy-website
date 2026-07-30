@@ -543,7 +543,6 @@ $("#continue-onboarding").addEventListener("click", async () => {
   $("#profile-diet").textContent = state.diet; closeOnboarding(); toast(`Your ${state.diet} plan is saved.`);
   if (pendingPlan) await startCheckout(pendingPlan);
 });
-$("#open-profile").addEventListener("click", showOnboarding);
 $("#profile-diet").addEventListener("click", showOnboarding);
 
 $$("[data-entry-mode]").forEach((button) => button.addEventListener("click", () => {
