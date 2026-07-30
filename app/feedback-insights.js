@@ -141,6 +141,21 @@ function renderAnalysis(result) {
   );
 }
 
+async function functionErrorMessage(error, data) {
+  if (data?.error) return data.error;
+  try {
+    const response = error?.context;
+    if (response && typeof response.clone === "function") {
+      const payload = await response.clone().json();
+      if (payload?.error) return payload.error;
+      if (payload?.message) return payload.message;
+    }
+  } catch {
+    // Fall through to the safely worded client message below.
+  }
+  return error?.message || "Feedback insights could not be loaded.";
+}
+
 async function loadInsights(action = "latest") {
   const button = $("#generate-summary");
   button.disabled = true;
@@ -157,10 +172,7 @@ async function loadInsights(action = "latest") {
 
   button.disabled = false;
   if (error || !data?.ok) {
-    let message = data?.error || error?.message || "Feedback insights could not be loaded.";
-    if (message.includes("non-2xx")) {
-      message = "This account is not authorized for the private feedback dashboard.";
-    }
+    const message = await functionErrorMessage(error, data);
     setText("#insights-status", message);
     $("#insights-content").hidden = true;
     return;
