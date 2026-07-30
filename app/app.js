@@ -1,5 +1,5 @@
 import { supabase, requireSession } from "./supabase-client.js";
-import { buildProteinGuidance } from "./feedback-guidance.js?v=20260729-21";
+import { buildProteinGuidance } from "./feedback-guidance.js?v=20260729-22";
 
 const dietStyles = ["Mediterranean", "Low-carb", "Pescatarian", "DASH", "Vegetarian", "High-protein", "Flexible"];
 const $ = (selector) => document.querySelector(selector);
@@ -280,7 +280,7 @@ function renderLedger() {
     const editor = `<form class="ledger-edit-form" data-edit-form="${entry.id}" hidden>
           <label><span>Log as</span><select name="entry_category">${entryCategories.map((option) => `<option${option === currentCategory ? " selected" : ""}>${option}</option>`).join("")}</select></label>
           <label><span>Description</span><input name="description" value="${escapeHtml(entry.description)}" required maxlength="1200" /></label>
-          <div><button class="button button-primary" type="submit">Save</button><button class="button button-quiet" type="button" data-cancel-edit="${entry.id}">Cancel</button></div>
+          <div><button class="button button-primary" type="submit">Save</button><button class="button button-quiet" type="button" data-cancel-edit="${entry.id}">Cancel</button><button class="button button-delete-entry" type="button" data-delete-entry="${entry.id}">Delete entry</button></div>
         </form>`;
     return `<li class="ledger-item">
       <span class="ledger-icon" aria-hidden="true">${ledgerIcon}</span>
@@ -781,9 +781,10 @@ $("#coach-action-form").addEventListener("submit", async (event) => {
   }
 });
 
-$("#ledger-list").addEventListener("click", (event) => {
+$("#ledger-list").addEventListener("click", async (event) => {
   const editButton = event.target.closest("[data-edit-entry]");
   const cancelButton = event.target.closest("[data-cancel-edit]");
+  const deleteButton = event.target.closest("[data-delete-entry]");
   if (editButton) {
     $(`[data-edit-form="${editButton.dataset.editEntry}"]`).hidden = false;
     editButton.hidden = true;
@@ -791,6 +792,36 @@ $("#ledger-list").addEventListener("click", (event) => {
   if (cancelButton) {
     $(`[data-edit-form="${cancelButton.dataset.cancelEdit}"]`).hidden = true;
     $(`[data-edit-entry="${cancelButton.dataset.cancelEdit}"]`).hidden = false;
+  }
+  if (deleteButton) {
+    const entry = state.entries.find((item) => item.id === deleteButton.dataset.deleteEntry);
+    if (!entry || !window.confirm(`Delete “${entry.description}”? This removes it from your history and cannot be undone.`)) return;
+    deleteButton.disabled = true;
+    deleteButton.textContent = "Deleting...";
+    const { data, error } = await supabase
+      .from("ledger_entries")
+      .delete()
+      .eq("id", entry.id)
+      .eq("user_id", user.id)
+      .select("id")
+      .maybeSingle();
+    if (error || !data) {
+      toast(error?.message || "The entry could not be deleted.");
+      deleteButton.disabled = false;
+      deleteButton.textContent = "Delete entry";
+      return;
+    }
+    const photoPath = entry.nutrition_estimate?.photo_path;
+    if (
+      typeof photoPath === "string" &&
+      photoPath.startsWith(`${user.id}/`) &&
+      !photoPath.includes("..")
+    ) {
+      const { error: photoError } = await supabase.storage.from("meal-photos").remove([photoPath]);
+      if (photoError) console.warn("Deleted entry photo cleanup failed.", photoError);
+    }
+    await loadLedger();
+    toast("Entry deleted. You can log it again whenever you’re ready.");
   }
 });
 

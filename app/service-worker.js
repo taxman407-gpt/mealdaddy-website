@@ -1,5 +1,5 @@
-const CACHE = "mealdaddy-shell-v21";
-const SHELL = ["./", "./index.html", "./auth.html", "./app.html", "./account.html", "./styles.css?v=20260729-21", "./auth.js?v=20260729-21", "./app.js?v=20260729-21", "./account.js?v=20260729-21", "./feedback-guidance.js?v=20260729-21", "./supabase-client.js"];
+const CACHE = "mealdaddy-shell-v22";
+const SHELL = ["./", "./index.html", "./auth.html", "./app.html", "./account.html", "./styles.css?v=20260729-22", "./auth.js?v=20260729-22", "./app.js?v=20260729-22", "./account.js?v=20260729-22", "./feedback-guidance.js?v=20260729-22", "./supabase-client.js"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)));
