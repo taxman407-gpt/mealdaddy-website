@@ -4,7 +4,7 @@ const model = "gpt-5.6-luna";
 const feedbackReadLimit = 10_000;
 const aiInputCharacterLimit = 120_000;
 const corsHeaders = {
-  "access-control-allow-origin": Deno.env.get("APP_ORIGIN") ?? "",
+  "access-control-allow-origin": "*",
   "access-control-allow-headers": "authorization, x-client-info, apikey, content-type",
   "access-control-allow-methods": "POST, OPTIONS",
   "content-type": "application/json"

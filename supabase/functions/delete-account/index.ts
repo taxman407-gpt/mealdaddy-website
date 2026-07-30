@@ -2,7 +2,7 @@ import Stripe from "npm:stripe@18.5.0";
 import { createClient } from "npm:@supabase/supabase-js@2.54.0";
 
 const corsHeaders = {
-  "access-control-allow-origin": Deno.env.get("APP_ORIGIN") ?? "",
+  "access-control-allow-origin": "*",
   "access-control-allow-headers": "authorization, x-client-info, apikey, content-type",
   "access-control-allow-methods": "POST, OPTIONS",
   "content-type": "application/json"

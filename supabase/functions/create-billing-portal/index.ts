@@ -2,7 +2,7 @@ import Stripe from "npm:stripe@18.5.0";
 import { createClient } from "npm:@supabase/supabase-js@2.54.0";
 
 const corsHeaders = {
-  "access-control-allow-origin": Deno.env.get("APP_ORIGIN") ?? "",
+  "access-control-allow-origin": "*",
   "access-control-allow-headers": "authorization, x-client-info, apikey, content-type",
   "access-control-allow-methods": "POST, OPTIONS",
   "content-type": "application/json"
@@ -18,6 +18,19 @@ function namedKey(variable: string, fallback: string) {
   } catch {
     return Deno.env.get(fallback);
   }
+}
+
+function trustedAppOrigin(request: Request, configuredOrigin: string) {
+  const requestedOrigin = request.headers.get("origin")?.replace(/\/$/, "") ?? "";
+  const allowedOrigins = new Set([
+    configuredOrigin.replace(/\/$/, ""),
+    "https://mealdaddy.ai",
+    "https://www.mealdaddy.ai",
+    "https://mealdaddy-website.taxman407.workers.dev"
+  ]);
+  return allowedOrigins.has(requestedOrigin)
+    ? requestedOrigin
+    : configuredOrigin.replace(/\/$/, "");
 }
 
 async function portalConfiguration(stripe: Stripe, appOrigin: string) {
@@ -95,7 +108,7 @@ Deno.serve(async (request) => {
     return json({ error: "Billing management is not configured." }, 503);
   }
 
-  const appOrigin = configuredOrigin.replace(/\/$/, "");
+  const appOrigin = trustedAppOrigin(request, configuredOrigin);
   const authClient = createClient(supabaseUrl, publishableKey, {
     global: { headers: { Authorization: authHeader } }
   });
