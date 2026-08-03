@@ -7,7 +7,7 @@
   <meta name="robots" content="noindex" />
   <title>Today - MealDaddy</title>
   <link rel="manifest" href="./manifest.webmanifest" />
-  <link rel="stylesheet" href="./styles.css?v=20260729-22" />
+  <link rel="stylesheet" href="./styles.css?v=20260803-23" />
 </head>
 <body class="app-page auth-loading">
   <header class="app-header">
@@ -73,6 +73,14 @@
           <button class="log-button" type="submit">Log</button>
         </div>
       </form>
+      <div class="estimate-membership-prompt" id="estimate-membership-prompt" role="alert" hidden>
+        <div>
+          <strong id="estimate-membership-title">Your entry was saved.</strong>
+          <p id="estimate-membership-copy">AI nutrition estimates are included with Meal Daddy Core. Start your 7-day free trial to estimate this entry.</p>
+          <small>A payment method is required. Then $9.99/month unless cancelled before the trial ends. Trial eligibility and weekly limits apply.</small>
+        </div>
+        <button class="button button-primary" data-plan="core" type="button">Start 7-Day Trial</button>
+      </div>
       <p class="privacy-line">Include drinks in the same description as your meal—Meal Daddy will count both their nutrition and hydration. Use Hydration only for standalone drinks. Entries are stored in your protected account.</p>
     </section>
     <section class="metric-grid" aria-label="Daily nutrition totals">
@@ -173,7 +181,7 @@
     <div class="onboarding-panel"><div class="step-indicator"><span class="is-active"></span><span></span><span></span></div><p class="eyebrow">A few basics first</p><h1 id="onboarding-title">How do you like to eat?</h1><p>Choose the closest fit. You can adjust individual preferences anytime.</p><div class="choice-grid" id="diet-options"></div><label class="select-field">Coaching tone<select id="tone-options"><option value="supportive">Supportive</option><option value="direct">Direct</option><option value="data_focused">Data-focused</option><option value="playful">Playful</option></select></label><button class="button button-primary full-button" id="continue-onboarding" type="button" disabled>Save my starting plan</button><p class="privacy-line">These preferences are protected by row-level security and can only be accessed by your account.</p></div>
   </section>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="./app.js?v=20260729-22" type="module"></script>
-  <script src="./register-sw.js?v=20260729-22"></script>
+  <script src="./app.js?v=20260803-23" type="module"></script>
+  <script src="./register-sw.js?v=20260803-23"></script>
 </body>
 </html>

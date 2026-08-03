@@ -1,5 +1,5 @@
 import { supabase, requireSession } from "./supabase-client.js";
-import { buildProteinGuidance } from "./feedback-guidance.js?v=20260729-22";
+import { buildProteinGuidance } from "./feedback-guidance.js?v=20260803-23";
 
 const dietStyles = ["Mediterranean", "Low-carb", "Pescatarian", "DASH", "Vegetarian", "High-protein", "Flexible"];
 const $ = (selector) => document.querySelector(selector);
@@ -14,7 +14,7 @@ const entryCategories = [...mealLabels, "Hydration"];
 const query = new URLSearchParams(location.search);
 let pendingPlan = allowedPlans.has(query.get("plan")) ? query.get("plan") : null;
 const checkoutResult = query.get("checkout");
-const state = { diet: "", tone: "supportive", provider: "best_value", entries: [], photo: null, coachPhoto: null, restaurantLocation: null, coachMode: "dinner", calorieGoal: 2050, proteinGoal: 130, netCarbGoal: 0, fiberGoal: 30, waterGoal: 90, eatingStyles: [], goals: [], trackingDetail: "Moderate", uses: [], reminders: [], favoriteProteins: [], foodsLoved: "", foodsDisliked: "", foodsToAvoid: "", biggestChallenge: "", suggestedProteinTarget: 40, currentTotals: { calories: 0, protein: 0, carbs: 0, netCarbs: 0, fat: 0, fiber: 0, water: 0 } };
+const state = { diet: "", tone: "supportive", provider: "best_value", entries: [], photo: null, coachPhoto: null, restaurantLocation: null, coachMode: "dinner", membershipPlan: null, membershipStatus: null, calorieGoal: 2050, proteinGoal: 130, netCarbGoal: 0, fiberGoal: 30, waterGoal: 90, eatingStyles: [], goals: [], trackingDetail: "Moderate", uses: [], reminders: [], favoriteProteins: [], foodsLoved: "", foodsDisliked: "", foodsToAvoid: "", biggestChallenge: "", suggestedProteinTarget: 40, currentTotals: { calories: 0, protein: 0, carbs: 0, netCarbs: 0, fat: 0, fiber: 0, water: 0 } };
 const installDismissedKey = "mealdaddy-install-tip-dismissed";
 let deferredInstallPrompt = null;
 let latestReport = null;
@@ -130,6 +130,47 @@ function toast(message) {
   toast.timer = setTimeout(() => element.classList.remove("is-visible"), 3200);
 }
 
+function hasCurrentCoreMembership() {
+  return state.membershipPlan === "core" && ["trialing", "active", "past_due"].includes(state.membershipStatus);
+}
+
+async function readFunctionFailure(error) {
+  const response = error?.context;
+  let status = Number(response?.status || error?.status || 0);
+  let message = error?.message || "";
+  try {
+    if (response && typeof response.clone === "function") {
+      const body = await response.clone().json();
+      if (body?.error) message = body.error;
+      status ||= Number(body?.status || 0);
+    }
+  } catch {
+    // Some clients do not expose the Edge Function response body.
+  }
+  return { status, message };
+}
+
+function showEstimateMembershipPrompt(subject, action) {
+  $("#estimate-membership-title").textContent = `${subject} ${action}, but it has not been estimated yet.`;
+  $("#estimate-membership-copy").textContent = "AI nutrition estimates are included with Meal Daddy Core. Start your 7-day free trial to estimate this entry.";
+  $("#estimate-membership-prompt").hidden = false;
+  toast(`${subject} ${action}. Start the Core trial to add its nutrition estimate.`);
+}
+
+async function handleEstimateFailure(error, subject, action = "saved") {
+  const failure = await readFunctionFailure(error);
+  const membershipRequired = failure.status === 402 || /active Meal Daddy Core membership is required/i.test(failure.message);
+  if (membershipRequired || !hasCurrentCoreMembership()) {
+    showEstimateMembershipPrompt(subject, action);
+    return;
+  }
+  if (failure.status === 429 || /monthly Core AI allowance/i.test(failure.message)) {
+    toast(`${subject} ${action}. This month's Core AI allowance has been reached; the estimate remains pending.`);
+    return;
+  }
+  toast(`${subject} ${action}, but the nutrition estimate could not finish. Refresh to retry.`);
+}
+
 async function startCheckout(plan) {
   if (!allowedPlans.has(plan)) return;
   const buttons = document.querySelectorAll("[data-plan]");
@@ -222,6 +263,8 @@ async function loadMembership() {
     .eq("user_id", user.id)
     .maybeSingle();
   if (error) throw error;
+  state.membershipPlan = data?.plan_key || null;
+  state.membershipStatus = data?.status || null;
   if (!data) {
     $("#subscription").hidden = checkoutResult === "success";
     return;
@@ -234,6 +277,7 @@ async function loadMembership() {
   }
 
   const planName = data.plan_key === "byo" ? "Bring Your Own API" : "Meal Daddy Core";
+  $("#estimate-membership-prompt").hidden = true;
   $("#subscription").hidden = true;
   $("#plan-options").hidden = true;
   $("#trial-note").hidden = true;
@@ -872,9 +916,9 @@ $("#ledger-list").addEventListener("submit", async (event) => {
     toast(targetKind === "hydration" ? "Drink updated. Estimating its nutrition..." : "Meal updated. Recalculating nutrition...");
     const { error: estimateError } = await supabase.functions.invoke("estimate-entry", { body: { entryId: entry.id } });
     await loadLedger();
-    toast(estimateError
-      ? `${targetKind === "hydration" ? "Drink" : "Meal"} updated. Nutrition estimate is pending.`
-      : `${targetKind === "hydration" ? "Drink" : "Meal"} and nutrition estimate updated.`);
+    const subject = targetKind === "hydration" ? "Drink" : "Meal";
+    if (estimateError) await handleEstimateFailure(estimateError, subject, "updated");
+    else toast(`${subject} and nutrition estimate updated.`);
   } else if (targetKind === "hydration") {
     toast(`Hydration updated: ${ounces} fl oz.`);
   } else {
@@ -912,15 +956,18 @@ $("#entry-form").addEventListener("submit", async (event) => {
     toast(kind === "hydration" ? "Drink saved. Estimating its nutrition..." : "Meal saved. Estimating nutrition...");
     const { error: estimateError } = await supabase.functions.invoke("estimate-entry", { body: { entryId: savedEntry.id } });
     await loadLedger();
-    toast(estimateError
-      ? `${kind === "hydration" ? "Drink" : "Meal"} saved, but the estimate needs another try.`
-      : "Nutrition estimate ready.");
+    if (estimateError) await handleEstimateFailure(estimateError, kind === "hydration" ? "Drink" : "Meal");
+    else {
+      $("#estimate-membership-prompt").hidden = true;
+      toast("Nutrition estimate ready.");
+    }
   } else {
     toast("Saved to your private daily ledger.");
   }
 });
 
 async function estimatePendingEntries() {
+  if (!hasCurrentCoreMembership()) return;
   const pending = state.entries.filter((entry) =>
     (entry.kind === "meal" && entry.status === "pending_estimate") ||
     (entry.kind === "hydration" &&
