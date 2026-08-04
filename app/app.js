@@ -1,5 +1,5 @@
 import { supabase, requireSession } from "./supabase-client.js";
-import { buildProteinGuidance } from "./feedback-guidance.js?v=20260804-27";
+import { buildProteinGuidance } from "./feedback-guidance.js?v=20260804-28";
 
 const dietStyles = ["Mediterranean", "Low-carb", "Pescatarian", "DASH", "Vegetarian", "High-protein", "Flexible"];
 const $ = (selector) => document.querySelector(selector);
@@ -464,13 +464,40 @@ function buildMetricContributions(metric) {
           sum.secondary += Number(row.values.secondary || 0);
           return sum;
         }, { primary: 0, secondary: 0 });
-        if (componentTotals.primary > 0) {
+        if (metric === "carbs") {
+          const rawValues = rows.map((row) => ({
+            total: Math.max(0, Number(row.values.primary || 0)),
+            net: Math.max(0, Number(row.values.secondary || 0))
+          }));
+          const targetTotal = Math.max(0, Number(entryTotals.primary || 0));
+          const targetNet = Math.min(targetTotal, Math.max(0, Number(entryTotals.secondary || 0)));
+          const totalScale = componentTotals.primary > 0 ? targetTotal / componentTotals.primary : 0;
+          rows.forEach((row, index) => {
+            const raw = rawValues[index];
+            const netFraction = raw.total > 0 ? Math.min(1, raw.net / raw.total) : 0;
+            row.values.primary = raw.total * totalScale;
+            row.values.secondary = row.values.primary * netFraction;
+          });
+          const initialNet = rows.reduce((sum, row) => sum + Number(row.values.secondary || 0), 0);
+          if (initialNet > targetNet && initialNet > 0) {
+            const netScale = targetNet / initialNet;
+            rows.forEach((row) => { row.values.secondary *= netScale; });
+          } else if (initialNet < targetNet) {
+            const remainingNet = targetNet - initialNet;
+            const totalHeadroom = rows.reduce(
+              (sum, row) => sum + Math.max(0, row.values.primary - Number(row.values.secondary || 0)),
+              0
+            );
+            if (totalHeadroom > 0) {
+              rows.forEach((row) => {
+                const headroom = Math.max(0, row.values.primary - Number(row.values.secondary || 0));
+                row.values.secondary += remainingNet * (headroom / totalHeadroom);
+              });
+            }
+          }
+        } else if (componentTotals.primary > 0) {
           const primaryScale = entryTotals.primary / componentTotals.primary;
           rows.forEach((row) => { row.values.primary *= primaryScale; });
-        }
-        if (metric === "carbs" && componentTotals.secondary > 0) {
-          const secondaryScale = Number(entryTotals.secondary || 0) / componentTotals.secondary;
-          rows.forEach((row) => { row.values.secondary = Number(row.values.secondary || 0) * secondaryScale; });
         }
         return rows;
       }
