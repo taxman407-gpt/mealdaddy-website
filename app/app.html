@@ -7,7 +7,7 @@
   <meta name="robots" content="noindex" />
   <title>Today - MealDaddy</title>
   <link rel="manifest" href="./manifest.webmanifest" />
-  <link rel="stylesheet" href="./styles.css?v=20260803-23" />
+  <link rel="stylesheet" href="./styles.css?v=20260804-24" />
 </head>
 <body class="app-page auth-loading">
   <header class="app-header">
@@ -84,14 +84,28 @@
       <p class="privacy-line">Include drinks in the same description as your meal—Meal Daddy will count both their nutrition and hydration. Use Hydration only for standalone drinks. Entries are stored in your protected account.</p>
     </section>
     <section class="metric-grid" aria-label="Daily nutrition totals">
-      <article class="metric-card primary-metric"><span>Energy</span><strong id="energy-total">0</strong><small id="energy-goal-label">of 2,050 cal</small><progress id="energy-progress" value="0" max="2050"></progress></article>
-      <article class="metric-card"><span>Protein</span><strong id="protein-total">0g</strong><small id="protein-goal-label">of 130g</small><progress id="protein-progress" value="0" max="130"></progress></article>
-      <article class="metric-card"><span>Carbohydrates/Net Carbs</span><strong id="carbs-total">0g/0g</strong><small id="carbs-goal-label">estimated total/net</small></article>
-      <article class="metric-card"><span>Fat</span><strong id="fat-total">0g</strong><small>estimated total</small></article>
-      <article class="metric-card"><span>Fiber</span><strong id="fiber-total">0g</strong><small>of 30g</small><progress id="fiber-progress" value="0" max="30"></progress></article>
-      <article class="metric-card"><span>Hydration</span><strong id="water-total">0oz</strong><small>of 90oz</small><progress id="water-progress" value="0" max="90"></progress></article>
+      <button class="metric-card primary-metric" type="button" data-metric="calories" aria-haspopup="dialog" aria-controls="metric-breakdown"><span>Energy</span><strong id="energy-total">0</strong><small id="energy-goal-label">of 2,050 cal</small><span class="metric-detail-cue">View sources</span><progress id="energy-progress" value="0" max="2050"></progress></button>
+      <button class="metric-card" type="button" data-metric="protein" aria-haspopup="dialog" aria-controls="metric-breakdown"><span>Protein</span><strong id="protein-total">0g</strong><small id="protein-goal-label">of 130g</small><span class="metric-detail-cue">View sources</span><progress id="protein-progress" value="0" max="130"></progress></button>
+      <button class="metric-card" type="button" data-metric="carbs" aria-haspopup="dialog" aria-controls="metric-breakdown"><span>Carbohydrates/Net Carbs</span><strong id="carbs-total">0g/0g</strong><small id="carbs-goal-label">estimated total/net</small><span class="metric-detail-cue">View sources</span></button>
+      <button class="metric-card" type="button" data-metric="fat" aria-haspopup="dialog" aria-controls="metric-breakdown"><span>Fat</span><strong id="fat-total">0g</strong><small>estimated total</small><span class="metric-detail-cue">View sources</span></button>
+      <button class="metric-card" type="button" data-metric="fiber" aria-haspopup="dialog" aria-controls="metric-breakdown"><span>Fiber</span><strong id="fiber-total">0g</strong><small>of 30g</small><span class="metric-detail-cue">View sources</span><progress id="fiber-progress" value="0" max="30"></progress></button>
+      <button class="metric-card" type="button" data-metric="water" aria-haspopup="dialog" aria-controls="metric-breakdown"><span>Hydration</span><strong id="water-total">0oz</strong><small>of 90oz</small><span class="metric-detail-cue">View sources</span><progress id="water-progress" value="0" max="90"></progress></button>
     </section>
     <p class="estimate-note"><span aria-hidden="true">≈</span> Nutrition totals are estimates. Open an entry to review or correct its description.</p>
+    <section class="metric-breakdown" id="metric-breakdown" role="dialog" aria-modal="true" aria-labelledby="metric-breakdown-title" hidden>
+      <button class="metric-breakdown-backdrop" type="button" data-close-metric-breakdown aria-label="Close nutrition breakdown"></button>
+      <article class="metric-breakdown-panel" tabindex="-1">
+        <div class="metric-breakdown-handle" aria-hidden="true"></div>
+        <header>
+          <div><p class="eyebrow">Today’s estimated sources</p><h2 id="metric-breakdown-title">Nutrition breakdown</h2></div>
+          <button class="metric-breakdown-close" type="button" data-close-metric-breakdown aria-label="Close nutrition breakdown">×</button>
+        </header>
+        <p class="metric-breakdown-summary" id="metric-breakdown-summary"></p>
+        <ol class="metric-contribution-list" id="metric-contribution-list"></ol>
+        <aside class="metric-standout" id="metric-standout"><strong>Meal Daddy observation</strong><p id="metric-standout-copy"></p></aside>
+        <p class="metric-breakdown-note" id="metric-breakdown-note">Calculated in this browser from your saved estimates—no additional AI request. Values remain approximate.</p>
+      </article>
+    </section>
     <section class="dashboard-grid">
       <article class="ledger-card"><div class="section-title"><div><p class="eyebrow">Daily ledger</p><h2>Today's entries</h2></div><button class="text-button" id="refresh-ledger" type="button">Refresh</button></div><ul id="ledger-list" class="ledger-list"></ul></article>
       <aside class="coach-card" aria-live="polite">
@@ -181,7 +195,7 @@
     <div class="onboarding-panel"><div class="step-indicator"><span class="is-active"></span><span></span><span></span></div><p class="eyebrow">A few basics first</p><h1 id="onboarding-title">How do you like to eat?</h1><p>Choose the closest fit. You can adjust individual preferences anytime.</p><div class="choice-grid" id="diet-options"></div><label class="select-field">Coaching tone<select id="tone-options"><option value="supportive">Supportive</option><option value="direct">Direct</option><option value="data_focused">Data-focused</option><option value="playful">Playful</option></select></label><button class="button button-primary full-button" id="continue-onboarding" type="button" disabled>Save my starting plan</button><p class="privacy-line">These preferences are protected by row-level security and can only be accessed by your account.</p></div>
   </section>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="./app.js?v=20260803-23" type="module"></script>
-  <script src="./register-sw.js?v=20260803-23"></script>
+  <script src="./app.js?v=20260804-24" type="module"></script>
+  <script src="./register-sw.js?v=20260804-24"></script>
 </body>
 </html>

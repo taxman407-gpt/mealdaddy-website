@@ -1,5 +1,5 @@
 import { supabase, requireSession } from "./supabase-client.js";
-import { buildProteinGuidance } from "./feedback-guidance.js?v=20260803-23";
+import { buildProteinGuidance } from "./feedback-guidance.js?v=20260804-24";
 
 const dietStyles = ["Mediterranean", "Low-carb", "Pescatarian", "DASH", "Vegetarian", "High-protein", "Flexible"];
 const $ = (selector) => document.querySelector(selector);
@@ -359,6 +359,118 @@ function renderTotals() {
   renderCoachFeedback(totals);
 }
 
+const metricBreakdownDefinitions = {
+  calories: { title: "Energy", unit: "cal" },
+  protein: { title: "Protein", unit: "g" },
+  carbs: { title: "Carbohydrates / Net Carbs", unit: "g" },
+  fat: { title: "Fat", unit: "g" },
+  fiber: { title: "Fiber", unit: "g" },
+  water: { title: "Hydration", unit: "oz" }
+};
+
+function entryMetricValues(entry, metric) {
+  const nutrition = entry.nutrition_estimate || {};
+  if (metric === "calories") return { primary: Number(nutrition.calories || 0) };
+  if (metric === "protein") return { primary: Number(nutrition.protein_g || 0) };
+  if (metric === "carbs") {
+    return {
+      primary: Number(nutrition.carbs_g || 0),
+      secondary: typeof nutrition.net_carbs_g === "number"
+        ? Number(nutrition.net_carbs_g)
+        : Math.max(0, Number(nutrition.carbs_g || 0) - Number(nutrition.fiber_g || 0))
+    };
+  }
+  if (metric === "fat") return { primary: Number(nutrition.fat_g || 0) };
+  if (metric === "fiber") return { primary: Number(nutrition.fiber_g || 0) };
+  return { primary: entry.kind === "hydration" ? Number(nutrition.ounces || 0) : Number(nutrition.hydration_ounces || 0) };
+}
+
+function formatMetricContribution(metric, values) {
+  if (metric === "calories") return `${Math.round(values.primary).toLocaleString()} cal`;
+  if (metric === "carbs") return `${Math.round(values.primary)}g / ${Math.round(values.secondary || 0)}g net`;
+  return `${Math.round(values.primary)}${metricBreakdownDefinitions[metric].unit}`;
+}
+
+function contributionEntryLabel(entry) {
+  if (entry.kind === "hydration") return "Hydration";
+  return mealLabels.has(entry.meal_label) ? entry.meal_label : "Meal";
+}
+
+function metricStandoutObservation(metric, contributions, totals) {
+  if (!contributions.length) return "Log an entry with an estimate to see a useful observation here.";
+  const largest = contributions[0];
+  const largestName = largest.entry.description;
+  if (metric === "protein") {
+    const efficiencyCandidates = contributions.filter(({ entry, values }) => values.primary > 0 && Number(entry.nutrition_estimate?.calories || 0) > 0);
+    const efficient = efficiencyCandidates.sort((a, b) => {
+      const aDensity = a.values.primary / Number(a.entry.nutrition_estimate.calories);
+      const bDensity = b.values.primary / Number(b.entry.nutrition_estimate.calories);
+      return bDensity - aDensity;
+    })[0] || largest;
+    const calories = Number(efficient.entry.nutrition_estimate?.calories || 0);
+    const density = calories > 0 ? Math.round((efficient.values.primary / calories) * 100) : 0;
+    const carbContext = state.netCarbGoal
+      ? ` It also had about ${Math.round(entryMetricValues(efficient.entry, "carbs").secondary || 0)}g net carbs against your ${state.netCarbGoal}g daily ceiling.`
+      : "";
+    return `${largestName} contributed the most protein at about ${Math.round(largest.values.primary)}g. ${efficient.entry.description} was the most protein-efficient entry at roughly ${density}g per 100 calories.${carbContext}`;
+  }
+  if (metric === "carbs") {
+    const netTotal = Math.round(totals.secondary || 0);
+    const goalContext = state.netCarbGoal
+      ? ` Your estimated ${netTotal}g net total uses about ${Math.round((netTotal / state.netCarbGoal) * 100)}% of your ${state.netCarbGoal}g daily ceiling.`
+      : "";
+    return `${largestName} contributed the most carbohydrates: about ${Math.round(largest.values.primary)}g total and ${Math.round(largest.values.secondary || 0)}g net.${goalContext}`;
+  }
+  if (metric === "fiber") return `${largestName} was your strongest fiber contributor at about ${Math.round(largest.values.primary)}g.`;
+  if (metric === "water") return `${largestName} contributed the most logged hydration at about ${Math.round(largest.values.primary)} oz.`;
+  if (metric === "fat") return `${largestName} contributed the most fat at about ${Math.round(largest.values.primary)}g. Fat quality depends on the ingredients and preparation, so the total alone does not label it a good or bad choice.`;
+  return `${largestName} contributed the most energy at about ${Math.round(largest.values.primary).toLocaleString()} calories. Calories show quantity of energy—not nutrition quality by themselves.`;
+}
+
+let metricBreakdownReturnFocus = null;
+
+function openMetricBreakdown(metric, trigger) {
+  const definition = metricBreakdownDefinitions[metric];
+  if (!definition) return;
+  const contributions = state.entries
+    .filter((entry) => entry.status !== "pending_estimate")
+    .map((entry) => ({ entry, values: entryMetricValues(entry, metric) }))
+    .filter(({ values }) => values.primary > 0 || Number(values.secondary || 0) > 0)
+    .sort((a, b) => b.values.primary - a.values.primary);
+  const totals = contributions.reduce((sum, contribution) => ({
+    primary: sum.primary + contribution.values.primary,
+    secondary: sum.secondary + Number(contribution.values.secondary || 0)
+  }), { primary: 0, secondary: 0 });
+  const pendingCount = state.entries.filter((entry) => entry.status === "pending_estimate").length;
+  $("#metric-breakdown-title").textContent = definition.title;
+  $("#metric-breakdown-summary").textContent = contributions.length
+    ? `${formatMetricContribution(metric, totals)} across ${contributions.length} estimated ${contributions.length === 1 ? "entry" : "entries"}.${pendingCount ? ` ${pendingCount} pending ${pendingCount === 1 ? "estimate is" : "estimates are"} not included yet.` : ""}`
+    : `No estimated ${definition.title.toLowerCase()} sources are available yet.${pendingCount ? " A pending entry will appear after its estimate finishes." : ""}`;
+  $("#metric-contribution-list").innerHTML = contributions.length
+    ? contributions.map(({ entry, values }) => {
+      const share = totals.primary > 0 ? Math.min(100, Math.round((values.primary / totals.primary) * 100)) : 0;
+      return `<li>
+        <span class="metric-contribution-main"><strong>${escapeHtml(String(entry.description || "Entry"))}</strong><small>${escapeHtml(contributionEntryLabel(entry))} · ${share}% of this total</small></span>
+        <span class="metric-contribution-value">${escapeHtml(formatMetricContribution(metric, values))}</span>
+        <span class="metric-contribution-bar" aria-hidden="true"><span style="width:${share}%"></span></span>
+      </li>`;
+    }).join("")
+    : '<li class="metric-contribution-empty">Nothing to break down yet.</li>';
+  $("#metric-standout-copy").textContent = metricStandoutObservation(metric, contributions, totals);
+  metricBreakdownReturnFocus = trigger;
+  $("#metric-breakdown").hidden = false;
+  document.body.classList.add("modal-open");
+  $(".metric-breakdown-close").focus();
+}
+
+function closeMetricBreakdown() {
+  if ($("#metric-breakdown").hidden) return;
+  $("#metric-breakdown").hidden = true;
+  document.body.classList.remove("modal-open");
+  metricBreakdownReturnFocus?.focus();
+  metricBreakdownReturnFocus = null;
+}
+
 async function loadFeedback() {
   const { data, error } = await supabase
     .from("customer_feedback")
@@ -425,13 +537,85 @@ function renderCoachFeedback(providedTotals) {
   const fiberFocus = !basicsOnly || ["mediterranean", "dash", "vegetarian", "vegan", "reduce inflammation", "better blood sugar", "heart healthy"].some((value) => preferences.has(value));
   const hydrationFocus = !basicsOnly || totals.water > 0 || state.uses.includes("Hydration tracking") || state.reminders.includes("Water");
   const preferenceLabel = preferences.has("keto") ? "keto" : preferences.has("better blood sugar") && !preferences.has("low carb") ? "blood-sugar-aware" : "low-carb";
-  const supportiveOpeners = {
-    supportive: "You’re building awareness, and that matters.",
-    direct: "Here’s where today stands.",
-    data_focused: "Your daily totals are taking shape.",
-    playful: "You’re on the board—nice work."
+  const affirmationPools = {
+    supportive: [
+      "You’re paying attention, and that counts.",
+      "Small check-ins can make a real difference.",
+      "You’re giving yourself useful information.",
+      "A little consistency goes a long way.",
+      "You’re keeping your goals in view.",
+      "This is practical progress.",
+      "You’re learning what works for you.",
+      "Each honest entry adds clarity.",
+      "You’re building a clearer picture.",
+      "You’re making room for better choices.",
+      "Today’s effort is worth noticing.",
+      "You’re staying connected to your goals.",
+      "You’re taking this one choice at a time.",
+      "Your follow-through is taking shape.",
+      "You’re showing up for yourself today.",
+      "This check-in is a useful step."
+    ],
+    direct: [
+      "You’re keeping the day accountable.",
+      "The picture is getting clearer.",
+      "Today’s log gives you something to act on.",
+      "You’re staying on top of the details.",
+      "The numbers are ready to work for you.",
+      "You’ve made today visible.",
+      "This is information you can use.",
+      "You’re keeping your goals measurable.",
+      "Today’s choices are coming into focus.",
+      "You’re building a useful record.",
+      "The check-in is done; now use it.",
+      "You’re keeping momentum practical.",
+      "The log is doing its job.",
+      "You’ve got a clear read on today.",
+      "This is a solid point to adjust from.",
+      "You’re turning choices into usable data."
+    ],
+    data_focused: [
+      "Your daily picture is becoming more complete.",
+      "You’re building a useful baseline.",
+      "Today’s data is taking shape.",
+      "Each entry improves the pattern.",
+      "You’re adding useful context to the numbers.",
+      "Your trends start with check-ins like this.",
+      "The record is getting more informative.",
+      "You’re creating data you can learn from.",
+      "Today’s totals have useful context.",
+      "You’re making your progress measurable.",
+      "Another data point is in place.",
+      "Your choices are becoming easier to compare.",
+      "You’re building a clearer trend line.",
+      "The day is becoming easier to evaluate.",
+      "You’re capturing the details that matter.",
+      "This check-in strengthens the bigger picture."
+    ],
+    playful: [
+      "Nice—today’s picture is coming together.",
+      "You’ve put another useful clue on the board.",
+      "A small check-in, a clearer day.",
+      "The log is earning its keep.",
+      "You’re giving Future You something useful.",
+      "Another piece of the puzzle is in place.",
+      "You’ve got the day talking.",
+      "That’s one more menu mystery solved.",
+      "Your food story is getting clearer.",
+      "Tiny check-in, useful payoff.",
+      "The numbers have entered the chat.",
+      "You’ve kept the day from flying under the radar.",
+      "Another choice, now accounted for.",
+      "You’re making the invisible visible.",
+      "The dashboard has something useful to say.",
+      "You’ve added a little more clarity to the plate."
+    ]
   };
-  title.textContent = supportiveOpeners[state.tone] || supportiveOpeners.supportive;
+  const now = new Date();
+  const localDay = Math.floor(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) / 86400000);
+  const userOffset = [...user.id].reduce((sum, character) => sum + character.charCodeAt(0), 0);
+  const affirmations = affirmationPools[state.tone] || affirmationPools.supportive;
+  title.textContent = affirmations[(localDay + userOffset) % affirmations.length];
   const summaryMetrics = [
     `${Math.round(totals.calories).toLocaleString()} calories`,
     `${Math.round(totals.protein)}g protein`
@@ -982,6 +1166,12 @@ async function estimatePendingEntries() {
 }
 
 document.querySelectorAll("[data-plan]").forEach((button) => button.addEventListener("click", () => startCheckout(button.dataset.plan)));
+
+document.querySelectorAll("[data-metric]").forEach((button) => button.addEventListener("click", () => openMetricBreakdown(button.dataset.metric, button)));
+document.querySelectorAll("[data-close-metric-breakdown]").forEach((button) => button.addEventListener("click", closeMetricBreakdown));
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !$("#metric-breakdown").hidden) closeMetricBreakdown();
+});
 
 document.querySelectorAll('input[name="provider"]').forEach((input) => input.addEventListener("change", async (event) => {
   state.provider = event.target.value;
