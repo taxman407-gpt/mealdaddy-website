@@ -1,5 +1,5 @@
 import { supabase, requireSession } from "./supabase-client.js";
-import { buildProteinGuidance } from "./feedback-guidance.js?v=20260804-28";
+import { buildProteinGuidance } from "./feedback-guidance.js?v=20260804-29";
 
 const dietStyles = ["Mediterranean", "Low-carb", "Pescatarian", "DASH", "Vegetarian", "High-protein", "Flexible"];
 const $ = (selector) => document.querySelector(selector);
@@ -825,7 +825,6 @@ function renderCoachFeedback(providedTotals) {
 }
 
 const reportPeriods = {
-  daily: { label: "Daily", days: 1 },
   weekly: { label: "Weekly", days: 7 },
   monthly: { label: "Monthly", days: 30 },
   annual: { label: "Annual", days: 365 }
