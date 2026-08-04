@@ -1,5 +1,5 @@
 import { supabase, requireSession } from "./supabase-client.js";
-import { buildProteinGuidance } from "./feedback-guidance.js?v=20260804-24";
+import { buildProteinGuidance } from "./feedback-guidance.js?v=20260804-25";
 
 const dietStyles = ["Mediterranean", "Low-carb", "Pescatarian", "DASH", "Vegetarian", "High-protein", "Flexible"];
 const $ = (selector) => document.querySelector(selector);
@@ -396,10 +396,19 @@ function contributionEntryLabel(entry) {
   return mealLabels.has(entry.meal_label) ? entry.meal_label : "Meal";
 }
 
+function observationEntryName(entry) {
+  const label = contributionEntryLabel(entry);
+  const description = String(entry.description || "entry").replace(/\s+/g, " ").trim();
+  const shortened = description.length > 52
+    ? `${description.slice(0, 49).replace(/\s+\S*$/, "")}…`
+    : description;
+  return `${label} (“${shortened}”)`;
+}
+
 function metricStandoutObservation(metric, contributions, totals) {
   if (!contributions.length) return "Log an entry with an estimate to see a useful observation here.";
   const largest = contributions[0];
-  const largestName = largest.entry.description;
+  const largestName = observationEntryName(largest.entry);
   if (metric === "protein") {
     const efficiencyCandidates = contributions.filter(({ entry, values }) => values.primary > 0 && Number(entry.nutrition_estimate?.calories || 0) > 0);
     const efficient = efficiencyCandidates.sort((a, b) => {
@@ -412,7 +421,10 @@ function metricStandoutObservation(metric, contributions, totals) {
     const carbContext = state.netCarbGoal
       ? ` It also had about ${Math.round(entryMetricValues(efficient.entry, "carbs").secondary || 0)}g net carbs against your ${state.netCarbGoal}g daily ceiling.`
       : "";
-    return `${largestName} contributed the most protein at about ${Math.round(largest.values.primary)}g. ${efficient.entry.description} was the most protein-efficient entry at roughly ${density}g per 100 calories.${carbContext}`;
+    const efficiencyNote = efficient.entry.id === largest.entry.id
+      ? `It was also your most protein-efficient entry at roughly ${density}g per 100 calories.`
+      : `${observationEntryName(efficient.entry)} was the most protein-efficient entry at roughly ${density}g per 100 calories.`;
+    return `${largestName} contributed the most protein at about ${Math.round(largest.values.primary)}g. ${efficiencyNote}${carbContext}`;
   }
   if (metric === "carbs") {
     const netTotal = Math.round(totals.secondary || 0);
