@@ -274,6 +274,7 @@ async function loadInsights(action = "latest") {
   renderIndicators(data.indicators || {});
   renderAnalysis(data);
   $("#insights-content").hidden = false;
+  $("#family-access-section").hidden = false;
   setText(
     "#insights-status",
     action === "generate"
