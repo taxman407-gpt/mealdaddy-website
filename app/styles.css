@@ -251,6 +251,23 @@ h2 { font-size: clamp(1.65rem, 3vw, 2.6rem); line-height: 1.06; letter-spacing: 
 .insights-card-heading { display: flex; align-items: start; justify-content: space-between; gap: 20px; }
 .insights-card-heading h2 { margin-bottom: 0; font-size: 1.55rem; }
 .insights-card-heading > span { color: var(--muted); font-size: .75rem; font-weight: 760; }
+.family-access-card .insights-card-heading p:last-child { max-width: 660px; margin: 8px 0 0; color: var(--muted); font-size: .8rem; line-height: 1.5; }
+.family-access-form { display: grid; gap: 8px; margin-top: 22px; }
+.family-access-form > label { color: var(--muted); font-size: .72rem; font-weight: 800; }
+.family-access-form > div { display: grid; grid-template-columns: 1fr auto; gap: 9px; }
+.family-access-form input { min-width: 0; min-height: 48px; border: 1px solid var(--line); border-radius: 13px; padding: 0 14px; color: var(--ink); background: white; font: inherit; }
+.family-access-form input:focus { outline: 3px solid rgba(23,63,53,.12); border-color: var(--forest); }
+.family-access-form small { color: var(--muted); font-size: .7rem; line-height: 1.45; }
+.family-access-status { min-height: 1.3rem; margin: 12px 0 0; color: var(--forest); font-size: .76rem; font-weight: 760; }
+.family-access-list { display: grid; gap: 8px; margin-top: 14px; }
+.family-access-list article { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 12px; align-items: center; border-radius: 15px; padding: 13px; background: var(--soft); }
+.family-access-list article > div { display: grid; gap: 4px; min-width: 0; }
+.family-access-list strong { overflow-wrap: anywhere; font-size: .82rem; }
+.family-access-list article > div span { color: var(--muted); font-size: .68rem; }
+.family-access-list .button { min-height: 38px; padding: 8px 12px; font-size: .7rem; }
+.family-access-pill { border-radius: 999px; padding: 6px 9px; color: var(--forest); background: var(--lime); font-size: .66rem; font-weight: 830; }
+.family-access-pill.is-revoked { color: var(--muted); background: white; }
+.family-access-empty { margin: 0; border-radius: 14px; padding: 16px; color: var(--muted); background: var(--soft); font-size: .76rem; }
 .attitude-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 20px; }
 .attitude-grid article { border: 0; background: var(--soft); }
 .attitude-grid .trend-positive strong { color: #267349; }
@@ -340,7 +357,7 @@ h2 { font-size: clamp(1.65rem, 3vw, 2.6rem); line-height: 1.06; letter-spacing: 
   .coach-launcher { grid-template-columns: 1fr; }.coach-launcher .coach-action-form { grid-column: auto; }.tips-grid { grid-template-columns: repeat(2, 1fr); }.rating-card { grid-template-columns: 1fr; }.reports-heading, .report-output-heading { align-items: start; flex-direction: column; }.report-metrics { grid-template-columns: repeat(2, 1fr); }
   .metric-grid { grid-template-columns: repeat(2, 1fr); }.dashboard-grid { grid-template-columns: 1fr; }.bottom-nav { display: flex; }
   .settings-preview { grid-template-columns: 1fr; margin-inline: 16px; }.settings-preview > .privacy-line { grid-column: auto; }
-  .insights-shell { padding-top: 24px; }.insights-heading { align-items: start; flex-direction: column; }.insights-heading .button { width: 100%; }.insight-metrics { grid-template-columns: repeat(2, 1fr); }.summary-groups { grid-template-columns: 1fr; }.summary-actions { grid-column: auto; }
+  .insights-shell { padding-top: 24px; }.insights-heading { align-items: start; flex-direction: column; }.insights-heading .button { width: 100%; }.insight-metrics { grid-template-columns: repeat(2, 1fr); }.summary-groups { grid-template-columns: 1fr; }.summary-actions { grid-column: auto; }.family-access-form > div { grid-template-columns: 1fr; }.family-access-form .button { width: 100%; }.family-access-list article { grid-template-columns: 1fr auto; }.family-access-list article .button { grid-column: 1 / -1; width: 100%; }
   .account-shell { padding-top: 24px; }.account-detail-list { grid-template-columns: 1fr; }.account-detail-list > div { border-top: 1px solid var(--line); border-left: 0; }.account-detail-list > div:first-child { border-top: 0; }.export-options, .privacy-grid { grid-template-columns: 1fr; }
 }
 
@@ -349,7 +366,7 @@ h2 { font-size: clamp(1.65rem, 3vw, 2.6rem); line-height: 1.06; letter-spacing: 
   .metric-card { padding: 15px; }.metric-card strong { font-size: 1.4rem; }.metric-breakdown { place-items: end center; padding: 0; }.metric-breakdown-panel { width: 100%; max-height: 88vh; border-radius: 26px 26px 0 0; padding: 12px 18px calc(22px + env(safe-area-inset-bottom)); }.metric-breakdown-handle { display: block; width: 42px; height: 5px; margin: 0 auto 12px; border-radius: 99px; background: var(--line); }.metric-contribution-list li { padding: 13px; }.ledger-card, .coach-card { padding: 19px; }.ledger-item { grid-template-columns: 38px 1fr auto; }.ledger-edit-form { grid-column: 1 / -1; grid-template-columns: 1fr; }.ledger-edit-form > div { grid-column: auto; flex-wrap: wrap; }.ledger-edit-form .button-delete-entry { width: 100%; margin-left: 0; }.ledger-actions { align-self: start; }
   .choice-grid { grid-template-columns: 1fr; }.onboarding { padding: 10px; place-items: end center; }.onboarding-panel { max-height: 94vh; overflow-y: auto; border-radius: 26px 26px 16px 16px; }
   .insights-page .app-header .text-link { display: none; }.insight-metrics { grid-template-columns: 1fr 1fr; }.insight-metrics article { padding: 15px; }.insight-metrics strong { font-size: 1.4rem; }.attitude-grid { grid-template-columns: 1fr; }.rating-distribution > div { grid-template-columns: 52px 1fr 72px; gap: 8px; }.insights-card-heading { flex-direction: column; }.summary-meta { justify-items: start; }
-  .account-page .app-header .text-link { display: none; }.account-heading h1 { font-size: 2.7rem; }.account-card { border-radius: 21px; padding: 19px 16px; }.account-card-heading { align-items: start; }.account-card-heading h2 { font-size: 1.4rem; }.account-actions-row { display: grid; }.account-actions-row .button { width: 100%; }.privacy-icon, .danger-icon { width: 36px; height: 36px; border-radius: 12px; }.export-options article { padding: 15px; }
+  .account-page .app-header .text-link[href="./app.html"] { display: none; }.account-heading h1 { font-size: 2.7rem; }.account-card { border-radius: 21px; padding: 19px 16px; }.account-card-heading { align-items: start; }.account-card-heading h2 { font-size: 1.4rem; }.account-actions-row { display: grid; }.account-actions-row .button { width: 100%; }.privacy-icon, .danger-icon { width: 36px; height: 36px; border-radius: 12px; }.export-options article { padding: 15px; }
 }
 
 @media print {

@@ -7,13 +7,14 @@
   <meta name="robots" content="noindex, nofollow" />
   <title>Account & Privacy - MealDaddy</title>
   <link rel="manifest" href="./manifest.webmanifest" />
-  <link rel="stylesheet" href="./styles.css?v=20260729-22" />
+  <link rel="stylesheet" href="./styles.css?v=20260804-30" />
 </head>
 <body class="app-page auth-loading account-page">
   <header class="app-header">
     <a class="brand" href="./app.html"><span class="brand-mark">M</span><span>MealDaddy</span></a>
     <div class="account-actions">
       <a class="text-link" href="./app.html">Today</a>
+      <a class="text-link" id="owner-tools-link" href="./feedback-insights.html" hidden>Owner tools</a>
       <button class="text-button" id="sign-out" type="button">Sign out</button>
     </div>
   </header>
@@ -48,7 +49,7 @@
         <button class="button button-primary" id="manage-billing" type="button">Manage billing & invoices</button>
         <button class="button button-danger-outline" id="cancel-membership" type="button">Cancel membership</button>
       </div>
-      <p class="account-explainer">Cancellation opens a secure Stripe confirmation page. You do not have to email or call. Access continues through the current trial or paid period, and Stripe shows the exact end date before you confirm.</p>
+      <p class="account-explainer" id="membership-explainer">Cancellation opens a secure Stripe confirmation page. You do not have to email or call. Access continues through the current trial or paid period, and Stripe shows the exact end date before you confirm.</p>
       <p class="account-status" id="billing-message" role="status" aria-live="polite"></p>
     </section>
 
@@ -90,7 +91,7 @@
         <article><strong>Meal photos</strong><p>Uploaded privately only when you choose a photo. Processing photos are temporary and removed after the request; deletion also removes any remaining uploads.</p></article>
         <article><strong>AI processing</strong><p>Only the information needed for a meal estimate or requested guidance is sent to the approved AI service. Provider selection changes which AI service processes that request.</p></article>
         <article><strong>Location</strong><p>Restaurant Mode asks only when you tap the location control. Approximate location can inform that request and is not saved to your profile or ledger.</p></article>
-        <article><strong>Payments</strong><p>Stripe processes payment methods, subscription status, and invoices. Meal Daddy receives billing status and Stripe reference IDs, not your complete card number.</p></article>
+        <article><strong>Payments</strong><p>Stripe processes payment methods, subscription status, and invoices for paid memberships. Complimentary Family Access does not create a Stripe subscription. Meal Daddy never receives your complete card number.</p></article>
         <article><strong>Health context</strong><p>Optional nutrition and health preferences help personalize general wellness guidance. Meal Daddy is not medical care and does not diagnose or treat conditions.</p></article>
       </div>
       <p class="account-explainer"><strong>Launch note:</strong> this transparent product summary does not replace the formal Privacy Policy and Terms that should be reviewed and published before broad public launch.</p>
@@ -125,7 +126,7 @@
   </main>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="./account.js?v=20260729-22"></script>
-  <script src="./register-sw.js?v=20260729-22"></script>
+  <script type="module" src="./account.js?v=20260804-30"></script>
+  <script src="./register-sw.js?v=20260804-30"></script>
 </body>
 </html>

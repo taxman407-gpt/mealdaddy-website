@@ -7,7 +7,7 @@
   <meta name="robots" content="noindex, nofollow" />
   <title>Feedback insights - MealDaddy</title>
   <link rel="manifest" href="./manifest.webmanifest" />
-  <link rel="stylesheet" href="./styles.css?v=20260729-22" />
+  <link rel="stylesheet" href="./styles.css?v=20260804-30" />
 </head>
 <body class="app-page auth-loading insights-page">
   <header class="app-header">
@@ -29,6 +29,28 @@
     </section>
 
     <p class="insights-status" id="insights-status" role="status" aria-live="polite">Loading protected feedback indicators...</p>
+
+    <section class="insights-card family-access-card" id="family-access-section" aria-labelledby="family-access-title" hidden>
+      <div class="insights-card-heading">
+        <div>
+          <p class="eyebrow">Owner-managed membership</p>
+          <h2 id="family-access-title">Complimentary Family Access</h2>
+          <p>Grant Meal Daddy Core to an existing account without collecting payment information or creating a Stripe subscription.</p>
+        </div>
+        <span id="family-access-count">0 active</span>
+      </div>
+      <form class="family-access-form" id="family-access-form">
+        <label for="family-access-email">Family member’s login email</label>
+        <div>
+          <input id="family-access-email" type="email" autocomplete="off" required placeholder="family@example.com" />
+          <button class="button button-primary" id="grant-family-access" type="submit">Grant free access</button>
+        </div>
+        <small>The person must create their Meal Daddy account first. You need only their login email—never their password.</small>
+      </form>
+      <p class="family-access-status" id="family-access-status" role="status" aria-live="polite"></p>
+      <div class="family-access-list" id="family-access-list"></div>
+      <p class="insight-note">Complimentary members retain Meal Daddy Core’s normal AI-usage allowance. Revoking this access does not create or cancel a Stripe subscription.</p>
+    </section>
 
     <section id="insights-content" hidden>
       <div class="insight-metrics" aria-label="Feedback indicators">
@@ -90,7 +112,7 @@
       </details>
     </section>
   </main>
-  <script type="module" src="./feedback-insights.js?v=20260729-22"></script>
-  <script src="./register-sw.js?v=20260729-22"></script>
+  <script type="module" src="./feedback-insights.js?v=20260804-30"></script>
+  <script src="./register-sw.js?v=20260804-30"></script>
 </body>
 </html>

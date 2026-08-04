@@ -69,13 +69,45 @@ async function fetchAllRows(table, columns = "*", orderColumn = null) {
 }
 
 async function loadMembership() {
-  const { data, error } = await supabase
-    .from("subscriptions")
-    .select("plan_key,status,trial_ends_at,current_period_ends_at,cancel_at_period_end,updated_at")
-    .eq("user_id", user.id)
-    .maybeSingle();
-  if (error) throw error;
-  membership = data;
+  const [subscriptionResult, grantResult] = await Promise.all([
+    supabase
+      .from("subscriptions")
+      .select("plan_key,status,trial_ends_at,current_period_ends_at,cancel_at_period_end,updated_at")
+      .eq("user_id", user.id)
+      .maybeSingle(),
+    supabase
+      .from("complimentary_access_grants")
+      .select("access_type,status,granted_at,updated_at")
+      .eq("user_id", user.id)
+      .maybeSingle()
+  ]);
+  if (subscriptionResult.error) throw subscriptionResult.error;
+  if (grantResult.error) throw grantResult.error;
+  const data = subscriptionResult.data;
+  const currentStripeMembership = data && ["trialing", "active", "past_due", "unpaid"].includes(data.status);
+  const familyGrant = !currentStripeMembership &&
+    grantResult.data?.access_type === "family" &&
+    grantResult.data.status === "active"
+    ? grantResult.data
+    : null;
+  if (familyGrant) {
+    membership = {
+      plan_key: "core",
+      status: "active",
+      access_source: "family",
+      granted_at: familyGrant.granted_at,
+      updated_at: familyGrant.updated_at
+    };
+    $("#membership-title").textContent = "Complimentary Family Access";
+    $("#membership-copy").textContent = "Meal Daddy Core is available to this account without a monthly fee or payment method.";
+    $("#membership-status").textContent = "Complimentary";
+    $("#membership-status").classList.remove("is-warning", "is-muted");
+    $("#membership-date-row").hidden = true;
+    $("#billing-actions").hidden = true;
+    $("#membership-explainer").textContent = "This access was granted directly by Meal Daddy and does not create a Stripe subscription. The Meal Daddy owner can manage this complimentary access.";
+    return;
+  }
+  membership = data ? { ...data, access_source: "stripe" } : null;
 
   if (!data) {
     $("#membership-title").textContent = "No paid membership";
@@ -170,7 +202,9 @@ async function accountExport() {
       trial_ends_at: membership.trial_ends_at,
       current_period_ends_at: membership.current_period_ends_at,
       cancel_at_period_end: membership.cancel_at_period_end,
-      updated_at: membership.updated_at
+      updated_at: membership.updated_at,
+      access_source: membership.access_source,
+      granted_at: membership.granted_at || null
     } : null,
     ledger_entries: ledger,
     feedback: {
@@ -182,6 +216,13 @@ async function accountExport() {
       "Nutrition values are estimates, not laboratory measurements or medical advice."
     ]
   };
+}
+
+async function showOwnerToolsIfAuthorized() {
+  const { data, error } = await supabase.functions.invoke("manage-family-access", {
+    body: { action: "authorize" }
+  });
+  if (!error && data?.ok) $("#owner-tools-link").hidden = false;
 }
 
 function csvCell(value) {
@@ -329,3 +370,5 @@ try {
   $("#billing-actions").hidden = true;
   $("#billing-message").textContent = error.message || "Please refresh this page.";
 }
+
+showOwnerToolsIfAuthorized().catch(() => {});

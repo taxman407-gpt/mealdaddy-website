@@ -1,5 +1,5 @@
 import { supabase, requireSession } from "./supabase-client.js";
-import { buildProteinGuidance } from "./feedback-guidance.js?v=20260804-29";
+import { buildProteinGuidance } from "./feedback-guidance.js?v=20260804-30";
 
 const dietStyles = ["Mediterranean", "Low-carb", "Pescatarian", "DASH", "Vegetarian", "High-protein", "Flexible"];
 const $ = (selector) => document.querySelector(selector);
@@ -14,7 +14,7 @@ const entryCategories = [...mealLabels, "Hydration"];
 const query = new URLSearchParams(location.search);
 let pendingPlan = allowedPlans.has(query.get("plan")) ? query.get("plan") : null;
 const checkoutResult = query.get("checkout");
-const state = { diet: "", tone: "supportive", provider: "best_value", entries: [], photo: null, coachPhoto: null, restaurantLocation: null, coachMode: "dinner", membershipPlan: null, membershipStatus: null, calorieGoal: 2050, proteinGoal: 130, netCarbGoal: 0, fiberGoal: 30, waterGoal: 90, eatingStyles: [], goals: [], trackingDetail: "Moderate", uses: [], reminders: [], favoriteProteins: [], foodsLoved: "", foodsDisliked: "", foodsToAvoid: "", biggestChallenge: "", suggestedProteinTarget: 40, currentTotals: { calories: 0, protein: 0, carbs: 0, netCarbs: 0, fat: 0, fiber: 0, water: 0 } };
+const state = { diet: "", tone: "supportive", provider: "best_value", entries: [], photo: null, coachPhoto: null, restaurantLocation: null, coachMode: "dinner", membershipPlan: null, membershipStatus: null, membershipAccess: null, calorieGoal: 2050, proteinGoal: 130, netCarbGoal: 0, fiberGoal: 30, waterGoal: 90, eatingStyles: [], goals: [], trackingDetail: "Moderate", uses: [], reminders: [], favoriteProteins: [], foodsLoved: "", foodsDisliked: "", foodsToAvoid: "", biggestChallenge: "", suggestedProteinTarget: 40, currentTotals: { calories: 0, protein: 0, carbs: 0, netCarbs: 0, fat: 0, fiber: 0, water: 0 } };
 const installDismissedKey = "mealdaddy-install-tip-dismissed";
 let deferredInstallPrompt = null;
 let latestReport = null;
@@ -257,14 +257,42 @@ async function loadProfile() {
 }
 
 async function loadMembership() {
-  const { data, error } = await supabase
-    .from("subscriptions")
-    .select("plan_key,status,trial_ends_at,current_period_ends_at,cancel_at_period_end")
-    .eq("user_id", user.id)
-    .maybeSingle();
-  if (error) throw error;
+  const [subscriptionResult, grantResult] = await Promise.all([
+    supabase
+      .from("subscriptions")
+      .select("plan_key,status,trial_ends_at,current_period_ends_at,cancel_at_period_end")
+      .eq("user_id", user.id)
+      .maybeSingle(),
+    supabase
+      .from("complimentary_access_grants")
+      .select("access_type,status")
+      .eq("user_id", user.id)
+      .maybeSingle()
+  ]);
+  if (subscriptionResult.error) throw subscriptionResult.error;
+  if (grantResult.error) throw grantResult.error;
+  const data = subscriptionResult.data;
+  const currentStripeMembership = data && ["trialing", "active", "past_due", "unpaid"].includes(data.status);
+  const familyAccess = !currentStripeMembership &&
+    grantResult.data?.access_type === "family" &&
+    grantResult.data.status === "active";
+  if (familyAccess) {
+    state.membershipPlan = "core";
+    state.membershipStatus = "active";
+    state.membershipAccess = "family";
+    $("#estimate-membership-prompt").hidden = true;
+    $("#subscription").hidden = true;
+    $("#plan-options").hidden = true;
+    $("#trial-note").hidden = true;
+    $("#subscription-title").textContent = "Complimentary Family Access";
+    $("#subscription-copy").textContent = "Your Meal Daddy Core access is complimentary. No payment method or monthly fee is connected to this access.";
+    $("#billing-status").textContent = "Complimentary access active";
+    $("#provider-settings").hidden = true;
+    return;
+  }
   state.membershipPlan = data?.plan_key || null;
   state.membershipStatus = data?.status || null;
+  state.membershipAccess = data ? "stripe" : null;
   if (!data) {
     $("#subscription").hidden = checkoutResult === "success";
     return;
@@ -913,7 +941,12 @@ function renderReport(period, range, entries) {
 async function generateReport(period, button) {
   const range = reportRange(period);
   const buttons = $$("[data-report-period]");
-  buttons.forEach((item) => { item.disabled = true; item.classList.toggle("is-active", item === button); });
+  buttons.forEach((item) => {
+    const isActive = item === button;
+    item.disabled = true;
+    item.classList.toggle("is-active", isActive);
+    item.setAttribute("aria-pressed", String(isActive));
+  });
   $("#report-status").textContent = `Generating ${range.label.toLowerCase()} report...`;
   try {
     const entries = await loadReportEntries(range.start, range.end);
@@ -1386,6 +1419,8 @@ supabase.auth.onAuthStateChange((event) => { if (event === "SIGNED_OUT") locatio
 
 try {
   await Promise.all([loadProfile(), loadLedger(), loadMembership(), loadFeedback()]);
+  const weeklyReportButton = document.querySelector('[data-report-period="weekly"]');
+  await generateReport("weekly", weeklyReportButton);
   if (location.hash === "#onboarding") showOnboarding();
   if (checkoutResult === "success") {
     $("#billing-status").textContent = "Your checkout was completed. Membership status will update shortly.";

@@ -15,6 +15,99 @@ function setText(selector, value) {
   if (element) element.textContent = value;
 }
 
+async function functionPayloadError(error, fallback) {
+  try {
+    const response = error?.context;
+    if (response && typeof response.clone === "function") {
+      const payload = await response.clone().json();
+      if (payload?.error) return payload.error;
+    }
+  } catch {
+    // Use the safe fallback below.
+  }
+  return error?.message || fallback;
+}
+
+function familyAccessDate(value) {
+  if (!value) return "";
+  return new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(value));
+}
+
+function renderFamilyAccess(grants) {
+  const container = $("#family-access-list");
+  container.replaceChildren();
+  const activeCount = grants.filter((grant) => grant.status === "active").length;
+  setText("#family-access-count", `${activeCount} active`);
+  if (!grants.length) {
+    const empty = document.createElement("p");
+    empty.className = "family-access-empty";
+    empty.textContent = "No complimentary family accounts have been granted yet.";
+    container.append(empty);
+    return;
+  }
+  for (const grant of grants) {
+    const row = document.createElement("article");
+    const details = document.createElement("div");
+    const email = document.createElement("strong");
+    const meta = document.createElement("span");
+    const status = document.createElement("span");
+    const button = document.createElement("button");
+    email.textContent = grant.email || "Account unavailable";
+    meta.textContent = grant.status === "active"
+      ? `Granted ${familyAccessDate(grant.granted_at)}`
+      : `Revoked ${familyAccessDate(grant.revoked_at)}`;
+    status.textContent = grant.status === "active" ? "Complimentary" : "Revoked";
+    status.className = `family-access-pill ${grant.status === "active" ? "" : "is-revoked"}`;
+    button.type = "button";
+    button.className = grant.status === "active" ? "button button-danger-outline" : "button button-quiet";
+    button.textContent = grant.status === "active" ? "Revoke" : "Grant again";
+    button.addEventListener("click", () => updateFamilyAccess(
+      grant.status === "active" ? "revoke" : "grant",
+      grant.email,
+      grant.user_id,
+      button
+    ));
+    details.append(email, meta);
+    row.append(details, status, button);
+    container.append(row);
+  }
+}
+
+async function familyAccessRequest(action, payload = {}) {
+  const { data, error } = await supabase.functions.invoke("manage-family-access", {
+    body: { action, ...payload }
+  });
+  if (error || !data?.ok) {
+    throw new Error(await functionPayloadError(error, data?.error || "Family access could not be updated."));
+  }
+  return data;
+}
+
+async function loadFamilyAccess() {
+  const result = await familyAccessRequest("list");
+  $("#family-access-section").hidden = false;
+  renderFamilyAccess(Array.isArray(result.grants) ? result.grants : []);
+}
+
+async function updateFamilyAccess(action, email, userId, button) {
+  button.disabled = true;
+  setText(
+    "#family-access-status",
+    action === "grant" ? `Granting complimentary access to ${email}...` : `Revoking complimentary access for ${email}...`
+  );
+  try {
+    await familyAccessRequest(action, { email, userId });
+    setText(
+      "#family-access-status",
+      action === "grant" ? `Complimentary Family Access granted to ${email}.` : `Complimentary Family Access revoked for ${email}.`
+    );
+    await loadFamilyAccess();
+  } catch (error) {
+    setText("#family-access-status", error.message || "Family access could not be updated.");
+    button.disabled = false;
+  }
+}
+
 function formatAverage(value) {
   return Number(value) > 0 ? `${Number(value).toFixed(2)} / 5` : "—";
 }
@@ -196,6 +289,17 @@ $("#generate-summary").addEventListener("click", () => {
   });
 });
 
+$("#family-access-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const email = $("#family-access-email").value.trim().toLowerCase();
+  const button = $("#grant-family-access");
+  if (!email) return;
+  await updateFamilyAccess("grant", email, "", button);
+  if (!button.disabled) return;
+  $("#family-access-email").value = "";
+  button.disabled = false;
+});
+
 $("#sign-out").addEventListener("click", async () => {
   await supabase.auth.signOut();
   location.replace("./auth.html");
@@ -208,4 +312,8 @@ supabase.auth.onAuthStateChange((event) => {
 loadInsights().catch(() => {
   setText("#insights-status", "Feedback insights could not be loaded.");
   $("#generate-summary").disabled = false;
+});
+
+loadFamilyAccess().catch(async (error) => {
+  setText("#family-access-status", await functionPayloadError(error, "Family access management could not be loaded."));
 });
