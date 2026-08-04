@@ -1,5 +1,5 @@
 import { supabase, requireSession } from "./supabase-client.js";
-import { buildProteinGuidance } from "./feedback-guidance.js?v=20260804-25";
+import { buildProteinGuidance } from "./feedback-guidance.js?v=20260804-26";
 
 const dietStyles = ["Mediterranean", "Low-carb", "Pescatarian", "DASH", "Vegetarian", "High-protein", "Flexible"];
 const $ = (selector) => document.querySelector(selector);
@@ -368,8 +368,7 @@ const metricBreakdownDefinitions = {
   water: { title: "Hydration", unit: "oz" }
 };
 
-function entryMetricValues(entry, metric) {
-  const nutrition = entry.nutrition_estimate || {};
+function nutritionMetricValues(nutrition, metric, hydrationOunces = 0) {
   if (metric === "calories") return { primary: Number(nutrition.calories || 0) };
   if (metric === "protein") return { primary: Number(nutrition.protein_g || 0) };
   if (metric === "carbs") {
@@ -382,7 +381,13 @@ function entryMetricValues(entry, metric) {
   }
   if (metric === "fat") return { primary: Number(nutrition.fat_g || 0) };
   if (metric === "fiber") return { primary: Number(nutrition.fiber_g || 0) };
-  return { primary: entry.kind === "hydration" ? Number(nutrition.ounces || 0) : Number(nutrition.hydration_ounces || 0) };
+  return { primary: Number(hydrationOunces || nutrition.hydration_ounces || 0) };
+}
+
+function entryMetricValues(entry, metric) {
+  const nutrition = entry.nutrition_estimate || {};
+  const hydrationOunces = entry.kind === "hydration" ? Number(nutrition.ounces || 0) : Number(nutrition.hydration_ounces || 0);
+  return nutritionMetricValues(nutrition, metric, hydrationOunces);
 }
 
 function formatMetricContribution(metric, values) {
@@ -405,25 +410,102 @@ function observationEntryName(entry) {
   return `${label} (“${shortened}”)`;
 }
 
+function contributionName(contribution) {
+  return contribution.component?.name || observationEntryName(contribution.entry);
+}
+
+function contributionCalories(contribution) {
+  return Number(contribution.component?.calories ?? contribution.entry.nutrition_estimate?.calories ?? 0);
+}
+
+function contributionCarbValues(contribution) {
+  return contribution.component
+    ? nutritionMetricValues(contribution.component, "carbs")
+    : entryMetricValues(contribution.entry, "carbs");
+}
+
+function contributionKey(contribution) {
+  return contribution.component
+    ? `${contribution.entry.id}:${contribution.component.name}`
+    : contribution.entry.id;
+}
+
+function needsIngredientItemization(entry) {
+  const components = entry.nutrition_estimate?.components;
+  return entry.status === "estimated" &&
+    typeof entry.nutrition_estimate?.calories === "number" &&
+    (!Array.isArray(components) || components.length === 0);
+}
+
+function buildMetricContributions(metric) {
+  return state.entries
+    .filter((entry) => entry.status !== "pending_estimate")
+    .flatMap((entry) => {
+      const nutrition = entry.nutrition_estimate || {};
+      const components = Array.isArray(nutrition.components)
+        ? nutrition.components.filter((component) => component && typeof component.name === "string")
+        : [];
+      if (metric !== "calories" && components.length) {
+        return components.map((component) => ({
+          entry,
+          component,
+          displayName: component.name,
+          sourceLabel: contributionEntryLabel(entry),
+          values: nutritionMetricValues(component, metric)
+        }));
+      }
+      if (metric === "water" && entry.kind === "hydration" && !needsIngredientItemization(entry)) {
+        return [{
+          entry,
+          component: null,
+          displayName: String(entry.description || "Drink"),
+          sourceLabel: "Hydration",
+          values: entryMetricValues(entry, metric)
+        }];
+      }
+      if (metric !== "calories") return [];
+      return [{
+        entry,
+        component: null,
+        displayName: String(entry.description || "Entry"),
+        sourceLabel: contributionEntryLabel(entry),
+        values: entryMetricValues(entry, metric)
+      }];
+    })
+    .filter(({ values }) => values.primary > 0 || Number(values.secondary || 0) > 0)
+    .sort((a, b) => b.values.primary - a.values.primary);
+}
+
+function dailyMetricTotals(metric) {
+  return state.entries
+    .filter((entry) => entry.status !== "pending_estimate")
+    .reduce((sum, entry) => {
+      const values = entryMetricValues(entry, metric);
+      sum.primary += values.primary;
+      sum.secondary += Number(values.secondary || 0);
+      return sum;
+    }, { primary: 0, secondary: 0 });
+}
+
 function metricStandoutObservation(metric, contributions, totals) {
   if (!contributions.length) return "Log an entry with an estimate to see a useful observation here.";
   const largest = contributions[0];
-  const largestName = observationEntryName(largest.entry);
+  const largestName = contributionName(largest);
   if (metric === "protein") {
-    const efficiencyCandidates = contributions.filter(({ entry, values }) => values.primary > 0 && Number(entry.nutrition_estimate?.calories || 0) > 0);
+    const efficiencyCandidates = contributions.filter((contribution) => contribution.values.primary > 0 && contributionCalories(contribution) > 0);
     const efficient = efficiencyCandidates.sort((a, b) => {
-      const aDensity = a.values.primary / Number(a.entry.nutrition_estimate.calories);
-      const bDensity = b.values.primary / Number(b.entry.nutrition_estimate.calories);
+      const aDensity = a.values.primary / contributionCalories(a);
+      const bDensity = b.values.primary / contributionCalories(b);
       return bDensity - aDensity;
     })[0] || largest;
-    const calories = Number(efficient.entry.nutrition_estimate?.calories || 0);
+    const calories = contributionCalories(efficient);
     const density = calories > 0 ? Math.round((efficient.values.primary / calories) * 100) : 0;
     const carbContext = state.netCarbGoal
-      ? ` It also had about ${Math.round(entryMetricValues(efficient.entry, "carbs").secondary || 0)}g net carbs against your ${state.netCarbGoal}g daily ceiling.`
+      ? ` It also had about ${Math.round(contributionCarbValues(efficient).secondary || 0)}g net carbs against your ${state.netCarbGoal}g daily ceiling.`
       : "";
-    const efficiencyNote = efficient.entry.id === largest.entry.id
+    const efficiencyNote = contributionKey(efficient) === contributionKey(largest)
       ? `It was also your most protein-efficient entry at roughly ${density}g per 100 calories.`
-      : `${observationEntryName(efficient.entry)} was the most protein-efficient entry at roughly ${density}g per 100 calories.`;
+      : `${contributionName(efficient)} was the most protein-efficient source at roughly ${density}g per 100 calories.`;
     return `${largestName} contributed the most protein at about ${Math.round(largest.values.primary)}g. ${efficiencyNote}${carbContext}`;
   }
   if (metric === "carbs") {
@@ -440,35 +522,48 @@ function metricStandoutObservation(metric, contributions, totals) {
 }
 
 let metricBreakdownReturnFocus = null;
+let metricBreakdownCurrentMetric = null;
+let ingredientItemizationFailed = false;
 
-function openMetricBreakdown(metric, trigger) {
+function renderMetricBreakdown(metric) {
   const definition = metricBreakdownDefinitions[metric];
   if (!definition) return;
-  const contributions = state.entries
-    .filter((entry) => entry.status !== "pending_estimate")
-    .map((entry) => ({ entry, values: entryMetricValues(entry, metric) }))
-    .filter(({ values }) => values.primary > 0 || Number(values.secondary || 0) > 0)
-    .sort((a, b) => b.values.primary - a.values.primary);
-  const totals = contributions.reduce((sum, contribution) => ({
-    primary: sum.primary + contribution.values.primary,
-    secondary: sum.secondary + Number(contribution.values.secondary || 0)
-  }), { primary: 0, secondary: 0 });
+  const contributions = buildMetricContributions(metric);
+  const totals = dailyMetricTotals(metric);
   const pendingCount = state.entries.filter((entry) => entry.status === "pending_estimate").length;
+  const unitemizedCount = metric === "calories" ? 0 : state.entries.filter(needsIngredientItemization).length;
   $("#metric-breakdown-title").textContent = definition.title;
-  $("#metric-breakdown-summary").textContent = contributions.length
-    ? `${formatMetricContribution(metric, totals)} across ${contributions.length} estimated ${contributions.length === 1 ? "entry" : "entries"}.${pendingCount ? ` ${pendingCount} pending ${pendingCount === 1 ? "estimate is" : "estimates are"} not included yet.` : ""}`
-    : `No estimated ${definition.title.toLowerCase()} sources are available yet.${pendingCount ? " A pending entry will appear after its estimate finishes." : ""}`;
+  const detailStatus = [
+    pendingCount ? `${pendingCount} pending ${pendingCount === 1 ? "estimate is" : "estimates are"} not included yet.` : "",
+    unitemizedCount
+      ? ingredientItemizationFailed
+        ? `Ingredient detail could not be added yet for ${unitemizedCount} older ${unitemizedCount === 1 ? "entry" : "entries"}.`
+        : `Ingredient detail is being added for ${unitemizedCount} older ${unitemizedCount === 1 ? "entry" : "entries"}.`
+      : ""
+  ].filter(Boolean).join(" ");
+  $("#metric-breakdown-summary").textContent = totals.primary > 0 || totals.secondary > 0
+    ? metric === "calories"
+      ? `${formatMetricContribution(metric, totals)} across ${contributions.length} estimated ${contributions.length === 1 ? "entry" : "entries"}.${detailStatus ? ` ${detailStatus}` : ""}`
+      : `${formatMetricContribution(metric, totals)} estimated daily total. Ingredient sources are itemized below.${detailStatus ? ` ${detailStatus}` : ""}`
+    : `No estimated ${definition.title.toLowerCase()} sources are available yet.${detailStatus ? ` ${detailStatus}` : ""}`;
   $("#metric-contribution-list").innerHTML = contributions.length
-    ? contributions.map(({ entry, values }) => {
+    ? contributions.map(({ displayName, sourceLabel, values }) => {
       const share = totals.primary > 0 ? Math.min(100, Math.round((values.primary / totals.primary) * 100)) : 0;
       return `<li>
-        <span class="metric-contribution-main"><strong>${escapeHtml(String(entry.description || "Entry"))}</strong><small>${escapeHtml(contributionEntryLabel(entry))} · ${share}% of this total</small></span>
+        <span class="metric-contribution-main"><strong>${escapeHtml(displayName)}</strong><small>${escapeHtml(sourceLabel)} · ${share}% of this total</small></span>
         <span class="metric-contribution-value">${escapeHtml(formatMetricContribution(metric, values))}</span>
         <span class="metric-contribution-bar" aria-hidden="true"><span style="width:${share}%"></span></span>
       </li>`;
     }).join("")
-    : '<li class="metric-contribution-empty">Nothing to break down yet.</li>';
-  $("#metric-standout-copy").textContent = metricStandoutObservation(metric, contributions, totals);
+    : `<li class="metric-contribution-empty">${unitemizedCount ? "Adding ingredient details…" : "Nothing to break down yet."}</li>`;
+  $("#metric-standout").hidden = !contributions.length;
+  if (contributions.length) $("#metric-standout-copy").textContent = metricStandoutObservation(metric, contributions, totals);
+}
+
+function openMetricBreakdown(metric, trigger) {
+  if (!metricBreakdownDefinitions[metric]) return;
+  metricBreakdownCurrentMetric = metric;
+  renderMetricBreakdown(metric);
   metricBreakdownReturnFocus = trigger;
   $("#metric-breakdown").hidden = false;
   document.body.classList.add("modal-open");
@@ -481,6 +576,7 @@ function closeMetricBreakdown() {
   document.body.classList.remove("modal-open");
   metricBreakdownReturnFocus?.focus();
   metricBreakdownReturnFocus = null;
+  metricBreakdownCurrentMetric = null;
 }
 
 async function loadFeedback() {
@@ -1177,6 +1273,25 @@ async function estimatePendingEntries() {
   if (pending.length) await loadLedger();
 }
 
+async function itemizeCurrentEntries() {
+  if (!hasCurrentCoreMembership()) return;
+  const missing = state.entries.filter(needsIngredientItemization).slice(0, 6);
+  if (!missing.length) return;
+  ingredientItemizationFailed = false;
+  if (metricBreakdownCurrentMetric) renderMetricBreakdown(metricBreakdownCurrentMetric);
+  for (const entry of missing) {
+    const { error } = await supabase.functions.invoke("estimate-entry", {
+      body: { entryId: entry.id, itemizeExisting: true }
+    });
+    if (error) {
+      ingredientItemizationFailed = true;
+      break;
+    }
+  }
+  await loadLedger();
+  if (metricBreakdownCurrentMetric) renderMetricBreakdown(metricBreakdownCurrentMetric);
+}
+
 document.querySelectorAll("[data-plan]").forEach((button) => button.addEventListener("click", () => startCheckout(button.dataset.plan)));
 
 document.querySelectorAll("[data-metric]").forEach((button) => button.addEventListener("click", () => openMetricBreakdown(button.dataset.metric, button)));
@@ -1239,4 +1354,5 @@ try {
   }
   if (pendingPlan && $("#onboarding").hidden) await startCheckout(pendingPlan);
   await estimatePendingEntries();
+  void itemizeCurrentEntries();
 } catch (error) { toast(error.message); }
