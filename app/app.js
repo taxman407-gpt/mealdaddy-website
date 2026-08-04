@@ -1,5 +1,5 @@
 import { supabase, requireSession } from "./supabase-client.js";
-import { buildProteinGuidance } from "./feedback-guidance.js?v=20260804-26";
+import { buildProteinGuidance } from "./feedback-guidance.js?v=20260804-27";
 
 const dietStyles = ["Mediterranean", "Low-carb", "Pescatarian", "DASH", "Vegetarian", "High-protein", "Flexible"];
 const $ = (selector) => document.querySelector(selector);
@@ -390,10 +390,15 @@ function entryMetricValues(entry, metric) {
   return nutritionMetricValues(nutrition, metric, hydrationOunces);
 }
 
+function formatEstimateNumber(value) {
+  const rounded = Math.round(Number(value || 0) * 10) / 10;
+  return Number.isInteger(rounded) ? rounded.toLocaleString() : rounded.toFixed(1);
+}
+
 function formatMetricContribution(metric, values) {
   if (metric === "calories") return `${Math.round(values.primary).toLocaleString()} cal`;
-  if (metric === "carbs") return `${Math.round(values.primary)}g / ${Math.round(values.secondary || 0)}g net`;
-  return `${Math.round(values.primary)}${metricBreakdownDefinitions[metric].unit}`;
+  if (metric === "carbs") return `${formatEstimateNumber(values.primary)}g / ${formatEstimateNumber(values.secondary)}g net`;
+  return `${formatEstimateNumber(values.primary)}${metricBreakdownDefinitions[metric].unit}`;
 }
 
 function contributionEntryLabel(entry) {
@@ -446,13 +451,28 @@ function buildMetricContributions(metric) {
         ? nutrition.components.filter((component) => component && typeof component.name === "string")
         : [];
       if (metric !== "calories" && components.length) {
-        return components.map((component) => ({
+        const rows = components.map((component) => ({
           entry,
           component,
           displayName: component.name,
           sourceLabel: contributionEntryLabel(entry),
           values: nutritionMetricValues(component, metric)
         }));
+        const entryTotals = entryMetricValues(entry, metric);
+        const componentTotals = rows.reduce((sum, row) => {
+          sum.primary += row.values.primary;
+          sum.secondary += Number(row.values.secondary || 0);
+          return sum;
+        }, { primary: 0, secondary: 0 });
+        if (componentTotals.primary > 0) {
+          const primaryScale = entryTotals.primary / componentTotals.primary;
+          rows.forEach((row) => { row.values.primary *= primaryScale; });
+        }
+        if (metric === "carbs" && componentTotals.secondary > 0) {
+          const secondaryScale = Number(entryTotals.secondary || 0) / componentTotals.secondary;
+          rows.forEach((row) => { row.values.secondary = Number(row.values.secondary || 0) * secondaryScale; });
+        }
+        return rows;
       }
       if (metric === "water" && entry.kind === "hydration" && !needsIngredientItemization(entry)) {
         return [{

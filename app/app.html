@@ -7,7 +7,7 @@
   <meta name="robots" content="noindex" />
   <title>Today - MealDaddy</title>
   <link rel="manifest" href="./manifest.webmanifest" />
-  <link rel="stylesheet" href="./styles.css?v=20260804-26" />
+  <link rel="stylesheet" href="./styles.css?v=20260804-27" />
 </head>
 <body class="app-page auth-loading">
   <header class="app-header">
@@ -103,7 +103,7 @@
         <p class="metric-breakdown-summary" id="metric-breakdown-summary"></p>
         <ol class="metric-contribution-list" id="metric-contribution-list"></ol>
         <aside class="metric-standout" id="metric-standout"><strong>Meal Daddy observation</strong><p id="metric-standout-copy"></p></aside>
-        <p class="metric-breakdown-note" id="metric-breakdown-note">Once ingredient details are saved, opening this panel is calculated in your browser without another AI request. Itemized values remain approximate and may differ slightly from the rounded total.</p>
+        <p class="metric-breakdown-note" id="metric-breakdown-note">Once ingredient details are saved, opening this panel is calculated in your browser without another AI request. Itemized values are normalized to the saved meal total and remain approximate.</p>
       </article>
     </section>
     <section class="dashboard-grid">
@@ -195,7 +195,7 @@
     <div class="onboarding-panel"><div class="step-indicator"><span class="is-active"></span><span></span><span></span></div><p class="eyebrow">A few basics first</p><h1 id="onboarding-title">How do you like to eat?</h1><p>Choose the closest fit. You can adjust individual preferences anytime.</p><div class="choice-grid" id="diet-options"></div><label class="select-field">Coaching tone<select id="tone-options"><option value="supportive">Supportive</option><option value="direct">Direct</option><option value="data_focused">Data-focused</option><option value="playful">Playful</option></select></label><button class="button button-primary full-button" id="continue-onboarding" type="button" disabled>Save my starting plan</button><p class="privacy-line">These preferences are protected by row-level security and can only be accessed by your account.</p></div>
   </section>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="./app.js?v=20260804-26" type="module"></script>
-  <script src="./register-sw.js?v=20260804-26"></script>
+  <script src="./app.js?v=20260804-27" type="module"></script>
+  <script src="./register-sw.js?v=20260804-27"></script>
 </body>
 </html>
