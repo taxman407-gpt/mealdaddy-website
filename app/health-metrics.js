@@ -75,10 +75,10 @@ export function suggestedStartingTargets(answers = {}) {
 
   let calories = 2050;
   let calorieBasis = "general starting point";
-  if (weightKg && heightCm && age && age >= 18 && (sex === "Male" || sex === "Female")) {
+  if (weightKg && heightCm && age && age >= 18 && (sex === "Male" || sex === "Female") && activityFactors[answers.activity_level]) {
     const sexAdjustment = sex === "Male" ? 5 : -161;
     const restingEstimate = (10 * weightKg) + (6.25 * heightCm) - (5 * age) + sexAdjustment;
-    let calorieEstimate = restingEstimate * (activityFactors[answers.activity_level] || 1.35);
+    let calorieEstimate = restingEstimate * activityFactors[answers.activity_level];
     const losing = goals.includes("Lose Weight");
     const gaining = goals.includes("Gain Muscle");
     if (losing && !gaining) calorieEstimate -= 300;
@@ -119,4 +119,3 @@ export function formatWeightChange(valueKg, unitSystem = "us") {
   const sign = Number(valueKg) > 0 ? "+" : Number(valueKg) < 0 ? "−" : "";
   return `${sign}${value.toFixed(1).replace(/\.0$/, "")} ${weightUnit(unitSystem)}`;
 }
-

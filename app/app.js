@@ -1,6 +1,6 @@
 import { supabase, requireSession } from "./supabase-client.js";
-import { buildProteinGuidance } from "./feedback-guidance.js?v=20260806-1";
-import { estimatedAdultBmi, formatWeight, formatWeightChange, normalizeUnitSystem, parseHeightCm, weightToKg } from "./health-metrics.js?v=20260806-1";
+import { buildProteinGuidance } from "./feedback-guidance.js?v=20260806-2";
+import { estimatedAdultBmi, formatWeight, formatWeightChange, normalizeUnitSystem, parseHeightCm, weightToKg } from "./health-metrics.js?v=20260806-2";
 
 const dietStyles = ["Mediterranean", "Low-carb", "Pescatarian", "DASH", "Vegetarian", "High-protein", "Flexible"];
 const $ = (selector) => document.querySelector(selector);
