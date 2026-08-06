@@ -1,4 +1,5 @@
 import { supabase, requireSession } from "./supabase-client.js";
+import { normalizeUnitSystem, suggestedStartingTargets, weightToKg, weightUnit } from "./health-metrics.js?v=20260806-1";
 
 const session = await requireSession();
 if (!session) throw new Error("Authentication required");
@@ -10,7 +11,8 @@ const selectedPlan = params.get("plan") === "core" ? "core" : "";
 const choices = {
   goals: ["Lose Weight", "Maintain Weight", "Gain Muscle", "Eat Healthier", "Reduce Inflammation", "Better Blood Sugar", "Heart Healthy", "Meal Planning", "Other"],
   sex: ["Male", "Female", "Prefer not to say"],
-  calorieKnowledge: ["Yes", "No", "Help me determine it"],
+  units: ["US", "Metric"],
+  activity: ["Mostly seated", "Lightly active", "Active", "Very active"],
   eatingStyles: ["Mediterranean", "DASH", "Low Carb", "Keto", "Vegetarian", "Vegan", "High Protein", "Paleo", "Gluten Free", "None"],
   proteins: ["Chicken", "Beef", "Pork", "Fish", "Seafood", "Eggs", "Turkey", "Beans", "Tofu"],
   cuisines: ["Mexican", "Italian", "Asian", "Mediterranean", "BBQ", "Indian", "American", "Other"],
@@ -26,17 +28,19 @@ const choices = {
 };
 
 const steps = [
-  { title: "About you", intro: "The basics help Meal Daddy personalize targets.", fields: [
+  { title: "About you", intro: "The basics help Meal Daddy personalize targets. Optional measurements can be added later.", fields: [
     ["name", "What should I call you?", "text", "First name or nickname", true],
     ["primary_goals", "What are your primary goals?", "multi", choices.goals, true],
     ["age", "Age", "number", "Optional"], ["biological_sex", "Biological sex", "single", choices.sex],
-    ["height", "Height", "text", "e.g. 5 ft 10 in"], ["current_weight", "Current weight", "number", "lb"], ["goal_weight", "Goal weight", "number", "Optional"]
+    ["unit_system", "Preferred measurement units", "single", choices.units],
+    ["height", "Height", "text", "e.g. 5 ft 10 in or 178 cm"], ["current_weight", "Current weight", "number", "Optional"], ["goal_weight", "Goal weight", "number", "Optional"],
+    ["activity_level", "Usual activity level", "single", choices.activity], ["track_bmi", "Show an estimated adult BMI?", "single", choices.yesNo]
   ]},
-  { title: "Nutrition", intro: "Set your own targets. Meal Daddy will use them as daily guardrails, and you can change them anytime.", fields: [
-    ["calorie_goal_known", "Do you know your calorie goal?", "single", choices.calorieKnowledge],
-    ["calorie_goal", "Calories per day", "number", "Optional"], ["protein_goal", "Protein goal (grams)", "number", "Optional"],
+  { title: "Nutrition", intro: "Enter your own targets or use the starting estimates shown beside them. Nothing here requires an AI request.", fields: [
+    ["calorie_goal", "Calories per day", "target", "Optional"], ["protein_goal", "Protein goal", "target", "Optional"],
     ["eating_styles", "Preferred eating style", "multi", choices.eatingStyles],
-    ["net_carb_goal", "Your daily net-carb ceiling (grams)", "number", "Optional — enter your own; for example, 40 for low carb or 25 for keto"]
+    ["net_carb_goal", "Daily net-carb ceiling", "target", "Optional"],
+    ["fiber_goal", "Daily fiber target", "target", "Optional"], ["water_goal", "Daily hydration target", "target", "Optional"]
   ]},
   { title: "Health", intro: "All health questions are optional.", fields: [
     ["foods_to_avoid", "Foods you must avoid", "textarea", "Allergies, intolerances, religious needs, or personal choices"],
@@ -69,7 +73,7 @@ const steps = [
 let currentStep = 0;
 let answers = JSON.parse(sessionStorage.getItem("mealdaddy-onboarding") || "{}");
 
-function normalizeGoalAnswers() {
+function normalizeAnswers() {
   if (answers.primary_goal && !(answers.primary_goals || []).length) {
     answers.primary_goals = [answers.primary_goal];
     delete answers.primary_goal;
@@ -79,8 +83,10 @@ function normalizeGoalAnswers() {
     if (eatingStyles.includes("Keto")) answers.net_carb_goal = "25";
     else if (eatingStyles.includes("Low Carb")) answers.net_carb_goal = "40";
   }
+  if (!answers.unit_system) answers.unit_system = "US";
+  if (!answers.track_bmi) answers.track_bmi = "No";
 }
-normalizeGoalAnswers();
+normalizeAnswers();
 
 document.body.classList.remove("auth-loading");
 
@@ -91,6 +97,10 @@ function escapeHtml(value = "") {
 function fieldHtml([name, label, type, options, required]) {
   const value = answers[name] ?? (type === "multi" ? [] : "");
   const requiredMark = required ? '<span class="required-mark">Required</span>' : '<span class="optional-mark">Optional</span>';
+  if (type === "target") {
+    const suggestion = suggestedStartingTargets(answers)[name];
+    return `<div class="setup-target-card"><label class="setup-field"><span>${escapeHtml(label)} ${requiredMark}</span><input name="${name}" type="number" value="${escapeHtml(value)}" placeholder="Enter your own" inputmode="decimal"></label><aside><span>Meal Daddy ${escapeHtml(suggestion.basis)}</span><strong>${escapeHtml(suggestion.value)} ${escapeHtml(suggestion.unit)}</strong><button type="button" data-use-target="${name}" data-target-value="${escapeHtml(suggestion.value)}">Use ${escapeHtml(suggestion.value)} as my starting point</button></aside></div>`;
+  }
   if (type === "single" || type === "multi") {
     return `<fieldset class="setup-field"><legend>${escapeHtml(label)} ${required ? requiredMark : ""}</legend><div class="setup-choices">${options.map((option) => {
       const checked = type === "multi" ? value.includes(option) : value === option;
@@ -98,7 +108,8 @@ function fieldHtml([name, label, type, options, required]) {
     }).join("")}</div></fieldset>`;
   }
   if (type === "textarea") return `<label class="setup-field"><span>${escapeHtml(label)} ${required ? requiredMark : requiredMark.replace("Required", "Optional")}</span><textarea name="${name}" rows="3" placeholder="${escapeHtml(options)}">${escapeHtml(value)}</textarea></label>`;
-  return `<label class="setup-field"><span>${escapeHtml(label)} ${required ? requiredMark : requiredMark.replace("Required", "Optional")}</span><input name="${name}" type="${type}" value="${escapeHtml(value)}" placeholder="${escapeHtml(options)}" ${type === "number" ? 'inputmode="decimal"' : ""}></label>`;
+  const unitLabel = name === "current_weight" || name === "goal_weight" ? ` (${weightUnit(normalizeUnitSystem(answers.unit_system))})` : "";
+  return `<label class="setup-field"><span>${escapeHtml(label)}${escapeHtml(unitLabel)} ${required ? requiredMark : requiredMark.replace("Required", "Optional")}</span><input name="${name}" type="${type}" value="${escapeHtml(value)}" placeholder="${escapeHtml(options)}" ${type === "number" ? 'inputmode="decimal"' : ""}></label>`;
 }
 
 function collectVisibleAnswers() {
@@ -112,8 +123,9 @@ function collectVisibleAnswers() {
 
 function renderSummary() {
   const rows = [
-    ["Goals", (answers.primary_goals || []).join(", ")], ["Calories", answers.calorie_goal ? `${answers.calorie_goal}/day` : "Help me determine it"],
+    ["Goals", (answers.primary_goals || []).join(", ")], ["Calories", answers.calorie_goal ? `${answers.calorie_goal}/day` : "Not set"],
     ["Protein", answers.protein_goal ? `${answers.protein_goal}g/day` : "Not set"], ["Net-carb ceiling", answers.net_carb_goal ? `${answers.net_carb_goal}g/day` : "Not set"],
+    ["Starting weight", answers.current_weight ? `${answers.current_weight} ${weightUnit(normalizeUnitSystem(answers.unit_system))}` : "Not set"], ["BMI", answers.track_bmi === "Yes" ? "Estimated adult BMI enabled" : "Not displayed"],
     ["Eating style", (answers.eating_styles || []).join(", ") || "Flexible"],
     ["Foods to avoid", answers.foods_to_avoid || "None listed"], ["Restaurants", answers.favorite_restaurants || "None listed"],
     ["Garden", answers.has_garden || "Not specified"], ["Tracking", answers.tracking_detail || "Moderate"],
@@ -144,6 +156,28 @@ function validateStep() {
   return true;
 }
 
+async function saveStartingWeight() {
+  const startingWeightKg = weightToKg(answers.current_weight, answers.unit_system);
+  if (!startingWeightKg) return true;
+  const { data: existingWeight, error: readError } = await supabase
+    .from("weight_entries")
+    .select("id")
+    .eq("user_id", user.id)
+    .limit(1)
+    .maybeSingle();
+  if (readError) throw readError;
+  if (existingWeight) return true;
+  const { error } = await supabase.from("weight_entries").insert({
+    user_id: user.id,
+    measured_on: new Date().toISOString().slice(0, 10),
+    weight_kg: Math.round(startingWeightKg * 100) / 100,
+    source: "setup",
+    note: "Starting weight from setup"
+  });
+  if (error) throw error;
+  return true;
+}
+
 async function saveProfile(completed) {
   $("#setup-status").textContent = completed ? "Saving your profile..." : "Saving...";
   const toneMap = { Friendly: "supportive", Encouraging: "supportive", Direct: "direct", Detailed: "data_focused", "Short & Simple": "direct" };
@@ -159,7 +193,15 @@ async function saveProfile(completed) {
   };
   const { error } = await supabase.from("profiles").upsert(payload);
   if (error) { $("#setup-status").textContent = error.message; return false; }
-  if (completed) sessionStorage.removeItem("mealdaddy-onboarding");
+  if (completed) {
+    try {
+      await saveStartingWeight();
+    } catch (weightError) {
+      $("#setup-status").textContent = weightError.message;
+      return false;
+    }
+    sessionStorage.removeItem("mealdaddy-onboarding");
+  }
   return true;
 }
 
@@ -174,7 +216,39 @@ $("#setup-next").addEventListener("click", async () => {
 $("#setup-back").addEventListener("click", () => { if (currentStep > 0) { if (currentStep < steps.length) collectVisibleAnswers(); currentStep -= 1; render(); } });
 $("#save-exit").addEventListener("click", async () => { if (currentStep < steps.length) collectVisibleAnswers(); if (await saveProfile(false)) location.replace("./app.html"); });
 
+$("#setup-form").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-use-target]");
+  if (!button) return;
+  const field = $("#setup-form").elements.namedItem(button.dataset.useTarget);
+  if (!field) return;
+  field.value = button.dataset.targetValue;
+  answers[button.dataset.useTarget] = button.dataset.targetValue;
+  sessionStorage.setItem("mealdaddy-onboarding", JSON.stringify(answers));
+  button.textContent = "Starting point selected";
+});
+
+$("#setup-form").addEventListener("change", (event) => {
+  if (event.target.name === "unit_system") {
+    collectVisibleAnswers();
+    render();
+    return;
+  }
+  if (event.target.name === "eating_styles") {
+    collectVisibleAnswers();
+    const suggestions = suggestedStartingTargets(answers);
+    $("#setup-form").querySelectorAll("[data-use-target]").forEach((button) => {
+      const suggestion = suggestions[button.dataset.useTarget];
+      if (!suggestion) return;
+      button.dataset.targetValue = suggestion.value;
+      button.textContent = `Use ${suggestion.value} as my starting point`;
+      const aside = button.closest("aside");
+      aside.querySelector("span").textContent = `Meal Daddy ${suggestion.basis}`;
+      aside.querySelector("strong").textContent = `${suggestion.value} ${suggestion.unit}`;
+    });
+  }
+});
+
 const { data: existing } = await supabase.from("profiles").select("onboarding_data").eq("user_id", user.id).maybeSingle();
 if (existing?.onboarding_data && Object.keys(existing.onboarding_data).length) answers = { ...existing.onboarding_data, ...answers };
-normalizeGoalAnswers();
+normalizeAnswers();
 render();

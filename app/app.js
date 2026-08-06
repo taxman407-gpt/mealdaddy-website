@@ -1,5 +1,6 @@
 import { supabase, requireSession } from "./supabase-client.js";
-import { buildProteinGuidance } from "./feedback-guidance.js?v=20260804-31";
+import { buildProteinGuidance } from "./feedback-guidance.js?v=20260806-1";
+import { estimatedAdultBmi, formatWeight, formatWeightChange, normalizeUnitSystem, parseHeightCm, weightToKg } from "./health-metrics.js?v=20260806-1";
 
 const dietStyles = ["Mediterranean", "Low-carb", "Pescatarian", "DASH", "Vegetarian", "High-protein", "Flexible"];
 const $ = (selector) => document.querySelector(selector);
@@ -14,7 +15,7 @@ const entryCategories = [...mealLabels, "Hydration"];
 const query = new URLSearchParams(location.search);
 let pendingPlan = allowedPlans.has(query.get("plan")) ? query.get("plan") : null;
 const checkoutResult = query.get("checkout");
-const state = { diet: "", tone: "supportive", provider: "best_value", entries: [], photo: null, coachPhoto: null, restaurantLocation: null, coachMode: "dinner", membershipPlan: null, membershipStatus: null, membershipAccess: null, calorieGoal: 2050, proteinGoal: 130, netCarbGoal: 0, fiberGoal: 30, waterGoal: 90, eatingStyles: [], goals: [], trackingDetail: "Moderate", uses: [], reminders: [], favoriteProteins: [], foodsLoved: "", foodsDisliked: "", foodsToAvoid: "", biggestChallenge: "", suggestedProteinTarget: 40, currentTotals: { calories: 0, protein: 0, carbs: 0, netCarbs: 0, fat: 0, fiber: 0, water: 0 } };
+const state = { diet: "", tone: "supportive", provider: "best_value", entries: [], weightEntries: [], photo: null, coachPhoto: null, restaurantLocation: null, coachMode: "dinner", membershipPlan: null, membershipStatus: null, membershipAccess: null, calorieGoal: 2050, proteinGoal: 130, netCarbGoal: 0, fiberGoal: 30, waterGoal: 90, unitSystem: "us", heightCm: null, age: null, trackBmi: false, goalWeightKg: null, eatingStyles: [], goals: [], trackingDetail: "Moderate", uses: [], reminders: [], favoriteProteins: [], foodsLoved: "", foodsDisliked: "", foodsToAvoid: "", biggestChallenge: "", suggestedProteinTarget: 40, currentTotals: { calories: 0, protein: 0, carbs: 0, netCarbs: 0, fat: 0, fiber: 0, water: 0 } };
 const installDismissedKey = "mealdaddy-install-tip-dismissed";
 let deferredInstallPrompt = null;
 let latestReport = null;
@@ -228,6 +229,11 @@ async function loadProfile() {
   state.foodsDisliked = profile.foods_disliked || "";
   state.foodsToAvoid = profile.foods_to_avoid || "";
   state.biggestChallenge = profile.biggest_challenge || "";
+  state.unitSystem = normalizeUnitSystem(profile.unit_system);
+  state.heightCm = parseHeightCm(profile.height, state.unitSystem);
+  state.age = Number(profile.age) || null;
+  state.trackBmi = profile.track_bmi === "Yes";
+  state.goalWeightKg = weightToKg(profile.goal_weight, state.unitSystem);
   const normalizedStyles = [state.diet, ...state.eatingStyles].map((value) => String(value || "").toLowerCase().replaceAll("-", " "));
   const defaultNetCarbGoal = normalizedStyles.some((value) => value.includes("keto"))
     ? 25
@@ -240,20 +246,91 @@ async function loadProfile() {
   if (state.goals.length) $("#goal-summary").textContent = `Today's focus: ${state.goals.join(" · ")}`;
   const calorieGoal = Number(profile.calorie_goal || 2050);
   const proteinGoal = Number(profile.protein_goal || 130);
+  const fiberGoal = Number(profile.fiber_goal || 30);
+  const waterGoal = Number(profile.water_goal || 90);
   state.calorieGoal = calorieGoal;
   state.proteinGoal = proteinGoal;
+  state.fiberGoal = fiberGoal;
+  state.waterGoal = waterGoal;
   $("#energy-progress").max = calorieGoal;
   $("#protein-progress").max = proteinGoal;
+  $("#fiber-progress").max = fiberGoal;
+  $("#water-progress").max = waterGoal;
   $("#energy-goal-label").textContent = `of ${calorieGoal.toLocaleString()} cal`;
   $("#protein-goal-label").textContent = `of ${proteinGoal}g`;
+  $("#fiber-total").nextElementSibling.textContent = `of ${fiberGoal}g`;
+  $("#water-total").nextElementSibling.textContent = `of ${waterGoal}oz`;
   $("#carbs-goal-label").textContent = state.netCarbGoal
     ? `${state.netCarbGoal}g net daily ceiling`
     : "estimated total/net";
   $("#profile-diet").textContent = state.diet;
+  $("#weight-unit").value = state.unitSystem;
   $("#tone-options").value = state.tone;
   renderCoachFeedback();
   const provider = document.querySelector(`input[name="provider"][value="${state.provider}"]`);
   if (provider) provider.checked = true;
+}
+
+function localDateValue(date = new Date()) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function weightSourceLabel(source) {
+  return ({ setup: "Setup", home: "Home", clinic: "Doctor or clinic", gym: "Gym", smart_scale: "Smart scale", other: "Other" })[source] || "Measurement";
+}
+
+function renderWeightChart(entries, chart = $("#weight-chart"), line = $("#weight-chart-line")) {
+  if (!chart || !line || entries.length < 2) {
+    if (chart) chart.hidden = true;
+    return;
+  }
+  const weights = entries.map((entry) => Number(entry.weight_kg));
+  const minimum = Math.min(...weights);
+  const maximum = Math.max(...weights);
+  const spread = Math.max(maximum - minimum, 1);
+  const points = entries.map((entry, index) => {
+    const x = entries.length === 1 ? 300 : 12 + (index / (entries.length - 1)) * 576;
+    const y = 108 - ((Number(entry.weight_kg) - minimum) / spread) * 96;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(" ");
+  line.setAttribute("points", points);
+  chart.hidden = false;
+}
+
+function renderWeightProgress() {
+  const ordered = [...state.weightEntries].sort((a, b) => a.measured_on.localeCompare(b.measured_on));
+  const starting = ordered[0] || null;
+  const latest = ordered.at(-1) || null;
+  $("#weight-starting").textContent = starting ? formatWeight(starting.weight_kg, state.unitSystem) : "—";
+  $("#weight-latest").textContent = latest ? formatWeight(latest.weight_kg, state.unitSystem) : "—";
+  $("#weight-change").textContent = starting && latest ? formatWeightChange(Number(latest.weight_kg) - Number(starting.weight_kg), state.unitSystem) : "—";
+
+  const bmi = latest ? estimatedAdultBmi({
+    weightKg: latest.weight_kg,
+    heightCm: state.heightCm,
+    age: state.age,
+    enabled: state.trackBmi,
+    override: latest.bmi_override
+  }) : null;
+  $("#bmi-label").textContent = bmi?.source === "entered" ? "Entered BMI" : "Estimated BMI";
+  $("#weight-bmi").textContent = bmi ? bmi.value.toFixed(1) : state.trackBmi && state.age && state.age < 20 ? "Adult view unavailable" : state.trackBmi ? "—" : "Off";
+
+  renderWeightChart(ordered.slice(-30));
+  const recent = ordered.slice(-5).reverse();
+  $("#weight-history").hidden = recent.length === 0;
+  $("#weight-history-list").innerHTML = recent.map((entry) => `<li><div><strong>${escapeHtml(formatWeight(entry.weight_kg, state.unitSystem))}</strong><span>${escapeHtml(entry.measured_on)} · ${escapeHtml(weightSourceLabel(entry.source))}${entry.bmi_override ? ` · entered BMI ${Number(entry.bmi_override).toFixed(1)}` : ""}</span></div><button type="button" data-delete-weight="${entry.id}" aria-label="Delete weight measurement from ${escapeHtml(entry.measured_on)}">Delete</button></li>`).join("");
+}
+
+async function loadWeightEntries() {
+  const { data, error } = await supabase
+    .from("weight_entries")
+    .select("id,measured_on,weight_kg,source,bmi_override,body_fat_pct,waist_cm,note")
+    .eq("user_id", user.id)
+    .order("measured_on", { ascending: true });
+  if (error) throw error;
+  state.weightEntries = data || [];
+  renderWeightProgress();
+  return state.weightEntries;
 }
 
 async function loadMembership() {
@@ -866,8 +943,10 @@ function reportDateKey(value) {
 function reportRange(period) {
   const settings = reportPeriods[period];
   const end = new Date();
-  const start = new Date();
-  start.setDate(start.getDate() - (settings.days - 1));
+  end.setDate(end.getDate() - 1);
+  end.setHours(23, 59, 59, 999);
+  const start = new Date(end);
+  start.setDate(end.getDate() - (settings.days - 1));
   start.setHours(0, 0, 0, 0);
   return { ...settings, start, end };
 }
@@ -891,7 +970,16 @@ async function loadReportEntries(start, end) {
 }
 
 function summarizeReport(entries) {
-  const totals = entries.reduce((sum, entry) => {
+  const entriesByDay = new Map();
+  entries.forEach((entry) => {
+    const key = reportDateKey(entry.occurred_at);
+    if (!entriesByDay.has(key)) entriesByDay.set(key, []);
+    entriesByDay.get(key).push(entry);
+  });
+  const pendingDays = [...entriesByDay.values()].filter((dayEntries) => dayEntries.some((entry) => entry.status === "pending_estimate"));
+  const includedDays = [...entriesByDay.values()].filter((dayEntries) => !dayEntries.some((entry) => entry.status === "pending_estimate"));
+  const includedEntries = includedDays.flat();
+  const totals = includedEntries.reduce((sum, entry) => {
     const nutrition = entry.nutrition_estimate || {};
     sum.calories += Number(nutrition.calories || 0);
     sum.protein += Number(nutrition.protein_g || 0);
@@ -906,36 +994,73 @@ function summarizeReport(entries) {
     if (entry.kind === "hydration") sum.hydrationEntries += 1;
     return sum;
   }, { calories: 0, protein: 0, carbs: 0, netCarbs: 0, fat: 0, fiber: 0, water: 0, meals: 0, hydrationEntries: 0 });
-  const loggedDays = new Set(entries.map((entry) => reportDateKey(entry.occurred_at))).size;
-  return { totals, loggedDays };
+  return {
+    totals,
+    includedEntries,
+    averagedDays: includedDays.length,
+    totalLoggedDays: entriesByDay.size,
+    pendingDays: pendingDays.length
+  };
 }
 
-function renderReport(period, range, entries) {
-  const { totals, loggedDays } = summarizeReport(entries);
-  const divisor = period === "daily" ? 1 : Math.max(1, loggedDays);
-  const averageLabel = period === "daily" ? "" : " average/logged day";
+function weightReportMetrics(range, weightEntries) {
+  const startKey = localDateValue(range.start);
+  const endKey = localDateValue(range.end);
+  const ordered = [...weightEntries].sort((a, b) => a.measured_on.localeCompare(b.measured_on));
+  const throughEnd = ordered.filter((entry) => entry.measured_on <= endKey);
+  const periodEntries = throughEnd.filter((entry) => entry.measured_on >= startKey);
+  const starting = ordered[0] || null;
+  const latest = throughEnd.at(-1) || null;
+  const beforePeriod = throughEnd.filter((entry) => entry.measured_on < startKey).at(-1) || null;
+  const periodAnchor = beforePeriod || periodEntries[0] || null;
+  if (!latest) return { metrics: [] };
+
+  const metrics = [
+    ["Starting weight", formatWeight(starting.weight_kg, state.unitSystem)],
+    ["Latest weight", formatWeight(latest.weight_kg, state.unitSystem)],
+    ["Change from start", formatWeightChange(Number(latest.weight_kg) - Number(starting.weight_kg), state.unitSystem)]
+  ];
+  if (periodEntries.length && periodAnchor) metrics.push([`${range.label} weight change`, formatWeightChange(Number(latest.weight_kg) - Number(periodAnchor.weight_kg), state.unitSystem)]);
+  if (state.goalWeightKg) {
+    metrics.push(["Goal weight", formatWeight(state.goalWeightKg, state.unitSystem)]);
+    metrics.push(["Distance to goal", formatWeight(Math.abs(Number(latest.weight_kg) - state.goalWeightKg), state.unitSystem)]);
+  }
+  const bmi = estimatedAdultBmi({ weightKg: latest.weight_kg, heightCm: state.heightCm, age: state.age, enabled: state.trackBmi, override: latest.bmi_override });
+  if (bmi) metrics.push([bmi.source === "entered" ? "Entered BMI" : "Estimated BMI", bmi.value.toFixed(1)]);
+  return { metrics };
+}
+
+function renderReport(period, range, entries, weightEntries = state.weightEntries) {
+  const { totals, includedEntries, averagedDays, totalLoggedDays, pendingDays } = summarizeReport(entries);
+  const divisor = Math.max(1, averagedDays);
+  const averageLabel = " average/included day";
+  const averageValue = (value, suffix = "") => averagedDays ? `${Math.round(value / divisor).toLocaleString()}${suffix}` : "No data";
   const dateFormat = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" });
   const rangeLabel = period === "daily"
     ? dateFormat.format(range.start)
     : `${dateFormat.format(range.start)}–${dateFormat.format(range.end)}`;
+  const weightSummary = weightReportMetrics(range, weightEntries);
   const metrics = [
-    ["Entries", entries.length.toLocaleString()],
-    ["Days logged", loggedDays.toLocaleString()],
-    [`Calories${averageLabel}`, Math.round(totals.calories / divisor).toLocaleString()],
-    [`Protein${averageLabel}`, `${Math.round(totals.protein / divisor)}g`],
-    [`Total/net carbs${averageLabel}`, `${Math.round(totals.carbs / divisor)}g/${Math.round(totals.netCarbs / divisor)}g`],
-    [`Fat${averageLabel}`, `${Math.round(totals.fat / divisor)}g`],
-    [`Fiber${averageLabel}`, `${Math.round(totals.fiber / divisor)}g`],
-    [`Hydration${averageLabel}`, `${Math.round(totals.water / divisor)}oz`]
+    ["Entries included", includedEntries.length.toLocaleString()],
+    ["Days averaged", averagedDays.toLocaleString()],
+    [`Calories${averageLabel}`, averageValue(totals.calories)],
+    [`Protein${averageLabel}`, averageValue(totals.protein, "g")],
+    [`Total/net carbs${averageLabel}`, averagedDays ? `${Math.round(totals.carbs / divisor)}g/${Math.round(totals.netCarbs / divisor)}g` : "No data"],
+    [`Fat${averageLabel}`, averageValue(totals.fat, "g")],
+    [`Fiber${averageLabel}`, averageValue(totals.fiber, "g")],
+    [`Hydration${averageLabel}`, averageValue(totals.water, "oz")],
+    ...weightSummary.metrics
   ];
+  const completeness = `Average based on ${averagedDays} included ${averagedDays === 1 ? "day" : "days"}. ${totalLoggedDays} of ${range.days} completed calendar days contained entries.${pendingDays ? ` ${pendingDays} ${pendingDays === 1 ? "day was" : "days were"} excluded because a nutrition estimate is still pending.` : ""} Some logged days may be incomplete; entering every meal and drink provides more accurate averages and long-term trends.`;
   $("#report-range").textContent = rangeLabel;
   $("#report-period-title").textContent = `${range.label} report`;
   $("#report-metrics").innerHTML = metrics.map(([label, value]) => `<article><span>${label}</span><strong>${value}</strong></article>`).join("");
   $("#report-output").hidden = false;
-  $("#report-status").textContent = entries.length
-    ? `${range.label} report generated from ${entries.length.toLocaleString()} protected ledger ${entries.length === 1 ? "entry" : "entries"}.`
-    : `No ledger entries were found for this ${range.label.toLowerCase()} period.`;
-  latestReport = { period, range, metrics, entries: entries.length, loggedDays };
+  $("#report-completeness").textContent = completeness;
+  $("#report-status").textContent = entries.length || weightSummary.metrics.length
+    ? `${range.label} report generated from your protected nutrition and weight records.`
+    : `No ledger or weight entries were found for this ${range.label.toLowerCase()} period.`;
+  latestReport = { period, range, metrics, entries: includedEntries.length, loggedDays: averagedDays, completeness };
 }
 
 async function generateReport(period, button) {
@@ -950,7 +1075,7 @@ async function generateReport(period, button) {
   $("#report-status").textContent = `Generating ${range.label.toLowerCase()} report...`;
   try {
     const entries = await loadReportEntries(range.start, range.end);
-    renderReport(period, range, entries);
+    renderReport(period, range, entries, state.weightEntries);
   } catch (error) {
     $("#report-status").textContent = "The report could not be generated.";
     toast(error.message || "The report could not be generated.");
@@ -970,6 +1095,8 @@ $("#download-report").addEventListener("click", () => {
     "",
     ...latestReport.metrics.map(([label, value]) => `${label}: ${value}`),
     "",
+    latestReport.completeness,
+    "",
     "Nutrition values are estimates. This report was generated in your browser from your protected Meal Daddy ledger."
   ];
   const url = URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" }));
@@ -982,6 +1109,65 @@ $("#download-report").addEventListener("click", () => {
 
 $("#print-report").addEventListener("click", () => {
   if (latestReport) window.print();
+});
+
+$("#weight-date").value = localDateValue();
+$("#weight-date").max = localDateValue();
+
+$("#weight-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const button = $("#save-weight");
+  const status = $("#weight-status");
+  const measuredOn = $("#weight-date").value;
+  const unitSystem = $("#weight-unit").value;
+  const weightKg = weightToKg($("#weight-value").value, unitSystem);
+  const bmiOverrideText = $("#weight-bmi-override").value.trim();
+  if (!measuredOn || measuredOn > localDateValue()) {
+    status.textContent = "Choose today or an earlier measurement date.";
+    return;
+  }
+  if (!weightKg || weightKg < 20 || weightKg > 500) {
+    status.textContent = "Enter a weight between 20 and 500 kg (44 and 1,102 lb).";
+    return;
+  }
+  button.disabled = true;
+  status.textContent = "Saving your private weight record...";
+  const payload = {
+    user_id: user.id,
+    measured_on: measuredOn,
+    weight_kg: Math.round(weightKg * 100) / 100,
+    source: $("#weight-source").value,
+    bmi_override: bmiOverrideText ? Number(bmiOverrideText) : null,
+    updated_at: new Date().toISOString()
+  };
+  const { error } = await supabase.from("weight_entries").upsert(payload, { onConflict: "user_id,measured_on" });
+  button.disabled = false;
+  if (error) {
+    status.textContent = error.message;
+    return;
+  }
+  $("#weight-value").value = "";
+  $("#weight-bmi-override").value = "";
+  status.textContent = `Saved ${formatWeight(weightKg, unitSystem)} for ${measuredOn}.`;
+  await loadWeightEntries();
+  if (latestReport) {
+    const active = document.querySelector("[data-report-period].is-active") || document.querySelector('[data-report-period="weekly"]');
+    await generateReport(active.dataset.reportPeriod, active);
+  }
+});
+
+$("#weight-history-list").addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-delete-weight]");
+  if (!button || !confirm("Delete this weight measurement?")) return;
+  button.disabled = true;
+  const { error } = await supabase.from("weight_entries").delete().eq("id", button.dataset.deleteWeight).eq("user_id", user.id);
+  if (error) {
+    toast(error.message);
+    button.disabled = false;
+    return;
+  }
+  $("#weight-status").textContent = "Weight measurement deleted.";
+  await loadWeightEntries();
 });
 
 $("#diet-options").addEventListener("click", (event) => {
@@ -1418,7 +1604,8 @@ $("#sign-out").addEventListener("click", async () => { await supabase.auth.signO
 supabase.auth.onAuthStateChange((event) => { if (event === "SIGNED_OUT") location.replace("./auth.html"); });
 
 try {
-  await Promise.all([loadProfile(), loadLedger(), loadMembership(), loadFeedback()]);
+  await loadProfile();
+  await Promise.all([loadLedger(), loadMembership(), loadFeedback(), loadWeightEntries()]);
   const weeklyReportButton = document.querySelector('[data-report-period="weekly"]');
   await generateReport("weekly", weeklyReportButton);
   if (location.hash === "#onboarding") showOnboarding();

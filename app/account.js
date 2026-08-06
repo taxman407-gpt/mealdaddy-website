@@ -177,16 +177,17 @@ async function openBillingPortal(action) {
 }
 
 async function accountExport() {
-  const [profileResult, ledger, feedback, feedbackHistory] = await Promise.all([
+  const [profileResult, ledger, weights, feedback, feedbackHistory] = await Promise.all([
     supabase.from("profiles").select("*").eq("user_id", user.id).maybeSingle(),
     fetchAllRows("ledger_entries", "*", "occurred_at"),
+    fetchAllRows("weight_entries", "*", "measured_on"),
     fetchAllRows("customer_feedback", "*", "updated_at"),
     fetchAllRows("customer_feedback_history", "*", "source_updated_at")
   ]);
   if (profileResult.error) throw profileResult.error;
 
   return {
-    export_format: "Meal Daddy account export v1",
+    export_format: "Meal Daddy account export v2",
     generated_at: new Date().toISOString(),
     account: {
       id: user.id,
@@ -207,6 +208,7 @@ async function accountExport() {
       granted_at: membership.granted_at || null
     } : null,
     ledger_entries: ledger,
+    weight_entries: weights,
     feedback: {
       current: feedback,
       history: feedbackHistory

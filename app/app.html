@@ -7,7 +7,7 @@
   <meta name="robots" content="noindex" />
   <title>Today - MealDaddy</title>
   <link rel="manifest" href="./manifest.webmanifest" />
-  <link rel="stylesheet" href="./styles.css?v=20260804-31" />
+  <link rel="stylesheet" href="./styles.css?v=20260806-1" />
 </head>
 <body class="app-page auth-loading">
   <header class="app-header">
@@ -106,6 +106,30 @@
         <p class="metric-breakdown-note" id="metric-breakdown-note">Once ingredient details are saved, opening this panel is calculated in your browser without another AI request. Itemized values are normalized to the saved meal total and remain approximate.</p>
       </article>
     </section>
+    <section class="weight-card" id="weight-progress" aria-labelledby="weight-title">
+      <div class="weight-heading">
+        <div><p class="eyebrow">Private progress</p><h2 id="weight-title">Weight & progress</h2><p>Track loss, gain, or maintenance without judgment. Your first saved measurement is your starting point.</p></div>
+        <a class="text-link" href="./setup.html">Update goal or height</a>
+      </div>
+      <div class="weight-summary" aria-label="Weight summary">
+        <article><span>Starting</span><strong id="weight-starting">—</strong></article>
+        <article><span>Latest</span><strong id="weight-latest">—</strong></article>
+        <article><span>Change</span><strong id="weight-change">—</strong></article>
+        <article><span id="bmi-label">Estimated BMI</span><strong id="weight-bmi">—</strong></article>
+      </div>
+      <svg class="weight-chart" id="weight-chart" role="img" aria-label="Weight trend" viewBox="0 0 600 120" preserveAspectRatio="none" hidden><polyline id="weight-chart-line" points="" /></svg>
+      <form class="weight-form" id="weight-form">
+        <label><span>Date</span><input id="weight-date" type="date" required /></label>
+        <label><span>Weight</span><input id="weight-value" type="number" min="1" max="1200" step="0.1" inputmode="decimal" required /></label>
+        <label><span>Unit</span><select id="weight-unit"><option value="us">lb</option><option value="metric">kg</option></select></label>
+        <label><span>Measurement source</span><select id="weight-source"><option value="home">Home</option><option value="clinic">Doctor or clinic</option><option value="gym">Gym</option><option value="smart_scale">Smart scale</option><option value="other">Other</option></select></label>
+        <details class="weight-more"><summary>Optional additional measurement</summary><label><span>BMI supplied by a clinician or measurement service</span><input id="weight-bmi-override" type="number" min="5" max="100" step="0.1" inputmode="decimal" placeholder="Optional" /></label><small>This replaces the app-calculated BMI for this weigh-in. It does not change the recorded weight.</small></details>
+        <button class="button button-primary" id="save-weight" type="submit">Save weight</button>
+        <p class="weight-status" id="weight-status" role="status" aria-live="polite"></p>
+      </form>
+      <div class="weight-history" id="weight-history" hidden><h3>Recent measurements</h3><ol id="weight-history-list"></ol></div>
+      <p class="privacy-line">Weight records are stored in your protected account. BMI is an optional screening estimate for adults 20 and older; it does not distinguish muscle from body fat and is not a diagnosis.</p>
+    </section>
     <section class="dashboard-grid">
       <article class="ledger-card"><div class="section-title"><div><p class="eyebrow">Daily ledger</p><h2>Today's entries</h2></div><button class="text-button" id="refresh-ledger" type="button">Refresh</button></div><ul id="ledger-list" class="ledger-list"></ul></article>
       <aside class="coach-card" aria-live="polite">
@@ -117,17 +141,18 @@
     </section>
     <section class="reports-card" id="reports" aria-labelledby="reports-title">
       <div class="reports-heading">
-        <div><p class="eyebrow">Your patterns over time</p><h2 id="reports-title">Reports</h2><p>Choose a period to calculate nutrition and hydration averages from your protected ledger.</p></div>
+        <div><p class="eyebrow">Your patterns over time</p><h2 id="reports-title">Reports</h2><p>Choose a period to calculate nutrition, hydration, and weight changes from your protected records.</p></div>
         <div class="report-periods" role="group" aria-label="Report period">
           <button type="button" data-report-period="weekly">Weekly</button>
           <button type="button" data-report-period="monthly">Monthly</button>
           <button type="button" data-report-period="annual">Annual</button>
         </div>
       </div>
-      <p class="report-privacy">Reports are calculated in this browser without an AI request. Downloaded or printed copies stay on the device you choose.</p>
+      <p class="report-privacy">Reports are calculated in this browser without an AI request. Averages exclude blank days, today, and days with pending estimates. Downloaded or printed copies stay on the device you choose.</p>
       <div class="report-output" id="report-output" hidden>
         <div class="report-output-heading"><div><p class="eyebrow" id="report-range"></p><h3 id="report-period-title"></h3></div><div class="report-actions"><button type="button" id="download-report">Download summary</button><button type="button" id="print-report">Print / Save PDF</button></div></div>
         <div class="report-metrics" id="report-metrics"></div>
+        <p class="report-completeness" id="report-completeness"></p>
       </div>
       <p class="report-status" id="report-status" role="status" aria-live="polite">Loading your weekly report...</p>
     </section>
@@ -194,7 +219,7 @@
     <div class="onboarding-panel"><div class="step-indicator"><span class="is-active"></span><span></span><span></span></div><p class="eyebrow">A few basics first</p><h1 id="onboarding-title">How do you like to eat?</h1><p>Choose the closest fit. You can adjust individual preferences anytime.</p><div class="choice-grid" id="diet-options"></div><label class="select-field">Coaching tone<select id="tone-options"><option value="supportive">Supportive</option><option value="direct">Direct</option><option value="data_focused">Data-focused</option><option value="playful">Playful</option></select></label><button class="button button-primary full-button" id="continue-onboarding" type="button" disabled>Save my starting plan</button><p class="privacy-line">These preferences are protected by row-level security and can only be accessed by your account.</p></div>
   </section>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="./app.js?v=20260804-31" type="module"></script>
-  <script src="./register-sw.js?v=20260804-31"></script>
+  <script src="./app.js?v=20260806-1" type="module"></script>
+  <script src="./register-sw.js?v=20260806-1"></script>
 </body>
 </html>

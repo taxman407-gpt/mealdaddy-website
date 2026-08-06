@@ -3,7 +3,7 @@
   "name": "MealDaddy",
   "short_name": "MealDaddy",
   "description": "Fast meal, nutrition, and hydration guidance.",
-  "start_url": "./app.html?release=20260804-31",
+  "start_url": "./app.html?release=20260806-1",
   "scope": "./",
   "display": "standalone",
   "background_color": "#f3f5f0",
