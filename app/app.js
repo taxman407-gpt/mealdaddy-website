@@ -1,7 +1,7 @@
 import { supabase, requireSession } from "./supabase-client.js";
-import { buildProteinGuidance } from "./feedback-guidance.js?v=20260808-2";
-import { estimatedAdultBmi, formatWeight, formatWeightChange, normalizeUnitSystem, parseHeightCm, weightToKg } from "./health-metrics.js?v=20260808-2";
-import { initializeSavedFoods } from "./saved-foods.js?v=20260808-2";
+import { buildProteinGuidance } from "./feedback-guidance.js?v=20260808-4";
+import { estimatedAdultBmi, formatWeight, formatWeightChange, normalizeUnitSystem, parseHeightCm, weightFromKg, weightToKg } from "./health-metrics.js?v=20260808-4";
+import { initializeSavedFoods } from "./saved-foods.js?v=20260808-4";
 
 const dietStyles = ["Mediterranean", "Low-carb", "Pescatarian", "DASH", "Vegetarian", "High-protein", "Flexible"];
 const $ = (selector) => document.querySelector(selector);
@@ -16,7 +16,7 @@ const entryCategories = [...mealLabels, "Hydration"];
 const query = new URLSearchParams(location.search);
 let pendingPlan = allowedPlans.has(query.get("plan")) ? query.get("plan") : null;
 const checkoutResult = query.get("checkout");
-const state = { diet: "", tone: "supportive", provider: "best_value", entries: [], weightEntries: [], photo: null, coachPhoto: null, restaurantLocation: null, coachMode: "dinner", membershipPlan: null, membershipStatus: null, membershipAccess: null, calorieGoal: 2050, proteinGoal: 130, netCarbGoal: 0, fiberGoal: 30, waterGoal: 90, unitSystem: "us", heightCm: null, age: null, trackBmi: false, goalWeightKg: null, eatingStyles: [], goals: [], trackingDetail: "Moderate", uses: [], reminders: [], favoriteProteins: [], foodsLoved: "", foodsDisliked: "", foodsToAvoid: "", biggestChallenge: "", suggestedProteinTarget: 40, leftoverEntryId: null, leftoverPhoto: null, leftoverAnalysis: null, leftoverReturnFocus: null, currentTotals: { calories: 0, protein: 0, carbs: 0, netCarbs: 0, fat: 0, fiber: 0, water: 0 } };
+const state = { diet: "", tone: "supportive", provider: "best_value", entries: [], weightEntries: [], photo: null, coachPhoto: null, restaurantLocation: null, coachMode: "dinner", membershipPlan: null, membershipStatus: null, membershipAccess: null, calorieGoal: 2050, proteinGoal: 130, netCarbGoal: 0, fiberGoal: 30, waterGoal: 90, unitSystem: "us", heightCm: null, age: null, trackBmi: false, goalWeightKg: null, eatingStyles: [], goals: [], trackingDetail: "Moderate", uses: [], reminders: [], favoriteProteins: [], foodsLoved: "", foodsDisliked: "", foodsToAvoid: "", biggestChallenge: "", suggestedProteinTarget: 40, leftoverEntryId: null, leftoverPhoto: null, leftoverAnalysis: null, leftoverReturnFocus: null, savedFoodsApi: null, pendingQuickLog: null, skipSavedFoodMatch: false, pendingLabelCandidate: null, pendingLabelPhoto: null, currentTotals: { calories: 0, protein: 0, carbs: 0, netCarbs: 0, fat: 0, fiber: 0, water: 0 } };
 const installDismissedKey = "mealdaddy-install-tip-dismissed";
 let deferredInstallPrompt = null;
 let latestReport = null;
@@ -108,10 +108,6 @@ function hydrationOunces(description) {
   if (unit === "ml" || unit.startsWith("milliliter")) ounces = amount / 29.5735;
   if (unit === "l" || unit.startsWith("liter") || unit.startsWith("litre")) ounces = amount * 33.814;
   return Math.round(ounces * 10) / 10;
-}
-
-function isHydrationDescription(description) {
-  return hydrationOunces(description) !== null && /\b(water|hydration|hydrate|fluid|fluids)\b/i.test(description);
 }
 
 function hydrationNeedsNutritionEstimate(description) {
@@ -224,6 +220,7 @@ async function loadProfile() {
   state.eatingStyles = Array.isArray(profile.eating_styles) ? profile.eating_styles : [];
   state.trackingDetail = profile.tracking_detail || "Moderate";
   state.uses = Array.isArray(profile.mealdaddy_uses) ? profile.mealdaddy_uses : [];
+  syncWeightLauncher();
   state.reminders = Array.isArray(profile.reminders) ? profile.reminders : [];
   state.favoriteProteins = Array.isArray(profile.favorite_proteins) ? profile.favorite_proteins : [];
   state.foodsLoved = profile.foods_loved || "";
@@ -276,6 +273,53 @@ function localDateValue(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
+let weightPanelReturnFocus = null;
+
+function weightTrackingEnabled() {
+  return state.uses.includes("Weight tracking");
+}
+
+function todaysWeightEntry() {
+  return state.weightEntries.find((entry) => entry.measured_on === localDateValue()) || null;
+}
+
+function syncWeightLauncher() {
+  const enabled = weightTrackingEnabled();
+  $("#weight-launcher").hidden = !enabled;
+  const today = todaysWeightEntry();
+  $("#open-weight-panel").textContent = today ? "Update today’s weight" : "Log today’s weight";
+  $("#save-weight").textContent = today ? "Update weight" : "Save weight";
+  if (!enabled && !$("#weight-panel").hidden) closeWeightPanel();
+}
+
+function prepareWeightForm() {
+  const today = todaysWeightEntry();
+  $("#weight-date").value = localDateValue();
+  $("#weight-unit").value = state.unitSystem;
+  $("#weight-source").value = today?.source || "home";
+  $("#weight-bmi-override").value = today?.bmi_override || "";
+  const displayWeight = today ? weightFromKg(today.weight_kg, state.unitSystem) : null;
+  $("#weight-value").value = displayWeight ? String(Math.round(displayWeight * 10) / 10) : "";
+  $("#weight-status").textContent = today ? "Today’s weigh-in is already saved. Change the value and update it if needed." : "";
+}
+
+function openWeightPanel(trigger = $("#open-weight-panel")) {
+  if (!weightTrackingEnabled()) return;
+  weightPanelReturnFocus = trigger;
+  prepareWeightForm();
+  $("#weight-panel").hidden = false;
+  document.body.classList.add("modal-open");
+  $("#weight-value").focus();
+}
+
+function closeWeightPanel() {
+  if ($("#weight-panel").hidden) return;
+  $("#weight-panel").hidden = true;
+  document.body.classList.remove("modal-open");
+  weightPanelReturnFocus?.focus();
+  weightPanelReturnFocus = null;
+}
+
 function weightSourceLabel(source) {
   return ({ setup: "Setup", home: "Home", clinic: "Doctor or clinic", gym: "Gym", smart_scale: "Smart scale", other: "Other" })[source] || "Measurement";
 }
@@ -320,6 +364,7 @@ function renderWeightProgress() {
   const recent = ordered.slice(-5).reverse();
   $("#weight-history").hidden = recent.length === 0;
   $("#weight-history-list").innerHTML = recent.map((entry) => `<li><div><strong>${escapeHtml(formatWeight(entry.weight_kg, state.unitSystem))}</strong><span>${escapeHtml(entry.measured_on)} · ${escapeHtml(weightSourceLabel(entry.source))}${entry.bmi_override ? ` · entered BMI ${Number(entry.bmi_override).toFixed(1)}` : ""}</span></div><button type="button" data-delete-weight="${entry.id}" aria-label="Delete weight measurement from ${escapeHtml(entry.measured_on)}">Delete</button></li>`).join("");
+  syncWeightLauncher();
 }
 
 async function loadWeightEntries() {
@@ -429,17 +474,19 @@ function renderLedger() {
     const edit = `<button class="ledger-edit-button" type="button" data-edit-entry="${entry.id}" aria-label="Edit ${escapeHtml(label)}">Edit</button>`;
     const portionAdjusted = Boolean(estimate.leftover_adjustment?.original_estimate);
     const canAdjustPortion = entry.kind === "meal" && entry.status === "estimated" && typeof estimate.calories === "number";
-    const adjustPortion = canAdjustPortion ? `<button class="ledger-portion-button" type="button" data-adjust-leftovers="${entry.id}">Adjust what I ate</button>` : "";
-    const undoPortion = portionAdjusted ? `<button class="ledger-undo-portion" type="button" data-undo-leftover="${entry.id}">Undo portion correction</button>` : "";
+    const sourceLabel = estimate.source === "saved_food" ? "Reviewed saved values" : estimate.source === "nutrition_label_photo" ? "Label-informed" : estimate.source === "meal_photo_estimate" ? "Photo estimate" : entry.status === "estimated" ? "AI estimate" : "";
+    const sourceBadge = sourceLabel ? `<em class="ledger-source-badge">${sourceLabel}</em>` : "";
+    const adjustPortion = canAdjustPortion ? `<button class="button button-quiet ledger-after-photo-button" type="button" data-adjust-leftovers="${entry.id}">Add after / leftover photo</button>` : "";
+    const undoPortion = portionAdjusted ? `<button class="button button-quiet" type="button" data-undo-leftover="${entry.id}">Undo portion correction</button>` : "";
     const editor = `<form class="ledger-edit-form" data-edit-form="${entry.id}" hidden>
           <label><span>Log as</span><select name="entry_category">${entryCategories.map((option) => `<option${option === currentCategory ? " selected" : ""}>${option}</option>`).join("")}</select></label>
           <label><span>Description</span><input name="description" value="${escapeHtml(entry.description)}" required maxlength="1200" /></label>
-          <div><button class="button button-primary" type="submit">Save</button><button class="button button-quiet" type="button" data-cancel-edit="${entry.id}">Cancel</button><button class="button button-delete-entry" type="button" data-delete-entry="${entry.id}">Delete entry</button></div>
+          <div><button class="button button-primary" type="submit">Save</button><button class="button button-quiet" type="button" data-cancel-edit="${entry.id}">Cancel</button>${adjustPortion}${undoPortion}<button class="button button-delete-entry" type="button" data-delete-entry="${entry.id}">Delete entry</button></div>
         </form>`;
     return `<li class="ledger-item">
       <span class="ledger-icon" aria-hidden="true">${ledgerIcon}</span>
       <span class="ledger-main"><strong>${escapeHtml(entry.description)}</strong></span>
-      <span class="ledger-actions"><small>${meta}</small>${adjustPortion}${undoPortion}${edit}</span>
+      <span class="ledger-actions"><small>${meta}</small>${sourceBadge}${edit}</span>
       ${editor}
     </li>`;
   }).join("");
@@ -1210,7 +1257,7 @@ function startVoiceCapture() {
   recognition.start(); toast("Listening...");
 }
 
-$("#photo-input").addEventListener("change", (event) => { state.photo = event.target.files[0] || null; if (state.photo) toast("Photo ready for private upload."); });
+$("#photo-input").addEventListener("change", (event) => { state.photo = event.target.files[0] || null; if (state.photo) toast("Meal or label photo ready. This can be the before image if you later photograph leftovers."); });
 
 function clearCoachPhoto() {
   state.coachPhoto = null;
@@ -1593,7 +1640,7 @@ $("#leftover-review-form").addEventListener("submit", async (event) => {
   }
   closeLeftoverAdjustment();
   await loadLedger();
-  toast("Meal updated to the amount you ate. You can undo the correction from the entry.");
+  toast("Meal updated to the amount you ate. Open Edit to review or undo the correction.");
 });
 
 $("#ledger-list").addEventListener("click", async (event) => {
@@ -1697,7 +1744,8 @@ $("#ledger-list").addEventListener("submit", async (event) => {
     changes.nutrition_estimate = { ounces };
     changes.status = estimateHydration ? "pending_estimate" : "estimated";
   } else if (descriptionChanged || kindChanged) {
-    changes.nutrition_estimate = null;
+    const retainedPhotoPath = typeof entry.nutrition_estimate?.photo_path === "string" ? entry.nutrition_estimate.photo_path : null;
+    changes.nutrition_estimate = retainedPhotoPath ? { photo_path: retainedPhotoPath } : null;
     changes.status = "pending_estimate";
   }
   const { error } = await supabase.from("ledger_entries").update(changes).eq("id", entry.id).eq("user_id", user.id);
@@ -1709,10 +1757,11 @@ $("#ledger-list").addEventListener("submit", async (event) => {
   await loadLedger();
   if ((targetKind === "meal" && (descriptionChanged || kindChanged)) || estimateHydration) {
     toast(targetKind === "hydration" ? "Drink updated. Estimating its nutrition..." : "Meal updated. Recalculating nutrition...");
-    const { error: estimateError } = await supabase.functions.invoke("estimate-entry", { body: { entryId: entry.id } });
+    const { data: estimateData, error: estimateError } = await supabase.functions.invoke("estimate-entry", { body: { entryId: entry.id } });
     await loadLedger();
     const subject = targetKind === "hydration" ? "Drink" : "Meal";
     if (estimateError) await handleEstimateFailure(estimateError, subject, "updated");
+    else if (estimateData?.labelCandidate && state.savedFoodsApi) showLabelSavePrompt(estimateData.labelCandidate, null);
     else toast(`${subject} and nutrition estimate updated.`);
   } else if (targetKind === "hydration") {
     toast(`Hydration updated: ${ounces} fl oz.`);
@@ -1721,20 +1770,100 @@ $("#ledger-list").addEventListener("submit", async (event) => {
   }
 });
 
+function hideSavedFoodMatchPrompt() {
+  $("#saved-food-match-prompt").hidden = true;
+  state.pendingQuickLog = null;
+}
+
+function showSavedFoodMatchPrompt(description, selectedCategory, match) {
+  state.pendingQuickLog = { description, selectedCategory, match };
+  $("#saved-food-match-title").textContent = `Use ${match.food.name} from My Foods?`;
+  $("#saved-food-match-copy").textContent = `${match.subtitle ? `${match.subtitle}. ` : ""}${match.nutritionLine}. These are your reviewed values, so no AI estimate is needed.`;
+  $("#saved-food-match-servings").value = match.servings;
+  $("#saved-food-match-prompt").hidden = false;
+  $("#use-saved-food-match").focus();
+}
+
+function hideLabelSavePrompt() {
+  $("#label-save-prompt").hidden = true;
+  state.pendingLabelCandidate = null;
+  state.pendingLabelPhoto = null;
+}
+
+function showLabelSavePrompt(candidate, photo) {
+  state.pendingLabelCandidate = candidate;
+  state.pendingLabelPhoto = photo;
+  $("#label-save-title").textContent = `Save ${candidate.name || "this product"} for consistent reuse?`;
+  $("#label-save-copy").textContent = `${candidate.serving_description || "1 serving"}: ${Math.round(Number(candidate.calories || 0))} cal, ${Number(candidate.protein_g || 0)}g protein, ${Number(candidate.carbs_g || 0)}g total carbs, ${Number(candidate.net_carbs_g || 0)}g net carbs. Review every value before saving.`;
+  $("#label-save-prompt").hidden = false;
+  toast("Nutrition label found. Review and save it to prevent future re-estimation.");
+}
+
+$("#use-saved-food-match").addEventListener("click", async () => {
+  const pending = state.pendingQuickLog;
+  if (!pending || !state.savedFoodsApi) return;
+  const button = $("#use-saved-food-match");
+  button.disabled = true;
+  try {
+    await state.savedFoodsApi.logFood(
+      pending.match.food,
+      $("#saved-food-match-servings").value,
+      mealLabels.has(pending.selectedCategory) ? pending.selectedCategory : defaultMealLabel()
+    );
+    $("#quick-entry").value = "";
+    $("#meal-label").value = defaultMealLabel();
+    hideSavedFoodMatchPrompt();
+  } catch (error) {
+    toast(error.message || "The saved food could not be logged.");
+  } finally {
+    button.disabled = false;
+  }
+});
+
+$("#estimate-new-entry").addEventListener("click", () => {
+  const pending = state.pendingQuickLog;
+  if (!pending) return;
+  $("#quick-entry").value = pending.description;
+  $("#meal-label").value = pending.selectedCategory;
+  state.skipSavedFoodMatch = true;
+  hideSavedFoodMatchPrompt();
+  $("#entry-form").requestSubmit();
+});
+
+$("#review-label-save").addEventListener("click", () => {
+  if (!state.pendingLabelCandidate || !state.savedFoodsApi) return;
+  const candidate = state.pendingLabelCandidate;
+  const photo = state.pendingLabelPhoto;
+  hideLabelSavePrompt();
+  state.savedFoodsApi.reviewDetectedFood(candidate, photo);
+});
+
+$("#dismiss-label-save").addEventListener("click", hideLabelSavePrompt);
+
 $("#entry-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const input = $("#quick-entry"); const description = input.value.trim() || (state.photo ? "Meal photo" : "New meal");
   const selectedCategory = $("#meal-label").value;
   const ounces = hydrationOunces(description);
-  const kind = selectedCategory === "Hydration" || isHydrationDescription(description) ? "hydration" : "meal";
+  const kind = selectedCategory === "Hydration" ? "hydration" : "meal";
   if (kind === "hydration" && ounces === null) {
     toast("Include a fluid amount, such as 16 oz, 2 cups, 500 ml, or 1 liter.");
     return;
   }
+  if (kind === "meal" && !state.photo && !state.skipSavedFoodMatch && state.savedFoodsApi) {
+    const match = state.savedFoodsApi.findBestMatch(description);
+    if (match) {
+      showSavedFoodMatchPrompt(description, selectedCategory, match);
+      return;
+    }
+  }
+  state.skipSavedFoodMatch = false;
+  hideSavedFoodMatchPrompt();
+  const submittedPhoto = state.photo;
   let photoPath = null;
-  if (state.photo) {
-    const safeName = state.photo.name.replace(/[^a-z0-9._-]/gi, "-"); photoPath = `${user.id}/${crypto.randomUUID()}-${safeName}`;
-    const { error: uploadError } = await supabase.storage.from("meal-photos").upload(photoPath, state.photo, { upsert: false });
+  if (submittedPhoto) {
+    const safeName = submittedPhoto.name.replace(/[^a-z0-9._-]/gi, "-"); photoPath = `${user.id}/${crypto.randomUUID()}-${safeName}`;
+    const { error: uploadError } = await supabase.storage.from("meal-photos").upload(photoPath, submittedPhoto, { upsert: false, contentType: submittedPhoto.type });
     if (uploadError) { toast(`Photo was not uploaded: ${uploadError.message}`); return; }
   }
   const estimateHydration = kind === "hydration" && hydrationNeedsNutritionEstimate(description);
@@ -1749,12 +1878,16 @@ $("#entry-form").addEventListener("submit", async (event) => {
   await loadLedger();
   if (kind === "meal" || estimateHydration) {
     toast(kind === "hydration" ? "Drink saved. Estimating its nutrition..." : "Meal saved. Estimating nutrition...");
-    const { error: estimateError } = await supabase.functions.invoke("estimate-entry", { body: { entryId: savedEntry.id } });
+    const { data: estimateData, error: estimateError } = await supabase.functions.invoke("estimate-entry", { body: { entryId: savedEntry.id } });
     await loadLedger();
     if (estimateError) await handleEstimateFailure(estimateError, kind === "hydration" ? "Drink" : "Meal");
     else {
       $("#estimate-membership-prompt").hidden = true;
-      toast("Nutrition estimate ready.");
+      if (estimateData?.labelCandidate && submittedPhoto && state.savedFoodsApi) {
+        showLabelSavePrompt(estimateData.labelCandidate, submittedPhoto);
+      } else {
+        toast("Nutrition estimate ready.");
+      }
     }
   } else {
     toast("Saved to your private daily ledger.");
@@ -1799,9 +1932,12 @@ document.querySelectorAll("[data-plan]").forEach((button) => button.addEventList
 
 document.querySelectorAll("[data-metric]").forEach((button) => button.addEventListener("click", () => openMetricBreakdown(button.dataset.metric, button)));
 document.querySelectorAll("[data-close-metric-breakdown]").forEach((button) => button.addEventListener("click", closeMetricBreakdown));
+$("#open-weight-panel").addEventListener("click", (event) => openWeightPanel(event.currentTarget));
+document.querySelectorAll("[data-close-weight-panel]").forEach((button) => button.addEventListener("click", closeWeightPanel));
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !$("#metric-breakdown").hidden) closeMetricBreakdown();
   if (event.key === "Escape" && !$("#leftover-adjustment").hidden) closeLeftoverAdjustment();
+  if (event.key === "Escape" && !$("#weight-panel").hidden) closeWeightPanel();
 });
 
 document.querySelectorAll('input[name="provider"]').forEach((input) => input.addEventListener("change", async (event) => {
@@ -1845,7 +1981,7 @@ supabase.auth.onAuthStateChange((event) => { if (event === "SIGNED_OUT") locatio
 try {
   await loadProfile();
   await Promise.all([loadLedger(), loadMembership(), loadFeedback(), loadWeightEntries()]);
-  await initializeSavedFoods({
+  state.savedFoodsApi = await initializeSavedFoods({
     supabase,
     user,
     defaultMealLabel,

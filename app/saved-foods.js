@@ -8,7 +8,7 @@ import {
   saveDeviceFood,
   setSavedFoodStorageMode,
   updateSyncedFoodCache
-} from "./saved-foods-store.js?v=20260808-2";
+} from "./saved-foods-store.js?v=20260808-4";
 
 const allowedPhotoTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 const maxPhotoBytes = 8 * 1024 * 1024;
@@ -54,6 +54,19 @@ function formatNumber(value) {
   return Number.isInteger(rounded) ? rounded.toLocaleString() : rounded.toFixed(1);
 }
 
+function normalizedSearchText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[\u2019']/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function searchTokens(value) {
+  const ignored = new Set(["a", "an", "the", "i", "ate", "had", "my", "for", "as", "snack", "breakfast", "brunch", "lunch", "dinner"]);
+  return new Set(normalizedSearchText(value).split(" ").filter((token) => token.length > 1 && !ignored.has(token)));
+}
+
 function normalizedFood(food) {
   const normalized = {
     ...food,
@@ -67,6 +80,37 @@ function normalizedFood(food) {
   };
   numericFields.forEach((field) => { normalized[field] = numberValue(food[field]); });
   return normalized;
+}
+
+export function findSavedFoodMatch(foods, description) {
+  const query = normalizedSearchText(description);
+  if (!query || query.length > 180 || /[,;+&]|\b(and|with|plus)\b/i.test(description)) return null;
+  const queryTokens = searchTokens(query);
+  if (!queryTokens.size) return null;
+  if (queryTokens.size === 1) {
+    const [onlyToken] = queryTokens;
+    const tokenMatches = foods.filter((food) => searchTokens(`${food.brand_or_restaurant || ""} ${food.name || ""}`).has(onlyToken));
+    if (tokenMatches.length > 1) return null;
+  }
+  const ranked = foods.map((food) => {
+    const name = normalizedSearchText(food.name);
+    const brand = normalizedSearchText(food.brand_or_restaurant);
+    const candidate = [brand, name].filter(Boolean).join(" ");
+    const candidateTokens = searchTokens(candidate);
+    let score = 0;
+    queryTokens.forEach((token) => { if (candidateTokens.has(token)) score += 4; });
+    if (name && (query.includes(name) || name.includes(query))) score += 14;
+    if (brand && query.includes(brand)) score += 9;
+    if (candidate && query.includes(candidate)) score += 18;
+    return { food, score };
+  }).sort((a, b) => b.score - a.score);
+  if (!ranked[0] || ranked[0].score < 4) return null;
+  if (ranked[1] && ranked[1].score >= ranked[0].score - 1) return null;
+  const quantity = Number(description.match(/^\s*(\d+(?:\.\d+)?)/)?.[1] || 1);
+  return {
+    food: ranked[0].food,
+    servings: Math.max(0.1, Math.min(50, Number.isFinite(quantity) ? quantity : 1))
+  };
 }
 
 function safePhotoPath(userId, path) {
@@ -134,6 +178,34 @@ export async function initializeSavedFoods({
 
   function foodNutritionLine(food) {
     return `${formatNumber(food.calories)} cal · ${formatNumber(food.protein_g)}g protein · ${formatNumber(food.carbs_g)}g/${formatNumber(food.net_carbs_g)}g total/net carbs · ${formatNumber(food.fat_g)}g fat`;
+  }
+
+  function findBestMatch(description) {
+    const match = findSavedFoodMatch(state.foods, description);
+    if (!match) return null;
+    return {
+      ...match,
+      nutritionLine: foodNutritionLine(match.food),
+      subtitle: foodSubtitle(match.food)
+    };
+  }
+
+  function reviewDetectedFood(food, photoFile = null) {
+    const candidate = normalizedFood({
+      ...food,
+      item_type: "packaged_product",
+      evidence_type: "nutrition_label"
+    });
+    const existing = state.foods.find((savedFood) =>
+      normalizedSearchText(savedFood.name) === normalizedSearchText(candidate.name) &&
+      normalizedSearchText(savedFood.brand_or_restaurant) === normalizedSearchText(candidate.brand_or_restaurant)
+    ) || null;
+    state.pendingFile = photoFile;
+    state.editingFood = existing;
+    populateReview(candidate, existing);
+    $("#saved-food-editor-title").textContent = existing ? "Review updated label" : "Review label before saving";
+    $("#saved-food-photo-name").textContent = photoFile ? `${photoFile.name || "Label photo"} ready` : "Label values ready for review.";
+    openEditor();
   }
 
   function foodCard(food) {
@@ -633,4 +705,10 @@ export async function initializeSavedFoods({
 
   setStorageMode(state.storageMode, false);
   await loadFoods();
+  return {
+    findBestMatch,
+    logFood,
+    reviewDetectedFood,
+    refresh: loadFoods
+  };
 }
