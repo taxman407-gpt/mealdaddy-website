@@ -7,7 +7,7 @@
   <meta name="robots" content="noindex" />
   <title>Today - MealDaddy</title>
   <link rel="manifest" href="./manifest.webmanifest" />
-  <link rel="stylesheet" href="./styles.css?v=20260808-5" />
+  <link rel="stylesheet" href="./styles.css?v=20260808-6" />
 </head>
 <body class="app-page auth-loading">
   <header class="app-header">
@@ -157,7 +157,10 @@
           <article><span>Change</span><strong id="weight-change">—</strong></article>
           <article><span id="bmi-label">Estimated BMI</span><strong id="weight-bmi">—</strong></article>
         </div>
-        <svg class="weight-chart" id="weight-chart" role="img" aria-label="Weight trend" viewBox="0 0 600 120" preserveAspectRatio="none" hidden><polyline id="weight-chart-line" points="" /></svg>
+        <div class="weight-trend" id="weight-trend" hidden>
+          <div><strong>Weight trend</strong><span id="weight-trend-copy">Starting point saved</span></div>
+          <svg class="weight-chart" id="weight-chart" role="img" aria-label="Weight trend" viewBox="0 0 600 120" preserveAspectRatio="none"><polyline id="weight-chart-line" points="" /><circle id="weight-chart-point" cx="300" cy="60" r="6" hidden /></svg>
+        </div>
         <form class="weight-form" id="weight-form">
           <label><span>Date</span><input id="weight-date" type="date" required /></label>
           <label><span>Weight</span><input id="weight-value" type="number" min="1" max="1200" step="0.1" inputmode="decimal" required /></label>
@@ -341,7 +344,7 @@
     <div class="onboarding-panel"><div class="step-indicator"><span class="is-active"></span><span></span><span></span></div><p class="eyebrow">A few basics first</p><h1 id="onboarding-title">How do you like to eat?</h1><p>Choose the closest fit. You can adjust individual preferences anytime.</p><div class="choice-grid" id="diet-options"></div><label class="select-field">Coaching tone<select id="tone-options"><option value="supportive">Supportive</option><option value="direct">Direct</option><option value="data_focused">Data-focused</option><option value="playful">Playful</option></select></label><button class="button button-primary full-button" id="continue-onboarding" type="button" disabled>Save my starting plan</button><p class="privacy-line">These preferences are protected by row-level security and can only be accessed by your account.</p></div>
   </section>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="./app.js?v=20260808-5" type="module"></script>
-  <script src="./register-sw.js?v=20260808-5"></script>
+  <script src="./app.js?v=20260808-6" type="module"></script>
+  <script src="./register-sw.js?v=20260808-6"></script>
 </body>
 </html>

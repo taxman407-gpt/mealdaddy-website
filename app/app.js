@@ -1,7 +1,7 @@
 import { supabase, requireSession } from "./supabase-client.js";
-import { buildProteinGuidance } from "./feedback-guidance.js?v=20260808-5";
-import { estimatedAdultBmi, formatWeight, formatWeightChange, normalizeUnitSystem, parseHeightCm, shouldEnableWeightTracking, weightFromKg, weightToKg } from "./health-metrics.js?v=20260808-5";
-import { initializeSavedFoods } from "./saved-foods.js?v=20260808-5";
+import { buildProteinGuidance } from "./feedback-guidance.js?v=20260808-6";
+import { estimatedAdultBmi, formatWeight, formatWeightChange, normalizeUnitSystem, parseHeightCm, shouldEnableWeightTracking, weightFromKg, weightToKg } from "./health-metrics.js?v=20260808-6";
+import { initializeSavedFoods } from "./saved-foods.js?v=20260808-6";
 
 const dietStyles = ["Mediterranean", "Low-carb", "Pescatarian", "DASH", "Vegetarian", "High-protein", "Flexible"];
 const $ = (selector) => document.querySelector(selector);
@@ -324,9 +324,22 @@ function weightSourceLabel(source) {
   return ({ setup: "Setup", home: "Home", clinic: "Doctor or clinic", gym: "Gym", smart_scale: "Smart scale", other: "Other" })[source] || "Measurement";
 }
 
-function renderWeightChart(entries, chart = $("#weight-chart"), line = $("#weight-chart-line")) {
-  if (!chart || !line || entries.length < 2) {
-    if (chart) chart.hidden = true;
+function renderWeightChart(entries) {
+  const trend = $("#weight-trend");
+  const chart = $("#weight-chart");
+  const line = $("#weight-chart-line");
+  const point = $("#weight-chart-point");
+  if (!trend || !chart || !line || !point || entries.length === 0) {
+    if (trend) trend.hidden = true;
+    return;
+  }
+  trend.hidden = false;
+  if (entries.length === 1) {
+    line.setAttribute("points", "");
+    point.setAttribute("cx", "300");
+    point.setAttribute("cy", "60");
+    point.hidden = false;
+    $("#weight-trend-copy").textContent = "Starting point saved · add another weigh-in to see the trend";
     return;
   }
   const weights = entries.map((entry) => Number(entry.weight_kg));
@@ -339,7 +352,11 @@ function renderWeightChart(entries, chart = $("#weight-chart"), line = $("#weigh
     return `${x.toFixed(1)},${y.toFixed(1)}`;
   }).join(" ");
   line.setAttribute("points", points);
-  chart.hidden = false;
+  const [latestX, latestY] = points.split(" ").at(-1).split(",");
+  point.setAttribute("cx", latestX);
+  point.setAttribute("cy", latestY);
+  point.hidden = false;
+  $("#weight-trend-copy").textContent = `${entries.length} recent weigh-ins`;
 }
 
 function renderWeightProgress() {

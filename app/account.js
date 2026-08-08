@@ -1,5 +1,5 @@
 import { supabase, requireSession } from "./supabase-client.js";
-import { clearLocalSavedFoods, getDeviceSavedFoods } from "./saved-foods-store.js?v=20260808-5";
+import { clearLocalSavedFoods, getDeviceSavedFoods } from "./saved-foods-store.js?v=20260808-6";
 
 const $ = (selector) => document.querySelector(selector);
 const session = await requireSession();
