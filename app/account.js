@@ -1,4 +1,5 @@
 import { supabase, requireSession } from "./supabase-client.js";
+import { clearLocalSavedFoods, getDeviceSavedFoods } from "./saved-foods-store.js?v=20260808-2";
 
 const $ = (selector) => document.querySelector(selector);
 const session = await requireSession();
@@ -177,17 +178,19 @@ async function openBillingPortal(action) {
 }
 
 async function accountExport() {
-  const [profileResult, ledger, weights, feedback, feedbackHistory] = await Promise.all([
+  const [profileResult, ledger, weights, savedFoods, deviceSavedFoods, feedback, feedbackHistory] = await Promise.all([
     supabase.from("profiles").select("*").eq("user_id", user.id).maybeSingle(),
     fetchAllRows("ledger_entries", "*", "occurred_at"),
     fetchAllRows("weight_entries", "*", "measured_on"),
+    fetchAllRows("saved_foods", "*", "updated_at"),
+    getDeviceSavedFoods(user.id).catch(() => []),
     fetchAllRows("customer_feedback", "*", "updated_at"),
     fetchAllRows("customer_feedback_history", "*", "source_updated_at")
   ]);
   if (profileResult.error) throw profileResult.error;
 
   return {
-    export_format: "Meal Daddy account export v2",
+    export_format: "Meal Daddy account export v3",
     generated_at: new Date().toISOString(),
     account: {
       id: user.id,
@@ -209,12 +212,21 @@ async function accountExport() {
     } : null,
     ledger_entries: ledger,
     weight_entries: weights,
+    saved_foods: {
+      private_account: savedFoods,
+      this_device: deviceSavedFoods.map(({ photo_blob, cache_key, ...food }) => ({
+        ...food,
+        retained_photo_included: false,
+        retained_photo_present: photo_blob instanceof Blob
+      }))
+    },
     feedback: {
       current: feedback,
       history: feedbackHistory
     },
     notes: [
       "Payment methods and invoices are held by Stripe and are not included in this file.",
+      "Device-only retained photos are not embedded in this JSON file; their presence is identified in the saved-food record.",
       "Nutrition values are estimates, not laboratory measurements or medical advice."
     ]
   };
@@ -272,6 +284,54 @@ function ledgerCsv(entries) {
   return `\uFEFF${headers.map(csvCell).join(",")}\r\n${rows.join("\r\n")}`;
 }
 
+function savedFoodsCsv(foods) {
+  const headers = [
+    "storage_location",
+    "item_type",
+    "name",
+    "brand_or_restaurant",
+    "serving_description",
+    "calories",
+    "protein_g",
+    "total_carbs_g",
+    "net_carbs_g",
+    "fiber_g",
+    "fat_g",
+    "sugar_alcohols_g",
+    "allulose_g",
+    "hydration_ounces",
+    "value_source",
+    "confidence",
+    "notes",
+    "last_verified_on",
+    "use_count",
+    "last_used_at"
+  ];
+  const rows = foods.map((food) => [
+    food.storage_location,
+    food.item_type,
+    food.name,
+    food.brand_or_restaurant,
+    food.serving_description,
+    food.calories,
+    food.protein_g,
+    food.carbs_g,
+    food.net_carbs_g,
+    food.fiber_g,
+    food.fat_g,
+    food.sugar_alcohols_g,
+    food.allulose_g,
+    food.hydration_ounces,
+    food.evidence_type,
+    food.confidence,
+    food.notes,
+    food.last_verified_on,
+    food.use_count,
+    food.last_used_at
+  ].map(csvCell).join(","));
+  return `\uFEFF${headers.map(csvCell).join(",")}\r\n${rows.join("\r\n")}`;
+}
+
 $("#manage-billing").addEventListener("click", () => openBillingPortal("manage"));
 $("#cancel-membership").addEventListener("click", () => openBillingPortal("cancel"));
 
@@ -315,6 +375,33 @@ $("#download-csv").addEventListener("click", async () => {
   }
 });
 
+$("#download-saved-foods-csv").addEventListener("click", async () => {
+  const button = $("#download-saved-foods-csv");
+  const status = $("#export-message");
+  button.disabled = true;
+  status.textContent = "Gathering your private saved foods...";
+  try {
+    const [synced, device] = await Promise.all([
+      fetchAllRows("saved_foods", "*", "updated_at"),
+      getDeviceSavedFoods(user.id).catch(() => [])
+    ]);
+    const foods = [
+      ...synced.map((food) => ({ ...food, storage_location: "private_account_and_device_cache" })),
+      ...device.map((food) => ({ ...food, storage_location: "this_device_only" }))
+    ];
+    downloadBlob(
+      savedFoodsCsv(foods),
+      "text/csv;charset=utf-8",
+      `mealdaddy-saved-foods-${exportDate()}.csv`
+    );
+    status.textContent = `Downloaded ${foods.length.toLocaleString()} saved ${foods.length === 1 ? "food" : "foods"} to this device.`;
+  } catch (error) {
+    status.textContent = error.message || "Your saved-food library could not be downloaded.";
+  } finally {
+    button.disabled = false;
+  }
+});
+
 function updateDeleteButton() {
   $("#delete-account").disabled = !(
     $("#delete-understood").checked &&
@@ -337,6 +424,7 @@ $("#delete-account").addEventListener("click", async () => {
     });
     if (error) throw error;
     if (!data?.ok) throw new Error("Account deletion was not confirmed.");
+    await clearLocalSavedFoods(user.id).catch(() => {});
     await supabase.auth.signOut({ scope: "local" });
     location.replace("./auth.html?account=deleted");
   } catch (error) {

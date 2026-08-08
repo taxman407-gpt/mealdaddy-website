@@ -1,6 +1,7 @@
 import { supabase, requireSession } from "./supabase-client.js";
-import { buildProteinGuidance } from "./feedback-guidance.js?v=20260806-2";
-import { estimatedAdultBmi, formatWeight, formatWeightChange, normalizeUnitSystem, parseHeightCm, weightToKg } from "./health-metrics.js?v=20260806-2";
+import { buildProteinGuidance } from "./feedback-guidance.js?v=20260808-2";
+import { estimatedAdultBmi, formatWeight, formatWeightChange, normalizeUnitSystem, parseHeightCm, weightToKg } from "./health-metrics.js?v=20260808-2";
+import { initializeSavedFoods } from "./saved-foods.js?v=20260808-2";
 
 const dietStyles = ["Mediterranean", "Low-carb", "Pescatarian", "DASH", "Vegetarian", "High-protein", "Flexible"];
 const $ = (selector) => document.querySelector(selector);
@@ -15,7 +16,7 @@ const entryCategories = [...mealLabels, "Hydration"];
 const query = new URLSearchParams(location.search);
 let pendingPlan = allowedPlans.has(query.get("plan")) ? query.get("plan") : null;
 const checkoutResult = query.get("checkout");
-const state = { diet: "", tone: "supportive", provider: "best_value", entries: [], weightEntries: [], photo: null, coachPhoto: null, restaurantLocation: null, coachMode: "dinner", membershipPlan: null, membershipStatus: null, membershipAccess: null, calorieGoal: 2050, proteinGoal: 130, netCarbGoal: 0, fiberGoal: 30, waterGoal: 90, unitSystem: "us", heightCm: null, age: null, trackBmi: false, goalWeightKg: null, eatingStyles: [], goals: [], trackingDetail: "Moderate", uses: [], reminders: [], favoriteProteins: [], foodsLoved: "", foodsDisliked: "", foodsToAvoid: "", biggestChallenge: "", suggestedProteinTarget: 40, currentTotals: { calories: 0, protein: 0, carbs: 0, netCarbs: 0, fat: 0, fiber: 0, water: 0 } };
+const state = { diet: "", tone: "supportive", provider: "best_value", entries: [], weightEntries: [], photo: null, coachPhoto: null, restaurantLocation: null, coachMode: "dinner", membershipPlan: null, membershipStatus: null, membershipAccess: null, calorieGoal: 2050, proteinGoal: 130, netCarbGoal: 0, fiberGoal: 30, waterGoal: 90, unitSystem: "us", heightCm: null, age: null, trackBmi: false, goalWeightKg: null, eatingStyles: [], goals: [], trackingDetail: "Moderate", uses: [], reminders: [], favoriteProteins: [], foodsLoved: "", foodsDisliked: "", foodsToAvoid: "", biggestChallenge: "", suggestedProteinTarget: 40, leftoverEntryId: null, leftoverPhoto: null, leftoverAnalysis: null, leftoverReturnFocus: null, currentTotals: { calories: 0, protein: 0, carbs: 0, netCarbs: 0, fat: 0, fiber: 0, water: 0 } };
 const installDismissedKey = "mealdaddy-install-tip-dismissed";
 let deferredInstallPrompt = null;
 let latestReport = null;
@@ -426,6 +427,10 @@ function renderLedger() {
     const ledgerIcon = entry.kind === "hydration" ? "H" : mealLabels.has(entry.meal_label) ? entry.meal_label.charAt(0) : "M";
     const currentCategory = entry.kind === "hydration" ? "Hydration" : mealLabels.has(entry.meal_label) ? entry.meal_label : defaultMealLabel(new Date(entry.occurred_at));
     const edit = `<button class="ledger-edit-button" type="button" data-edit-entry="${entry.id}" aria-label="Edit ${escapeHtml(label)}">Edit</button>`;
+    const portionAdjusted = Boolean(estimate.leftover_adjustment?.original_estimate);
+    const canAdjustPortion = entry.kind === "meal" && entry.status === "estimated" && typeof estimate.calories === "number";
+    const adjustPortion = canAdjustPortion ? `<button class="ledger-portion-button" type="button" data-adjust-leftovers="${entry.id}">Adjust what I ate</button>` : "";
+    const undoPortion = portionAdjusted ? `<button class="ledger-undo-portion" type="button" data-undo-leftover="${entry.id}">Undo portion correction</button>` : "";
     const editor = `<form class="ledger-edit-form" data-edit-form="${entry.id}" hidden>
           <label><span>Log as</span><select name="entry_category">${entryCategories.map((option) => `<option${option === currentCategory ? " selected" : ""}>${option}</option>`).join("")}</select></label>
           <label><span>Description</span><input name="description" value="${escapeHtml(entry.description)}" required maxlength="1200" /></label>
@@ -434,7 +439,7 @@ function renderLedger() {
     return `<li class="ledger-item">
       <span class="ledger-icon" aria-hidden="true">${ledgerIcon}</span>
       <span class="ledger-main"><strong>${escapeHtml(entry.description)}</strong></span>
-      <span class="ledger-actions"><small>${meta}</small>${edit}</span>
+      <span class="ledger-actions"><small>${meta}</small>${adjustPortion}${undoPortion}${edit}</span>
       ${editor}
     </li>`;
   }).join("");
@@ -1382,10 +1387,243 @@ $("#coach-action-form").addEventListener("submit", async (event) => {
   }
 });
 
+const leftoverNutritionFields = ["calories", "protein_g", "carbs_g", "net_carbs_g", "fat_g", "fiber_g", "hydration_ounces"];
+
+function clampPercent(value, fallback = 100) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.max(0, Math.min(100, number)) : fallback;
+}
+
+function roundNutrition(value) {
+  return Math.round(Number(value || 0) * 10) / 10;
+}
+
+function originalEstimateForAdjustment(estimate = {}) {
+  const priorOriginal = estimate.leftover_adjustment?.original_estimate;
+  const source = priorOriginal && typeof priorOriginal === "object" ? priorOriginal : estimate;
+  const copy = JSON.parse(JSON.stringify(source));
+  delete copy.leftover_adjustment;
+  return copy;
+}
+
+function closeLeftoverAdjustment() {
+  if ($("#leftover-adjustment").hidden) return;
+  $("#leftover-adjustment").hidden = true;
+  document.body.classList.remove("modal-open");
+  $("#leftover-analysis-form").reset();
+  $("#leftover-review-form").reset();
+  $("#leftover-analysis-form").hidden = false;
+  $("#leftover-review-form").hidden = true;
+  $("#leftover-photo-name").textContent = "No photo selected.";
+  $("#leftover-analysis-status").textContent = "";
+  $("#leftover-review-status").textContent = "";
+  $("#leftover-component-list").innerHTML = "";
+  state.leftoverEntryId = null;
+  state.leftoverPhoto = null;
+  state.leftoverAnalysis = null;
+  state.leftoverReturnFocus?.focus();
+  state.leftoverReturnFocus = null;
+}
+
+function openLeftoverAdjustment(entry, trigger) {
+  if (!hasCurrentCoreMembership()) {
+    toast("Second-photo portion correction is included with Meal Daddy Core.");
+    return;
+  }
+  state.leftoverEntryId = entry.id;
+  state.leftoverPhoto = null;
+  state.leftoverAnalysis = null;
+  state.leftoverReturnFocus = trigger;
+  $("#leftover-analysis-form").reset();
+  $("#leftover-review-form").reset();
+  $("#leftover-analysis-form").hidden = false;
+  $("#leftover-review-form").hidden = true;
+  $("#leftover-photo-name").textContent = "No photo selected.";
+  $("#leftover-analysis-status").textContent = "";
+  $("#leftover-review-status").textContent = "";
+  const hasOriginalPhoto = typeof originalEstimateForAdjustment(entry.nutrition_estimate).photo_path === "string";
+  $("#leftover-adjustment-intro").textContent = hasOriginalPhoto
+    ? `Take a second photo of what remains from ${entry.description}. Meal Daddy will compare it with the original photo.`
+    : `Take a photo of what remains from ${entry.description}. No original photo is attached, so add a short note and carefully review the percentages.`;
+  $("#leftover-adjustment").hidden = false;
+  document.body.classList.add("modal-open");
+  $("#leftover-photo-input").focus();
+}
+
+function renderLeftoverReview(entry, analysis) {
+  const base = originalEstimateForAdjustment(entry.nutrition_estimate);
+  const overall = Math.round(clampPercent(analysis.overall_percent_eaten));
+  $("#leftover-overall-percent").value = overall;
+  $("#leftover-review-summary").textContent = `${analysis.summary || "Review the amount eaten before applying."} Confidence: ${analysis.confidence || "low"}.`;
+  const components = Array.isArray(base.components) ? base.components : [];
+  const suggestions = Array.isArray(analysis.component_adjustments) ? analysis.component_adjustments : [];
+  $("#leftover-components").hidden = components.length === 0;
+  $("#leftover-component-list").innerHTML = components.map((component, index) => {
+    const suggestion = suggestions.find((item) => Number(item.component_index) === index);
+    const percent = Math.round(clampPercent(suggestion?.percent_eaten, overall));
+    const note = String(suggestion?.note || "Review this visual estimate.");
+    return `<label><span><strong>${escapeHtml(String(component.name || `Item ${index + 1}`))}</strong><small>${escapeHtml(note)}</small></span><span><input type="number" min="0" max="100" step="1" inputmode="numeric" value="${percent}" data-leftover-component="${index}" aria-label="Percent of ${escapeHtml(String(component.name || `item ${index + 1}`))} eaten" />%</span></label>`;
+  }).join("");
+  $("#leftover-analysis-form").hidden = true;
+  $("#leftover-review-form").hidden = false;
+  $("#leftover-overall-percent").focus();
+}
+
+$("#leftover-photo-input").addEventListener("change", (event) => {
+  state.leftoverPhoto = event.target.files[0] || null;
+  $("#leftover-photo-name").textContent = state.leftoverPhoto ? `${state.leftoverPhoto.name || "After-meal photo"} ready` : "No photo selected.";
+});
+
+document.querySelectorAll("[data-close-leftover-adjustment]").forEach((button) => button.addEventListener("click", closeLeftoverAdjustment));
+
+$("#leftover-review-back").addEventListener("click", () => {
+  state.leftoverAnalysis = null;
+  $("#leftover-review-form").hidden = true;
+  $("#leftover-analysis-form").hidden = false;
+  $("#leftover-analysis-status").textContent = "Take or choose another after-meal photo.";
+  $("#leftover-photo-input").focus();
+});
+
+$("#leftover-analysis-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const entry = state.entries.find((item) => item.id === state.leftoverEntryId);
+  const file = state.leftoverPhoto;
+  if (!entry || !file) {
+    $("#leftover-analysis-status").textContent = "Take or choose an after-meal photo first.";
+    return;
+  }
+  if (file.size > 8 * 1024 * 1024) {
+    $("#leftover-analysis-status").textContent = "Use a photo no larger than 8 MB.";
+    return;
+  }
+  if (!new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]).has(file.type.toLowerCase())) {
+    $("#leftover-analysis-status").textContent = "Use a JPG, PNG, WebP, or GIF photo.";
+    return;
+  }
+  const button = $("#analyze-leftovers");
+  button.disabled = true;
+  $("#leftover-analysis-status").textContent = "Comparing what was served with what remains...";
+  const safeName = (file.name || "after-meal.jpg").replace(/[^a-z0-9._-]/gi, "-");
+  const photoPath = `${user.id}/leftover-scan-${crypto.randomUUID()}-${safeName}`;
+  try {
+    const { error: uploadError } = await supabase.storage.from("meal-photos").upload(photoPath, file, { upsert: false });
+    if (uploadError) throw uploadError;
+    const { data, error } = await supabase.functions.invoke("adjust-leftovers", {
+      body: {
+        entryId: entry.id,
+        photoPath,
+        context: $("#leftover-context").value.trim()
+      }
+    });
+    if (error || !data?.analysis) {
+      const failure = error ? await readFunctionFailure(error) : { status: 0, message: data?.error || "" };
+      throw Object.assign(new Error(failure.message || "The after-meal photo could not be analyzed."), { status: failure.status });
+    }
+    state.leftoverAnalysis = data.analysis;
+    renderLeftoverReview(entry, data.analysis);
+  } catch (error) {
+    if (error.status === 402) {
+      $("#leftover-analysis-status").textContent = "An active Meal Daddy Core membership is required.";
+    } else if (error.status === 429) {
+      $("#leftover-analysis-status").textContent = "This month's Core AI allowance has been reached.";
+    } else {
+      $("#leftover-analysis-status").textContent = error.message || "The after-meal photo could not be analyzed.";
+    }
+  } finally {
+    const { error: cleanupError } = await supabase.storage.from("meal-photos").remove([photoPath]);
+    if (cleanupError) console.warn("Temporary after-meal photo cleanup failed.", cleanupError);
+    button.disabled = false;
+  }
+});
+
+$("#leftover-review-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const entry = state.entries.find((item) => item.id === state.leftoverEntryId);
+  const analysis = state.leftoverAnalysis;
+  if (!entry || !analysis) return;
+  const overallPercent = clampPercent($("#leftover-overall-percent").value);
+  const base = originalEstimateForAdjustment(entry.nutrition_estimate);
+  const adjusted = JSON.parse(JSON.stringify(base));
+  const componentInputs = [...document.querySelectorAll("[data-leftover-component]")];
+  const componentPercentages = componentInputs.map((input) => ({
+    component_index: Number(input.dataset.leftoverComponent),
+    percent_eaten: clampPercent(input.value, overallPercent)
+  }));
+  if (Array.isArray(adjusted.components) && adjusted.components.length && componentPercentages.length) {
+    adjusted.components = adjusted.components.map((component, index) => {
+      const percentage = componentPercentages.find((item) => item.component_index === index)?.percent_eaten ?? overallPercent;
+      const scaled = { ...component };
+      leftoverNutritionFields.forEach((field) => {
+        if (typeof component[field] === "number") scaled[field] = roundNutrition(component[field] * percentage / 100);
+      });
+      return scaled;
+    });
+    leftoverNutritionFields.forEach((field) => {
+      adjusted[field] = roundNutrition(adjusted.components.reduce((sum, component) => sum + Number(component[field] || 0), 0));
+    });
+  } else {
+    leftoverNutritionFields.forEach((field) => {
+      if (typeof adjusted[field] === "number") adjusted[field] = roundNutrition(adjusted[field] * overallPercent / 100);
+    });
+  }
+  const adjustmentNote = `After-meal photo reviewed; about ${Math.round(overallPercent)}% of the meal was eaten.`;
+  adjusted.note = [base.note, adjustmentNote].filter(Boolean).join(" ").slice(0, 500);
+  if (analysis.confidence === "low") adjusted.confidence = "low";
+  adjusted.leftover_adjustment = {
+    version: 1,
+    overall_percent_eaten: overallPercent,
+    component_percentages: componentPercentages,
+    confidence: analysis.confidence || "low",
+    summary: String(analysis.summary || "").slice(0, 300),
+    adjusted_at: new Date().toISOString(),
+    original_estimate: base
+  };
+  const saveButton = event.currentTarget.querySelector('button[type="submit"]');
+  saveButton.disabled = true;
+  $("#leftover-review-status").textContent = "Applying your reviewed portions...";
+  const { error } = await supabase
+    .from("ledger_entries")
+    .update({ nutrition_estimate: adjusted, status: "estimated" })
+    .eq("id", entry.id)
+    .eq("user_id", user.id);
+  saveButton.disabled = false;
+  if (error) {
+    $("#leftover-review-status").textContent = error.message;
+    return;
+  }
+  closeLeftoverAdjustment();
+  await loadLedger();
+  toast("Meal updated to the amount you ate. You can undo the correction from the entry.");
+});
+
 $("#ledger-list").addEventListener("click", async (event) => {
   const editButton = event.target.closest("[data-edit-entry]");
   const cancelButton = event.target.closest("[data-cancel-edit]");
   const deleteButton = event.target.closest("[data-delete-entry]");
+  const adjustButton = event.target.closest("[data-adjust-leftovers]");
+  const undoButton = event.target.closest("[data-undo-leftover]");
+  if (adjustButton) {
+    const entry = state.entries.find((item) => item.id === adjustButton.dataset.adjustLeftovers);
+    if (entry) openLeftoverAdjustment(entry, adjustButton);
+  }
+  if (undoButton) {
+    const entry = state.entries.find((item) => item.id === undoButton.dataset.undoLeftover);
+    const original = entry?.nutrition_estimate?.leftover_adjustment?.original_estimate;
+    if (!entry || !original || !window.confirm("Undo the after-meal portion correction and restore the original estimate?")) return;
+    undoButton.disabled = true;
+    const { error } = await supabase
+      .from("ledger_entries")
+      .update({ nutrition_estimate: original, status: "estimated" })
+      .eq("id", entry.id)
+      .eq("user_id", user.id);
+    if (error) {
+      toast(error.message);
+      undoButton.disabled = false;
+      return;
+    }
+    await loadLedger();
+    toast("Original meal estimate restored.");
+  }
   if (editButton) {
     $(`[data-edit-form="${editButton.dataset.editEntry}"]`).hidden = false;
     editButton.hidden = true;
@@ -1563,6 +1801,7 @@ document.querySelectorAll("[data-metric]").forEach((button) => button.addEventLi
 document.querySelectorAll("[data-close-metric-breakdown]").forEach((button) => button.addEventListener("click", closeMetricBreakdown));
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !$("#metric-breakdown").hidden) closeMetricBreakdown();
+  if (event.key === "Escape" && !$("#leftover-adjustment").hidden) closeLeftoverAdjustment();
 });
 
 document.querySelectorAll('input[name="provider"]').forEach((input) => input.addEventListener("change", async (event) => {
@@ -1606,6 +1845,15 @@ supabase.auth.onAuthStateChange((event) => { if (event === "SIGNED_OUT") locatio
 try {
   await loadProfile();
   await Promise.all([loadLedger(), loadMembership(), loadFeedback(), loadWeightEntries()]);
+  await initializeSavedFoods({
+    supabase,
+    user,
+    defaultMealLabel,
+    toast,
+    hasCurrentCoreMembership,
+    showMembershipPrompt: showEstimateMembershipPrompt,
+    onLedgerChange: loadLedger
+  });
   const weeklyReportButton = document.querySelector('[data-report-period="weekly"]');
   await generateReport("weekly", weeklyReportButton);
   if (location.hash === "#onboarding") showOnboarding();

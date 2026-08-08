@@ -7,7 +7,7 @@
   <meta name="robots" content="noindex, nofollow" />
   <title>Account & Privacy - MealDaddy</title>
   <link rel="manifest" href="./manifest.webmanifest" />
-  <link rel="stylesheet" href="./styles.css?v=20260806-2" />
+  <link rel="stylesheet" href="./styles.css?v=20260808-2" />
 </head>
 <body class="app-page auth-loading account-page">
   <header class="app-header">
@@ -65,13 +65,18 @@
       <div class="export-options">
         <article>
           <h3>Complete account copy</h3>
-          <p>Account details, setup answers, meal and hydration entries, nutrition estimates, membership status, and ratings/comments.</p>
+          <p>Account details, setup answers, meal and hydration entries, nutrition estimates, saved foods, weight history, membership status, and ratings/comments.</p>
           <button class="button button-primary" id="download-json" type="button">Download all data (.json)</button>
         </article>
         <article>
           <h3>Meal history</h3>
           <p>Every ledger entry in a table that opens in Excel, Google Sheets, or Numbers.</p>
           <button class="button button-quiet" id="download-csv" type="button">Download meal history (.csv)</button>
+        </article>
+        <article>
+          <h3>My Foods library</h3>
+          <p>Reviewed labels, recurring meals, and restaurant items in a spreadsheet-friendly table, including device-only records available in this browser.</p>
+          <button class="button button-quiet" id="download-saved-foods-csv" type="button">Download saved foods (.csv)</button>
         </article>
       </div>
       <p class="account-explainer">The download is assembled in this browser and is not sent to an AI provider. Stripe keeps card details and invoices in its separate secure billing system; Meal Daddy does not store your card number.</p>
@@ -88,7 +93,8 @@
       </div>
       <div class="privacy-grid">
         <article><strong>Account & food records</strong><p>Stored in your protected Meal Daddy account so they can sync across your devices. Row-level security limits access to your account.</p></article>
-        <article><strong>Meal photos</strong><p>Uploaded privately only when you choose a photo. Processing photos are temporary and removed after the request; deletion also removes any remaining uploads.</p></article>
+        <article><strong>Meal and food photos</strong><p>Uploaded privately only when you choose a photo. Processing photos are temporary and removed after the request. A My Foods reference photo is retained only when you select that option.</p></article>
+        <article><strong>My Foods storage</strong><p>Reviewed food data can sync to your protected account with a device cache, remain only in this browser, or be used once without saving. Device-only data can be lost if browser or app data is cleared.</p></article>
         <article><strong>AI processing</strong><p>Only the information needed for a meal estimate or requested guidance is sent to the approved AI service. Provider selection changes which AI service processes that request.</p></article>
         <article><strong>Location</strong><p>Restaurant Mode asks only when you tap the location control. Approximate location can inform that request and is not saved to your profile or ledger.</p></article>
         <article><strong>Payments</strong><p>Stripe processes payment methods, subscription status, and invoices for paid memberships. Complimentary Family Access does not create a Stripe subscription. Meal Daddy never receives your complete card number.</p></article>
@@ -108,7 +114,7 @@
       </div>
       <ul class="deletion-list">
         <li>Your subscription is canceled immediately so it cannot renew.</li>
-        <li>Your profile, setup answers, ledger, nutrition estimates, feedback history, and remaining private photos are permanently deleted.</li>
+        <li>Your profile, setup answers, ledger, nutrition estimates, synced My Foods library, feedback history, and remaining private photos are permanently deleted. Meal Daddy also removes device-only My Foods records from this browser.</li>
         <li>Past invoices and records Stripe must keep for financial or legal purposes are not erased from Stripe.</li>
         <li>Deleting does not automatically refund a prior charge. Use billing management first if you only want to stop renewal.</li>
       </ul>
@@ -126,7 +132,7 @@
   </main>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="./account.js?v=20260806-2"></script>
-  <script src="./register-sw.js?v=20260806-2"></script>
+  <script type="module" src="./account.js?v=20260808-2"></script>
+  <script src="./register-sw.js?v=20260808-2"></script>
 </body>
 </html>

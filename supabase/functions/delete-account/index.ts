@@ -64,19 +64,21 @@ async function removePrivatePhotos(
   admin: ReturnType<typeof createClient>,
   userId: string
 ) {
-  for (;;) {
-    const { data, error: listError } = await admin.storage
-      .from("meal-photos")
-      .list(userId, { limit: 1000, offset: 0 });
-    if (listError) throw new Error("Private photo inventory could not be checked.");
+  for (const bucket of ["meal-photos", "saved-food-photos"]) {
+    for (;;) {
+      const { data, error: listError } = await admin.storage
+        .from(bucket)
+        .list(userId, { limit: 1000, offset: 0 });
+      if (listError) throw new Error("Private photo inventory could not be checked.");
 
-    const paths = (data ?? [])
-      .filter((object) => Boolean(object.id))
-      .map((object) => `${userId}/${object.name}`);
-    if (!paths.length) return;
+      const paths = (data ?? [])
+        .filter((object) => Boolean(object.id))
+        .map((object) => `${userId}/${object.name}`);
+      if (!paths.length) break;
 
-    const { error: removeError } = await admin.storage.from("meal-photos").remove(paths);
-    if (removeError) throw new Error("Private photos could not be deleted.");
+      const { error: removeError } = await admin.storage.from(bucket).remove(paths);
+      if (removeError) throw new Error("Private photos could not be deleted.");
+    }
   }
 }
 

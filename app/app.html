@@ -7,7 +7,7 @@
   <meta name="robots" content="noindex" />
   <title>Today - MealDaddy</title>
   <link rel="manifest" href="./manifest.webmanifest" />
-  <link rel="stylesheet" href="./styles.css?v=20260806-2" />
+  <link rel="stylesheet" href="./styles.css?v=20260808-2" />
 </head>
 <body class="app-page auth-loading">
   <header class="app-header">
@@ -36,6 +36,7 @@
           <article><strong>Restaurant Mode</strong><p>Open it before ordering, tap “Use my current area” when regional context helps, and include the restaurant, cravings, and any menu choices you are considering.</p></article>
           <article><strong>Plan Your Next Meal</strong><p>Take a photo of your fridge or pantry, then add your available time, servings, equipment, and budget for practical ideas using what you already have.</p></article>
           <article><strong>Feedback Loop</strong><p>Keep preferences current, correct estimates with Edit, and use Reports to turn repeated entries into more useful patterns.</p></article>
+          <article><strong>Didn't finish the meal?</strong><p>Open the meal in Today's entries and choose Adjust what I ate. Take a second photo of what remains, then review the estimated amount eaten before Meal Daddy updates only that entry.</p></article>
         </div>
       </div>
     </details>
@@ -82,6 +83,28 @@
         <button class="button button-primary" data-plan="core" type="button">Start 7-Day Trial</button>
       </div>
       <p class="privacy-line">Include drinks in the same description as your meal—Meal Daddy will count both their nutrition and hydration. Use Hydration only for standalone drinks. Entries are stored in your protected account.</p>
+    </section>
+    <section class="saved-foods-card" id="saved-foods" aria-labelledby="saved-foods-title">
+      <div class="saved-foods-heading">
+        <div><p class="eyebrow">Scan once. Log fast.</p><h2 id="saved-foods-title">My Foods</h2><p>Save a reviewed nutrition label, recurring meal, or restaurant item. Future logs use your saved values instantly without another AI request.</p></div>
+        <button class="button button-primary" id="add-saved-food" type="button">Scan or add food</button>
+      </div>
+      <aside class="saved-foods-notice">
+        <strong>Your choice, plainly explained</strong>
+        <p>By default, verified nutrition facts sync to your protected Meal Daddy account and are cached privately on this device. Processing photos are deleted unless you choose to keep a reference copy.</p>
+      </aside>
+      <details class="saved-food-storage-settings">
+        <summary>Choose how future saved foods are stored</summary>
+        <fieldset>
+          <legend>Default for new items on this device</legend>
+          <label><input type="radio" name="saved_food_default_storage" value="sync_cache" /><span><strong>Private account + device cache</strong><small>Recommended. Syncs across devices and keeps a convenient local copy.</small></span></label>
+          <label><input type="radio" name="saved_food_default_storage" value="device_only" /><span><strong>This device only</strong><small>Does not sync. It may be lost if browser or app data is cleared.</small></span></label>
+          <label><input type="radio" name="saved_food_default_storage" value="one_time" /><span><strong>Don't remember the next item</strong><small>Log it once, then discard the structured product record.</small></span></label>
+        </fieldset>
+        <p id="saved-food-storage-copy"></p>
+      </details>
+      <p class="saved-foods-status" id="saved-foods-status" role="status" aria-live="polite"></p>
+      <div class="saved-foods-list" id="saved-foods-list"><p class="saved-foods-empty">Loading your private foods...</p></div>
     </section>
     <section class="metric-grid" aria-label="Daily nutrition totals">
       <button class="metric-card primary-metric" type="button" data-metric="calories" aria-haspopup="dialog" aria-controls="metric-breakdown"><span>Energy</span><strong id="energy-total">0</strong><small id="energy-goal-label">of 2,050 cal</small><span class="metric-detail-cue">View sources</span><progress id="energy-progress" value="0" max="2050"></progress></button>
@@ -182,6 +205,87 @@
     </section>
     <nav class="bottom-nav" aria-label="App navigation"><a class="is-current" href="./app.html">Today</a><a href="#plan">Plan</a><button type="button" onclick="document.querySelector('#quick-entry').focus()">+</button><a href="#reports">Reports</a><a href="./account.html">Account</a></nav>
   </main>
+  <section class="saved-food-editor" id="saved-food-editor" role="dialog" aria-modal="true" aria-labelledby="saved-food-editor-title" hidden>
+    <button class="saved-food-editor-backdrop" id="saved-food-editor-backdrop" type="button" aria-label="Close My Foods editor"></button>
+    <article class="saved-food-editor-panel" id="saved-food-editor-panel" tabindex="-1">
+      <header><div><p class="eyebrow">Private food memory</p><h2 id="saved-food-editor-title">Add to My Foods</h2></div><button class="saved-food-editor-close" id="close-saved-food-editor" type="button" aria-label="Close">&times;</button></header>
+      <div id="saved-food-capture-step">
+        <form id="saved-food-scan-form">
+          <fieldset class="saved-food-type-options">
+            <legend>What does the photo show?</legend>
+            <label><input type="radio" name="saved_food_item_type" value="packaged_product" checked /><span><strong>Label or product</strong><small>Best for exact package values.</small></span></label>
+            <label><input type="radio" name="saved_food_item_type" value="home_meal" /><span><strong>Home food</strong><small>A recurring meal or recipe serving.</small></span></label>
+            <label><input type="radio" name="saved_food_item_type" value="restaurant_item" /><span><strong>Restaurant item</strong><small>A menu item, published values, or plate photo.</small></span></label>
+          </fieldset>
+          <label class="saved-food-photo-picker"><span>Take or choose a photo</span><input id="saved-food-photo-input" type="file" accept="image/*" capture="environment" /></label>
+          <span class="saved-food-photo-name" id="saved-food-photo-name">No photo selected.</span>
+          <label class="saved-food-context"><span>Helpful details <small>(optional)</small></span><textarea id="saved-food-photo-context" rows="3" maxlength="700" placeholder="Product and serving, ingredients, restaurant and menu item, or any modifications"></textarea></label>
+          <p class="saved-food-processing-note">The photo is temporarily uploaded to your protected account and sent to OpenAI for this analysis. It is deleted after processing. If you later choose &quot;Keep photo,&quot; Meal Daddy saves a separate private copy only after you approve the values.</p>
+          <div class="saved-food-editor-actions"><button class="button button-primary" id="analyze-saved-food-photo" type="submit">Read photo</button><button class="button button-quiet" id="saved-food-enter-manually" type="button">Enter values manually</button></div>
+          <p class="saved-food-editor-status" id="saved-food-scan-status" role="status" aria-live="polite"></p>
+        </form>
+      </div>
+      <div id="saved-food-review-step" hidden>
+        <div class="saved-food-review-heading"><div><strong>Review every value</strong><p>Labels and published values can still be photographed incorrectly. Plate photos are estimates.</p></div><span id="saved-food-review-source">Reviewed values</span></div>
+        <form id="saved-food-review-form">
+          <input type="hidden" name="item_type" value="packaged_product" />
+          <div class="saved-food-form-grid">
+            <label class="saved-food-wide"><span>Name</span><input name="name" maxlength="160" required /></label>
+            <label><span>Brand or restaurant</span><input name="brand_or_restaurant" maxlength="160" /></label>
+            <label><span>Serving description</span><input name="serving_description" maxlength="160" required /></label>
+            <label><span>Calories</span><input name="calories" type="number" min="0" max="10000" step="0.1" inputmode="decimal" required /></label>
+            <label><span>Protein (g)</span><input name="protein_g" type="number" min="0" max="1000" step="0.1" inputmode="decimal" required /></label>
+            <label><span>Total carbs (g)</span><input name="carbs_g" type="number" min="0" max="2000" step="0.1" inputmode="decimal" required /></label>
+            <label><span>Net carbs (g)</span><input name="net_carbs_g" type="number" min="0" max="2000" step="0.1" inputmode="decimal" required /></label>
+            <label><span>Fiber (g)</span><input name="fiber_g" type="number" min="0" max="500" step="0.1" inputmode="decimal" required /></label>
+            <label><span>Fat (g)</span><input name="fat_g" type="number" min="0" max="1000" step="0.1" inputmode="decimal" required /></label>
+            <label><span>Sugar alcohols (g)</span><input name="sugar_alcohols_g" type="number" min="0" max="500" step="0.1" inputmode="decimal" /></label>
+            <label><span>Allulose (g)</span><input name="allulose_g" type="number" min="0" max="500" step="0.1" inputmode="decimal" /></label>
+            <label><span>Drink hydration (fl oz)</span><input name="hydration_ounces" type="number" min="0" max="500" step="0.1" inputmode="decimal" /></label>
+            <label><span>Value source</span><select name="evidence_type"><option value="nutrition_label">Nutrition label</option><option value="restaurant_published">Restaurant published</option><option value="photo_estimate">Photo estimate</option><option value="manual">Entered manually</option></select></label>
+            <label><span>Confidence</span><select name="confidence"><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option></select></label>
+            <label class="saved-food-wide"><span>Notes or usual modifications</span><textarea name="notes" rows="2" maxlength="1000"></textarea></label>
+          </div>
+          <fieldset class="saved-food-review-storage">
+            <legend id="saved-food-storage-legend">Where should Meal Daddy remember this?</legend>
+            <label><input type="radio" name="saved_food_storage" value="sync_cache" /><span><strong>Private account + device cache</strong><small>Recommended for dependable access across devices.</small></span></label>
+            <label><input type="radio" name="saved_food_storage" value="device_only" /><span><strong>This device only</strong><small>No sync; browser data clearing can remove it.</small></span></label>
+            <label><input type="radio" name="saved_food_storage" value="one_time" /><span><strong>Log once</strong><small>Use these reviewed values now without remembering the item.</small></span></label>
+          </fieldset>
+          <p class="saved-food-review-storage-copy" id="saved-food-review-storage-copy"></p>
+          <label class="saved-food-keep-photo"><input id="saved-food-keep-photo" type="checkbox" /><span><strong>Keep a private reference photo</strong><small>Otherwise the photo is deleted and only the reviewed nutrition data remains.</small></span></label>
+          <div class="saved-food-editor-actions"><button class="button button-primary" id="save-saved-food" type="submit">Save to My Foods</button><button class="button button-quiet" id="saved-food-back-to-photo" type="button">Back</button></div>
+          <p class="saved-food-editor-status" id="saved-food-review-status" role="status" aria-live="polite"></p>
+        </form>
+      </div>
+    </article>
+  </section>
+  <section class="leftover-adjustment" id="leftover-adjustment" role="dialog" aria-modal="true" aria-labelledby="leftover-adjustment-title" hidden>
+    <button class="leftover-adjustment-backdrop" type="button" data-close-leftover-adjustment aria-label="Close portion adjustment"></button>
+    <article class="leftover-adjustment-panel" tabindex="-1">
+      <header>
+        <div><p class="eyebrow">Second-photo correction</p><h2 id="leftover-adjustment-title">Adjust what I ate</h2></div>
+        <button class="leftover-adjustment-close" type="button" data-close-leftover-adjustment aria-label="Close">&times;</button>
+      </header>
+      <p class="leftover-adjustment-intro" id="leftover-adjustment-intro">Take a photo of what remains. Meal Daddy will compare it with the original meal photo when available.</p>
+      <form id="leftover-analysis-form">
+        <label class="leftover-photo-picker"><span>Take an after-meal photo</span><input id="leftover-photo-input" type="file" accept="image/*" capture="environment" required /></label>
+        <span class="leftover-photo-name" id="leftover-photo-name">No photo selected.</span>
+        <label class="leftover-context"><span>What was left? <small>(optional but helpful)</small></span><textarea id="leftover-context" rows="2" maxlength="500" placeholder="For example: ate all the chicken, left half the fries and most of the sauce"></textarea></label>
+        <p class="leftover-privacy">The after photo is temporarily uploaded to your protected account, processed by OpenAI, and deleted after analysis. The original meal entry and its saved nutrition remain unchanged until you confirm.</p>
+        <div class="leftover-actions"><button class="button button-primary" type="submit" id="analyze-leftovers">Compare photos</button><button class="button button-quiet" type="button" data-close-leftover-adjustment>Cancel</button></div>
+        <p class="leftover-status" id="leftover-analysis-status" role="status" aria-live="polite"></p>
+      </form>
+      <form id="leftover-review-form" hidden>
+        <aside class="leftover-review-note"><strong>Review before applying</strong><p id="leftover-review-summary"></p></aside>
+        <label class="leftover-overall"><span>Estimated amount of the whole meal eaten</span><span><input id="leftover-overall-percent" type="number" min="0" max="100" step="1" inputmode="numeric" required />%</span></label>
+        <fieldset id="leftover-components" class="leftover-components" hidden><legend>Amount eaten by item</legend><div id="leftover-component-list"></div></fieldset>
+        <p class="leftover-estimate-note">This is still a visual estimate. Change any percentage that does not look right. Applying it updates only this meal, never the reusable item in My Foods.</p>
+        <div class="leftover-actions"><button class="button button-primary" type="submit">Apply correction</button><button class="button button-quiet" type="button" id="leftover-review-back">Retake photo</button></div>
+        <p class="leftover-status" id="leftover-review-status" role="status" aria-live="polite"></p>
+      </form>
+    </article>
+  </section>
   <section class="settings-preview" id="provider-settings" aria-labelledby="provider-title" hidden>
     <div><p class="eyebrow">AI preferences</p><h2 id="provider-title">Choose who processes AI requests</h2><p>Bring Your Own API members can choose which supported AI service processes their requests. Account and ledger data remain in MealDaddy's data system.</p></div>
     <div class="provider-options" role="radiogroup" aria-label="AI provider preference">
@@ -219,7 +323,7 @@
     <div class="onboarding-panel"><div class="step-indicator"><span class="is-active"></span><span></span><span></span></div><p class="eyebrow">A few basics first</p><h1 id="onboarding-title">How do you like to eat?</h1><p>Choose the closest fit. You can adjust individual preferences anytime.</p><div class="choice-grid" id="diet-options"></div><label class="select-field">Coaching tone<select id="tone-options"><option value="supportive">Supportive</option><option value="direct">Direct</option><option value="data_focused">Data-focused</option><option value="playful">Playful</option></select></label><button class="button button-primary full-button" id="continue-onboarding" type="button" disabled>Save my starting plan</button><p class="privacy-line">These preferences are protected by row-level security and can only be accessed by your account.</p></div>
   </section>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="./app.js?v=20260806-2" type="module"></script>
-  <script src="./register-sw.js?v=20260806-2"></script>
+  <script src="./app.js?v=20260808-2" type="module"></script>
+  <script src="./register-sw.js?v=20260808-2"></script>
 </body>
 </html>
