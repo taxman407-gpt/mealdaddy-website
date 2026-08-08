@@ -9,6 +9,12 @@ export function normalizeUnitSystem(value) {
   return String(value || "").toLowerCase() === "metric" ? "metric" : "us";
 }
 
+export function shouldEnableWeightTracking({ uses = [], goals = [] } = {}) {
+  const weightSignals = [...uses, ...goals]
+    .map((value) => String(value || "").trim().toLowerCase());
+  return weightSignals.some((value) => ["weight tracking", "lose weight", "maintain weight", "gain muscle"].includes(value));
+}
+
 export function weightToKg(value, unitSystem = "us") {
   const number = numeric(value);
   if (number === null || number <= 0) return null;

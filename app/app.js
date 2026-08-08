@@ -1,7 +1,7 @@
 import { supabase, requireSession } from "./supabase-client.js";
-import { buildProteinGuidance } from "./feedback-guidance.js?v=20260808-4";
-import { estimatedAdultBmi, formatWeight, formatWeightChange, normalizeUnitSystem, parseHeightCm, weightFromKg, weightToKg } from "./health-metrics.js?v=20260808-4";
-import { initializeSavedFoods } from "./saved-foods.js?v=20260808-4";
+import { buildProteinGuidance } from "./feedback-guidance.js?v=20260808-5";
+import { estimatedAdultBmi, formatWeight, formatWeightChange, normalizeUnitSystem, parseHeightCm, shouldEnableWeightTracking, weightFromKg, weightToKg } from "./health-metrics.js?v=20260808-5";
+import { initializeSavedFoods } from "./saved-foods.js?v=20260808-5";
 
 const dietStyles = ["Mediterranean", "Low-carb", "Pescatarian", "DASH", "Vegetarian", "High-protein", "Flexible"];
 const $ = (selector) => document.querySelector(selector);
@@ -276,7 +276,7 @@ function localDateValue(date = new Date()) {
 let weightPanelReturnFocus = null;
 
 function weightTrackingEnabled() {
-  return state.uses.includes("Weight tracking");
+  return shouldEnableWeightTracking({ uses: state.uses, goals: state.goals });
 }
 
 function todaysWeightEntry() {
