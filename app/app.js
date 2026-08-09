@@ -1,7 +1,7 @@
-import { supabase, requireSession } from "./supabase-client.js";
-import { buildProteinGuidance } from "./feedback-guidance.js?v=20260808-6";
-import { estimatedAdultBmi, formatWeight, formatWeightChange, normalizeUnitSystem, parseHeightCm, shouldEnableWeightTracking, weightFromKg, weightToKg } from "./health-metrics.js?v=20260808-6";
-import { initializeSavedFoods } from "./saved-foods.js?v=20260808-6";
+import { invokeAuthenticated, supabase, requireSession } from "./supabase-client.js?v=20260808-7";
+import { buildProteinGuidance } from "./feedback-guidance.js?v=20260808-7";
+import { estimatedAdultBmi, formatWeight, formatWeightChange, normalizeUnitSystem, parseHeightCm, shouldEnableWeightTracking, weightFromKg, weightToKg } from "./health-metrics.js?v=20260808-7";
+import { initializeSavedFoods } from "./saved-foods.js?v=20260808-7";
 
 const dietStyles = ["Mediterranean", "Low-carb", "Pescatarian", "DASH", "Vegetarian", "High-protein", "Flexible"];
 const $ = (selector) => document.querySelector(selector);
@@ -176,7 +176,7 @@ async function startCheckout(plan) {
   buttons.forEach((button) => { button.disabled = true; });
   status.textContent = "Opening secure Stripe Checkout...";
   try {
-    const { data, error } = await supabase.functions.invoke("create-checkout", { body: { plan } });
+    const { data, error } = await invokeAuthenticated("create-checkout", { body: { plan } });
     if (error) throw error;
     if (!data?.url || new URL(data.url).hostname !== "checkout.stripe.com") {
       throw new Error(data?.error || "Stripe Checkout did not return a valid address.");
@@ -1416,7 +1416,7 @@ $("#coach-action-form").addEventListener("submit", async (event) => {
         return;
       }
     }
-    const { data, error } = await supabase.functions.invoke("coach-action", {
+    const { data, error } = await invokeAuthenticated("coach-action", {
       body: {
         mode: state.coachMode,
         context,
@@ -1572,7 +1572,7 @@ $("#leftover-analysis-form").addEventListener("submit", async (event) => {
   try {
     const { error: uploadError } = await supabase.storage.from("meal-photos").upload(photoPath, file, { upsert: false });
     if (uploadError) throw uploadError;
-    const { data, error } = await supabase.functions.invoke("adjust-leftovers", {
+    const { data, error } = await invokeAuthenticated("adjust-leftovers", {
       body: {
         entryId: entry.id,
         photoPath,
@@ -1774,7 +1774,7 @@ $("#ledger-list").addEventListener("submit", async (event) => {
   await loadLedger();
   if ((targetKind === "meal" && (descriptionChanged || kindChanged)) || estimateHydration) {
     toast(targetKind === "hydration" ? "Drink updated. Estimating its nutrition..." : "Meal updated. Recalculating nutrition...");
-    const { data: estimateData, error: estimateError } = await supabase.functions.invoke("estimate-entry", { body: { entryId: entry.id } });
+    const { data: estimateData, error: estimateError } = await invokeAuthenticated("estimate-entry", { body: { entryId: entry.id } });
     await loadLedger();
     const subject = targetKind === "hydration" ? "Drink" : "Meal";
     if (estimateError) await handleEstimateFailure(estimateError, subject, "updated");
@@ -1895,7 +1895,7 @@ $("#entry-form").addEventListener("submit", async (event) => {
   await loadLedger();
   if (kind === "meal" || estimateHydration) {
     toast(kind === "hydration" ? "Drink saved. Estimating its nutrition..." : "Meal saved. Estimating nutrition...");
-    const { data: estimateData, error: estimateError } = await supabase.functions.invoke("estimate-entry", { body: { entryId: savedEntry.id } });
+    const { data: estimateData, error: estimateError } = await invokeAuthenticated("estimate-entry", { body: { entryId: savedEntry.id } });
     await loadLedger();
     if (estimateError) await handleEstimateFailure(estimateError, kind === "hydration" ? "Drink" : "Meal");
     else {
@@ -1920,7 +1920,7 @@ async function estimatePendingEntries() {
       hydrationNeedsNutritionEstimate(entry.description))
   ).slice(0, 3);
   for (const entry of pending) {
-    const { error } = await supabase.functions.invoke("estimate-entry", { body: { entryId: entry.id } });
+    const { error } = await invokeAuthenticated("estimate-entry", { body: { entryId: entry.id } });
     if (error) break;
   }
   if (pending.length) await loadLedger();
@@ -1933,7 +1933,7 @@ async function itemizeCurrentEntries() {
   ingredientItemizationFailed = false;
   if (metricBreakdownCurrentMetric) renderMetricBreakdown(metricBreakdownCurrentMetric);
   for (const entry of missing) {
-    const { error } = await supabase.functions.invoke("estimate-entry", {
+    const { error } = await invokeAuthenticated("estimate-entry", {
       body: { entryId: entry.id, itemizeExisting: true }
     });
     if (error) {
@@ -2000,6 +2000,7 @@ try {
   await Promise.all([loadLedger(), loadMembership(), loadFeedback(), loadWeightEntries()]);
   state.savedFoodsApi = await initializeSavedFoods({
     supabase,
+    invokeAuthenticated,
     user,
     defaultMealLabel,
     toast,

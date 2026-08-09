@@ -8,7 +8,7 @@ import {
   saveDeviceFood,
   setSavedFoodStorageMode,
   updateSyncedFoodCache
-} from "./saved-foods-store.js?v=20260808-6";
+} from "./saved-foods-store.js?v=20260808-7";
 
 const allowedPhotoTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 const maxPhotoBytes = 8 * 1024 * 1024;
@@ -131,6 +131,7 @@ async function functionErrorMessage(error, fallback) {
 
 export async function initializeSavedFoods({
   supabase,
+  invokeAuthenticated,
   user,
   defaultMealLabel,
   toast,
@@ -569,7 +570,7 @@ export async function initializeSavedFoods({
       if (uploadError) throw uploadError;
       const itemType = document.querySelector('input[name="saved_food_item_type"]:checked')?.value || "packaged_product";
       const context = $("#saved-food-photo-context").value.trim();
-      const { data, error } = await supabase.functions.invoke("analyze-saved-food", {
+      const { data, error } = await invokeAuthenticated("analyze-saved-food", {
         body: { photoPath, itemType, context }
       });
       if (error) throw error;

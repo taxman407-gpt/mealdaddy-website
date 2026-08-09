@@ -1,5 +1,5 @@
-import { supabase, requireSession } from "./supabase-client.js";
-import { clearLocalSavedFoods, getDeviceSavedFoods } from "./saved-foods-store.js?v=20260808-6";
+import { invokeAuthenticated, supabase, requireSession } from "./supabase-client.js?v=20260808-7";
+import { clearLocalSavedFoods, getDeviceSavedFoods } from "./saved-foods-store.js?v=20260808-7";
 
 const $ = (selector) => document.querySelector(selector);
 const session = await requireSession();
@@ -158,7 +158,7 @@ async function openBillingPortal(action) {
     : "Opening Stripe’s secure billing portal...";
 
   try {
-    const { data, error } = await supabase.functions.invoke("create-billing-portal", {
+    const { data, error } = await invokeAuthenticated("create-billing-portal", {
       body: { action }
     });
     if (error) throw error;
@@ -233,7 +233,7 @@ async function accountExport() {
 }
 
 async function showOwnerToolsIfAuthorized() {
-  const { data, error } = await supabase.functions.invoke("manage-family-access", {
+  const { data, error } = await invokeAuthenticated("manage-family-access", {
     body: { action: "authorize" }
   });
   if (!error && data?.ok) $("#owner-tools-link").hidden = false;
@@ -419,7 +419,7 @@ $("#delete-account").addEventListener("click", async () => {
   status.textContent = "Please keep this page open. Meal Daddy is first verifying that billing cannot continue.";
 
   try {
-    const { data, error } = await supabase.functions.invoke("delete-account", {
+    const { data, error } = await invokeAuthenticated("delete-account", {
       body: { confirmation: $("#delete-confirmation").value.trim() }
     });
     if (error) throw error;

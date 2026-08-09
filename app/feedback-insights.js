@@ -1,4 +1,4 @@
-import { requireSession, supabase } from "./supabase-client.js";
+import { invokeAuthenticated, requireSession, supabase } from "./supabase-client.js?v=20260808-7";
 
 const $ = (selector) => document.querySelector(selector);
 const session = await requireSession();
@@ -74,7 +74,7 @@ function renderFamilyAccess(grants) {
 }
 
 async function familyAccessRequest(action, payload = {}) {
-  const { data, error } = await supabase.functions.invoke("manage-family-access", {
+  const { data, error } = await invokeAuthenticated("manage-family-access", {
     body: { action, ...payload }
   });
   if (error || !data?.ok) {
@@ -259,7 +259,7 @@ async function loadInsights(action = "latest") {
       : "Loading protected feedback indicators..."
   );
 
-  const { data, error } = await supabase.functions.invoke("summarize-feedback", {
+  const { data, error } = await invokeAuthenticated("summarize-feedback", {
     body: { action }
   });
 
