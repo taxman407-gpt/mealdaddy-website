@@ -7,7 +7,7 @@
   <meta name="robots" content="noindex" />
   <title>Today - MealDaddy</title>
   <link rel="manifest" href="./manifest.webmanifest" />
-  <link rel="stylesheet" href="./styles.css?v=20260808-7" />
+  <link rel="stylesheet" href="./styles.css?v=20260808-8" />
 </head>
 <body class="app-page auth-loading">
   <header class="app-header">
@@ -33,7 +33,7 @@
           <article class="signature-tip"><span>Signature tool</span><strong>Nutrition Tracking Engine™</strong><p>Log the whole meal together—including drinks, quantities, brands, sauces, and additions—to improve calories and macro estimates.</p></article>
           <article class="signature-tip"><span>Signature tool</span><strong>Adaptive Hydration™</strong><p>Include every drink and note salty restaurant foods so hydration guidance has the context it needs.</p></article>
           <article class="signature-tip"><span>Signature tool</span><strong>Inflammation Score™ System</strong><p>Describe processing, cooking oils, sauces, added sugars, and alcohol so inflammation-aware guidance can identify useful patterns.</p></article>
-          <article><strong>Restaurant Mode</strong><p>Open it before ordering, tap “Use my current area” when regional context helps, and include the restaurant, cravings, and any menu choices you are considering.</p></article>
+          <article><strong>Restaurant Mode</strong><p>Open it before ordering and name the restaurant. Meal Daddy checks current sources when available, presents A, B, and C choices with substitutions, and lets you review your customized choice before saving it to My Foods.</p></article>
           <article><strong>Plan Your Next Meal</strong><p>Take a photo of your fridge or pantry, then add your available time, servings, equipment, and budget for practical ideas using what you already have.</p></article>
           <article><strong>Feedback Loop</strong><p>Keep preferences current, correct estimates with Edit, and use Reports to turn repeated entries into more useful patterns.</p></article>
           <article><strong>Didn't finish the meal?</strong><p>Open Edit on the meal and choose Add after / leftover photo. Take a second photo of what remains, then review the estimated amount eaten before Meal Daddy updates only that entry.</p></article>
@@ -62,7 +62,7 @@
         </div>
         <div class="coach-form-buttons"><button id="run-coach-action" type="submit">Get guidance</button><button id="close-coach-action" type="button">Close</button></div>
         <p id="coach-action-status" class="coach-action-status" role="status" hidden></p>
-        <p id="coach-action-result" class="coach-action-result" hidden></p>
+        <div id="coach-action-result" class="coach-action-result" hidden></div>
       </form>
     </section>
     <section class="quick-log-card" aria-labelledby="quick-log-title">
@@ -117,8 +117,11 @@
         </fieldset>
         <p id="saved-food-storage-copy"></p>
       </details>
-      <p class="saved-foods-status" id="saved-foods-status" role="status" aria-live="polite"></p>
-      <div class="saved-foods-list" id="saved-foods-list"><p class="saved-foods-empty">Loading your private foods...</p></div>
+      <details class="saved-foods-list-dropdown">
+        <summary><span>Saved foods</span><small id="saved-food-count">Loading...</small></summary>
+        <p class="saved-foods-status" id="saved-foods-status" role="status" aria-live="polite"></p>
+        <div class="saved-foods-list" id="saved-foods-list"><p class="saved-foods-empty">Loading your private foods...</p></div>
+      </details>
     </section>
     <section class="metric-grid" aria-label="Daily nutrition totals">
       <button class="metric-card primary-metric" type="button" data-metric="calories" aria-haspopup="dialog" aria-controls="metric-breakdown"><span>Energy</span><strong id="energy-total">0</strong><small id="energy-goal-label">of 2,050 cal</small><span class="metric-detail-cue">View sources</span><progress id="energy-progress" value="0" max="2050"></progress></button>
@@ -263,7 +266,7 @@
             <label><span>Sugar alcohols (g)</span><input name="sugar_alcohols_g" type="number" min="0" max="500" step="0.1" inputmode="decimal" /></label>
             <label><span>Allulose (g)</span><input name="allulose_g" type="number" min="0" max="500" step="0.1" inputmode="decimal" /></label>
             <label><span>Drink hydration (fl oz)</span><input name="hydration_ounces" type="number" min="0" max="500" step="0.1" inputmode="decimal" /></label>
-            <label><span>Value source</span><select name="evidence_type"><option value="nutrition_label">Nutrition label</option><option value="restaurant_published">Restaurant published</option><option value="photo_estimate">Photo estimate</option><option value="manual">Entered manually</option></select></label>
+            <label><span>Value source</span><select name="evidence_type"><option value="nutrition_label">Nutrition label</option><option value="restaurant_published">Restaurant published</option><option value="restaurant_estimate">Restaurant meal estimate</option><option value="photo_estimate">Photo estimate</option><option value="manual">Entered manually</option></select></label>
             <label><span>Confidence</span><select name="confidence"><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option></select></label>
             <label class="saved-food-wide"><span>Notes or usual modifications</span><textarea name="notes" rows="2" maxlength="1000"></textarea></label>
           </div>
@@ -344,7 +347,7 @@
     <div class="onboarding-panel"><div class="step-indicator"><span class="is-active"></span><span></span><span></span></div><p class="eyebrow">A few basics first</p><h1 id="onboarding-title">How do you like to eat?</h1><p>Choose the closest fit. You can adjust individual preferences anytime.</p><div class="choice-grid" id="diet-options"></div><label class="select-field">Coaching tone<select id="tone-options"><option value="supportive">Supportive</option><option value="direct">Direct</option><option value="data_focused">Data-focused</option><option value="playful">Playful</option></select></label><button class="button button-primary full-button" id="continue-onboarding" type="button" disabled>Save my starting plan</button><p class="privacy-line">These preferences are protected by row-level security and can only be accessed by your account.</p></div>
   </section>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="./app.js?v=20260808-7" type="module"></script>
-  <script src="./register-sw.js?v=20260808-7"></script>
+  <script src="./app.js?v=20260808-8" type="module"></script>
+  <script src="./register-sw.js?v=20260808-8"></script>
 </body>
 </html>

@@ -1,0 +1,11 @@
+project_id = "meal-daddy-app"
+
+[api]
+enabled = true
+
+[db]
+major_version = 17
+
+[db.migrations]
+enabled = true
+schema_paths = []

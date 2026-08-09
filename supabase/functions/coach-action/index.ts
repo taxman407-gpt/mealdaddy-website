@@ -32,6 +32,112 @@ function outputText(response: Record<string, unknown>) {
   return "";
 }
 
+function webSearchSources(response: Record<string, unknown>) {
+  const output = Array.isArray(response.output) ? response.output : [];
+  const seen = new Set<string>();
+  const sources: Array<{ title: string; url: string }> = [];
+  for (const item of output as Array<Record<string, any>>) {
+    if (item.type !== "web_search_call" || !Array.isArray(item.action?.sources)) continue;
+    for (const source of item.action.sources as Array<Record<string, unknown>>) {
+      const url = typeof source.url === "string" ? source.url : "";
+      if (!/^https?:\/\//i.test(url) || seen.has(url)) continue;
+      seen.add(url);
+      sources.push({
+        title: typeof source.title === "string" ? source.title.slice(0, 200) : "Web source",
+        url
+      });
+      if (sources.length >= 8) return sources;
+    }
+  }
+  return sources;
+}
+
+const restaurantPlanFormat = {
+  type: "json_schema",
+  name: "restaurant_plan",
+  strict: true,
+  schema: {
+    type: "object",
+    properties: {
+      restaurant: { type: "string" },
+      overview: { type: "string" },
+      source_checked_on: { type: "string" },
+      options: {
+        type: "array",
+        minItems: 3,
+        maxItems: 3,
+        items: {
+          type: "object",
+          properties: {
+            title: { type: "string" },
+            order: { type: "string" },
+            substitutions: { type: "array", items: { type: "string" }, maxItems: 6 },
+            why: { type: "string" },
+            calories: { type: "number", minimum: 0, maximum: 10000 },
+            protein_g: { type: "number", minimum: 0, maximum: 1000 },
+            carbs_g: { type: "number", minimum: 0, maximum: 2000 },
+            net_carbs_g: { type: "number", minimum: 0, maximum: 2000 },
+            fat_g: { type: "number", minimum: 0, maximum: 1000 },
+            fiber_g: { type: "number", minimum: 0, maximum: 500 },
+            confidence: { type: "string", enum: ["low", "medium", "high"] },
+            evidence_type: { type: "string", enum: ["restaurant_published", "restaurant_estimate"] },
+            source_url: { type: "string" }
+          },
+          required: [
+            "title", "order", "substitutions", "why", "calories", "protein_g", "carbs_g",
+            "net_carbs_g", "fat_g", "fiber_g", "confidence", "evidence_type", "source_url"
+          ],
+          additionalProperties: false
+        }
+      }
+    },
+    required: ["restaurant", "overview", "source_checked_on", "options"],
+    additionalProperties: false
+  }
+};
+
+function normalizedRestaurantPlan(response: Record<string, unknown>) {
+  const text = outputText(response).trim();
+  if (!text) return null;
+  let parsed: Record<string, any>;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return null;
+  }
+  if (!Array.isArray(parsed.options) || parsed.options.length !== 3) return null;
+  const sources = webSearchSources(response);
+  const allowedUrls = new Set(sources.map((source) => source.url));
+  const today = new Date().toISOString().slice(0, 10);
+  return {
+    restaurant: String(parsed.restaurant || "Restaurant").slice(0, 160),
+    overview: String(parsed.overview || "Three personalized ways to order.").slice(0, 500),
+    source_checked_on: today,
+    sources,
+    options: parsed.options.map((option: Record<string, any>) => {
+      const sourceUrl = allowedUrls.has(String(option.source_url || "")) ? String(option.source_url) : "";
+      const published = option.evidence_type === "restaurant_published" && Boolean(sourceUrl);
+      return {
+        title: String(option.title || "Customized restaurant meal").slice(0, 160),
+        order: String(option.order || "").slice(0, 500),
+        substitutions: Array.isArray(option.substitutions)
+          ? option.substitutions.map((value: unknown) => String(value).slice(0, 160)).slice(0, 6)
+          : [],
+        why: String(option.why || "").slice(0, 500),
+        calories: Math.max(0, Number(option.calories || 0)),
+        protein_g: Math.max(0, Number(option.protein_g || 0)),
+        carbs_g: Math.max(0, Number(option.carbs_g || 0)),
+        net_carbs_g: Math.max(0, Number(option.net_carbs_g || 0)),
+        fat_g: Math.max(0, Number(option.fat_g || 0)),
+        fiber_g: Math.max(0, Number(option.fiber_g || 0)),
+        confidence: ["low", "medium", "high"].includes(option.confidence) ? option.confidence : "medium",
+        evidence_type: published ? "restaurant_published" : "restaurant_estimate",
+        source_url: sourceUrl
+      };
+    })
+  };
+}
+
 function profileContext(profile: Record<string, any> | null) {
   const answers = profile?.onboarding_data ?? {};
   return {
@@ -88,6 +194,12 @@ Deno.serve(async (request) => {
     netCarbs: number;
     netCarbGoal: number | null;
   } | null = null;
+  let location: {
+    latitude: number;
+    longitude: number;
+    accuracyMeters: number;
+    timezone: string;
+  } | null = null;
   try {
     const body = await request.json();
     mode = typeof body.mode === "string" ? body.mode : "";
@@ -129,6 +241,22 @@ Deno.serve(async (request) => {
         netCarbs: Math.round(netCarbs),
         netCarbGoal: netCarbGoal === null ? null : Math.round(netCarbGoal)
       };
+    }
+    if (body.location && typeof body.location === "object") {
+      const latitude = Number(body.location.latitude);
+      const longitude = Number(body.location.longitude);
+      const accuracyMeters = Math.max(0, Math.min(100_000, Number(body.location.accuracyMeters || 0)));
+      if (
+        Number.isFinite(latitude) && latitude >= -90 && latitude <= 90 &&
+        Number.isFinite(longitude) && longitude >= -180 && longitude <= 180
+      ) {
+        location = {
+          latitude: Number(latitude.toFixed(2)),
+          longitude: Number(longitude.toFixed(2)),
+          accuracyMeters: Number.isFinite(accuracyMeters) ? Math.round(accuracyMeters) : 0,
+          timezone: typeof body.location.timezone === "string" ? body.location.timezone.slice(0, 100) : ""
+        };
+      }
     }
   } catch {
     return json({ error: "Invalid request." }, 400);
@@ -175,41 +303,71 @@ Deno.serve(async (request) => {
 
   const task = mode === "dinner"
     ? "Create one practical dinner plan. Give a concise menu, portions or protein target when useful, and a short preparation sequence. Prefer the user's ingredients and constraints. Keep it achievable tonight."
-    : "Give concise restaurant ordering guidance. Recommend one or two practical choices, useful modifications, and a simple ordering script when helpful. If the exact menu is unknown, state that and give reliable category-level guidance.";
+    : "Create exactly three restaurant choices in this order: A is the closest fit to today's goals, B is a balanced choice with more flexibility, and C is a treat option with practical harm-reducing substitutions. For a named restaurant, search the current web before recommending and prioritize the restaurant's official menu or nutrition pages. Use restaurant_published only when a searched source directly supports the nutrition values; otherwise use restaurant_estimate. Every source_url must exactly match a URL returned by web search. Keep order and substitution wording concise and personalized; never copy a restaurant's full marketing description.";
   const nutritionGuardrail = nutritionContext?.netCarbGoal
     ? `The user's saved hard daily net-carb ceiling is ${nutritionContext.netCarbGoal}g. They have logged approximately ${nutritionContext.netCarbs}g today, leaving ${Math.max(0, nutritionContext.netCarbGoal - nutritionContext.netCarbs)}g. Treat the remaining allowance as a hard constraint whenever possible. Estimate net carbs for each recommendation and show projected daily net carbs. Never recommend an option over the ceiling if a lower-carb option can meet the request. If the user is already at or over the ceiling, choose options with as close to zero additional net carbs as practical and say so clearly.`
     : "Treat any explicit numeric nutrition limit in the user's request as a hard constraint unless safety requires otherwise.";
 
-  const openAiResponse = await fetch("https://api.openai.com/v1/responses", {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${openAiKey}`,
-      "content-type": "application/json"
-    },
-    body: JSON.stringify({
+  const systemText = `You are Meal Daddy, a practical nutrition and meal-planning coach. ${task} ${nutritionGuardrail} Respect listed allergies, restrictions, preferences, budget, and household needs. Do not diagnose, prescribe, or replace medical advice. Use a supportive, direct tone.${mode === "dinner" ? " Return plain text under 220 words." : " Nutrition numbers must reflect the customized order after substitutions. If exact numbers are unavailable, provide conservative estimates and lower confidence."}`;
+  const userText = `Saved profile:\n${JSON.stringify(profileContext(profile))}\n\nToday's nutrition context:\n${JSON.stringify(nutritionContext)}\n\nApproximate area shared for this request:\n${JSON.stringify(location)}\n\nUser request:\n${context}`;
+  const requestBody: Record<string, unknown> = {
       model,
       store: false,
       reasoning: { effort: "none" },
-      max_output_tokens: 450,
+      max_output_tokens: mode === "restaurant" ? 1200 : 450,
       input: [
         {
           role: "system",
           content: [{
             type: "input_text",
-            text: `You are Meal Daddy, a practical nutrition and meal-planning coach. ${task} ${nutritionGuardrail} Respect listed allergies, restrictions, preferences, budget, and household needs. Do not diagnose, prescribe, or replace medical advice. Use a supportive, direct tone and return plain text under 220 words.`
+            text: systemText
           }]
         },
         {
           role: "user",
           content: [{
             type: "input_text",
-            text: `Saved profile:\n${JSON.stringify(profileContext(profile))}\n\nToday's nutrition context:\n${JSON.stringify(nutritionContext)}\n\nUser request:\n${context}`
+            text: userText
           }]
         }
       ],
-      text: { verbosity: "low" }
-    })
+      text: mode === "restaurant"
+        ? { verbosity: "low", format: restaurantPlanFormat }
+        : { verbosity: "low" }
+  };
+  if (mode === "restaurant") {
+    requestBody.tools = [{ type: "web_search" }];
+    requestBody.tool_choice = "auto";
+    requestBody.include = ["web_search_call.action.sources"];
+  }
+
+  const callOpenAi = (body: Record<string, unknown>) => fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${openAiKey}`,
+      "content-type": "application/json"
+    },
+    body: JSON.stringify(body)
   });
+
+  let openAiResponse = await callOpenAi(requestBody);
+  if (mode === "restaurant" && [400, 403].includes(openAiResponse.status)) {
+    const fallbackBody = { ...requestBody };
+    delete fallbackBody.tools;
+    delete fallbackBody.tool_choice;
+    delete fallbackBody.include;
+    fallbackBody.input = [
+      {
+        role: "system",
+        content: [{
+          type: "input_text",
+          text: `${systemText} Current web search is unavailable for this request. Do not invent sources. Use restaurant_estimate, an empty source_url, and low or medium confidence.`
+        }]
+      },
+      { role: "user", content: [{ type: "input_text", text: userText }] }
+    ];
+    openAiResponse = await callOpenAi(fallbackBody);
+  }
 
   if (!openAiResponse.ok) {
     const errorBody = await openAiResponse.json().catch(() => ({}));
@@ -220,12 +378,18 @@ Deno.serve(async (request) => {
   }
 
   const response = await openAiResponse.json();
-  const guidance = outputText(response).trim();
-  if (!guidance) return json({ error: "Meal Daddy returned an empty response." }, 502);
+  const restaurantPlan = mode === "restaurant" ? normalizedRestaurantPlan(response) : null;
+  const guidance = mode === "restaurant" ? restaurantPlan?.overview ?? "" : outputText(response).trim();
+  if (!guidance || (mode === "restaurant" && !restaurantPlan)) {
+    return json({ error: "Meal Daddy returned an incomplete response. Please try again." }, 502);
+  }
 
   const inputTokens = Number(response.usage?.input_tokens || 0);
   const outputTokens = Number(response.usage?.output_tokens || 0);
-  const estimatedCostMicros = inputTokens * 1 + outputTokens * 6;
+  const webSearchCalls = Array.isArray(response.output)
+    ? response.output.filter((item: Record<string, unknown>) => item.type === "web_search_call").length
+    : 0;
+  const estimatedCostMicros = inputTokens * 1 + outputTokens * 6 + webSearchCalls * 10_000;
   await admin.from("ai_usage_events").insert({
     user_id: user.id,
     provider: "openai",
@@ -235,5 +399,5 @@ Deno.serve(async (request) => {
     estimated_cost_micros: estimatedCostMicros
   });
 
-  return json({ ok: true, guidance });
+  return json({ ok: true, guidance, restaurantPlan });
 });

@@ -8,7 +8,7 @@ import {
   saveDeviceFood,
   setSavedFoodStorageMode,
   updateSyncedFoodCache
-} from "./saved-foods-store.js?v=20260808-7";
+} from "./saved-foods-store.js?v=20260808-8";
 
 const allowedPhotoTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 const maxPhotoBytes = 8 * 1024 * 1024;
@@ -26,6 +26,7 @@ const numericFields = [
 const evidenceLabels = {
   nutrition_label: "Nutrition label values",
   restaurant_published: "Restaurant-published values",
+  restaurant_estimate: "Restaurant meal estimate",
   photo_estimate: "Photo estimate",
   manual: "User-entered values"
 };
@@ -209,6 +210,25 @@ export async function initializeSavedFoods({
     openEditor();
   }
 
+  function reviewRestaurantFood(food) {
+    const candidate = normalizedFood({
+      ...food,
+      item_type: "restaurant_item",
+      evidence_type: food.evidence_type === "restaurant_published" ? "restaurant_published" : "restaurant_estimate"
+    });
+    const existing = state.foods.find((savedFood) =>
+      savedFood.item_type === "restaurant_item" &&
+      normalizedSearchText(savedFood.name) === normalizedSearchText(candidate.name) &&
+      normalizedSearchText(savedFood.brand_or_restaurant) === normalizedSearchText(candidate.brand_or_restaurant)
+    ) || null;
+    state.pendingFile = null;
+    state.editingFood = existing;
+    populateReview(candidate, existing);
+    $("#saved-food-editor-title").textContent = existing ? "Review updated favorite meal" : "Review favorite restaurant meal";
+    $("#saved-food-photo-name").textContent = "Customized restaurant order ready for review.";
+    openEditor();
+  }
+
   function foodCard(food) {
     const photo = food.photo_path || food.photo_blob
       ? `<div class="saved-food-photo"><span>${escapeHtml(food.name).charAt(0).toUpperCase()}</span><img data-saved-food-photo="${escapeHtml(food.storage_scope)}:${escapeHtml(food.id)}" alt="Saved reference for ${escapeHtml(food.name)}" hidden /></div>`
@@ -222,6 +242,7 @@ export async function initializeSavedFoods({
         <p>${escapeHtml(foodSubtitle(food))}</p>
         <strong>${escapeHtml(foodNutritionLine(food))}</strong>
         ${food.evidence_type === "photo_estimate" ? `<small>Estimated from a photo; review portions when they change.</small>` : ""}
+        ${food.evidence_type === "restaurant_estimate" ? `<small>Restaurant meal estimate; published values were not confirmed.</small>` : ""}
       </div>
       <form class="saved-food-log-form" data-log-saved-food="${escapeHtml(food.storage_scope)}:${escapeHtml(food.id)}">
         <label><span>Servings</span><input name="servings" type="number" min="0.1" max="50" step="0.1" value="1" inputmode="decimal" required /></label>
@@ -262,6 +283,12 @@ export async function initializeSavedFoods({
   function renderFoods() {
     releaseObjectUrls();
     const list = $("#saved-foods-list");
+    const count = $("#saved-food-count");
+    if (count) {
+      count.textContent = state.foods.length === 1
+        ? "1 saved food"
+        : `${state.foods.length} saved foods`;
+    }
     if (!state.foods.length) {
       list.innerHTML = '<p class="saved-foods-empty">No saved foods yet. Photograph a label, recurring meal, or restaurant item and Meal Daddy will help you review it.</p>';
       return;
@@ -710,6 +737,7 @@ export async function initializeSavedFoods({
     findBestMatch,
     logFood,
     reviewDetectedFood,
+    reviewRestaurantFood,
     refresh: loadFoods
   };
 }

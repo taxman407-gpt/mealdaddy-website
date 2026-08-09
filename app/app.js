@@ -1,7 +1,8 @@
-import { invokeAuthenticated, supabase, requireSession } from "./supabase-client.js?v=20260808-7";
-import { buildProteinGuidance } from "./feedback-guidance.js?v=20260808-7";
-import { estimatedAdultBmi, formatWeight, formatWeightChange, normalizeUnitSystem, parseHeightCm, shouldEnableWeightTracking, weightFromKg, weightToKg } from "./health-metrics.js?v=20260808-7";
-import { initializeSavedFoods } from "./saved-foods.js?v=20260808-7";
+import { invokeAuthenticated, supabase, requireSession } from "./supabase-client.js?v=20260808-8";
+import { buildProteinGuidance } from "./feedback-guidance.js?v=20260808-8";
+import { estimatedAdultBmi, formatWeight, formatWeightChange, normalizeUnitSystem, parseHeightCm, shouldEnableWeightTracking, weightFromKg, weightToKg } from "./health-metrics.js?v=20260808-8";
+import { initializeSavedFoods } from "./saved-foods.js?v=20260808-8";
+import { normalizeRestaurantPlan, restaurantChoiceLetters, restaurantFitLabels, restaurantOptionToSavedFood, safeRestaurantSourceUrl } from "./restaurant-plan.js?v=20260808-8";
 
 const dietStyles = ["Mediterranean", "Low-carb", "Pescatarian", "DASH", "Vegetarian", "High-protein", "Flexible"];
 const $ = (selector) => document.querySelector(selector);
@@ -16,7 +17,7 @@ const entryCategories = [...mealLabels, "Hydration"];
 const query = new URLSearchParams(location.search);
 let pendingPlan = allowedPlans.has(query.get("plan")) ? query.get("plan") : null;
 const checkoutResult = query.get("checkout");
-const state = { diet: "", tone: "supportive", provider: "best_value", entries: [], weightEntries: [], photo: null, coachPhoto: null, restaurantLocation: null, coachMode: "dinner", membershipPlan: null, membershipStatus: null, membershipAccess: null, calorieGoal: 2050, proteinGoal: 130, netCarbGoal: 0, fiberGoal: 30, waterGoal: 90, unitSystem: "us", heightCm: null, age: null, trackBmi: false, goalWeightKg: null, eatingStyles: [], goals: [], trackingDetail: "Moderate", uses: [], reminders: [], favoriteProteins: [], foodsLoved: "", foodsDisliked: "", foodsToAvoid: "", biggestChallenge: "", suggestedProteinTarget: 40, leftoverEntryId: null, leftoverPhoto: null, leftoverAnalysis: null, leftoverReturnFocus: null, savedFoodsApi: null, pendingQuickLog: null, skipSavedFoodMatch: false, pendingLabelCandidate: null, pendingLabelPhoto: null, currentTotals: { calories: 0, protein: 0, carbs: 0, netCarbs: 0, fat: 0, fiber: 0, water: 0 } };
+const state = { diet: "", tone: "supportive", provider: "best_value", entries: [], weightEntries: [], photo: null, coachPhoto: null, restaurantLocation: null, restaurantPlan: null, coachMode: "dinner", membershipPlan: null, membershipStatus: null, membershipAccess: null, calorieGoal: 2050, proteinGoal: 130, netCarbGoal: 0, fiberGoal: 30, waterGoal: 90, unitSystem: "us", heightCm: null, age: null, trackBmi: false, goalWeightKg: null, eatingStyles: [], goals: [], trackingDetail: "Moderate", uses: [], reminders: [], favoriteProteins: [], foodsLoved: "", foodsDisliked: "", foodsToAvoid: "", biggestChallenge: "", suggestedProteinTarget: 40, leftoverEntryId: null, leftoverPhoto: null, leftoverAnalysis: null, leftoverReturnFocus: null, savedFoodsApi: null, pendingQuickLog: null, skipSavedFoodMatch: false, pendingLabelCandidate: null, pendingLabelPhoto: null, currentTotals: { calories: 0, protein: 0, carbs: 0, netCarbs: 0, fat: 0, fiber: 0, water: 0 } };
 const installDismissedKey = "mealdaddy-install-tip-dismissed";
 let deferredInstallPrompt = null;
 let latestReport = null;
@@ -1345,6 +1346,7 @@ $("#coach-photo-input").addEventListener("change", (event) => {
 
 function openCoachAction(mode) {
   state.coachMode = mode;
+  state.restaurantPlan = null;
   const restaurantMode = mode === "restaurant";
   if (restaurantMode) clearCoachPhoto(); else clearRestaurantLocation();
   $("#coach-action-title").textContent = restaurantMode ? "Restaurant Mode" : "Plan Your Next Meal";
@@ -1360,7 +1362,36 @@ function openCoachAction(mode) {
   $("#coach-action-form").hidden = false;
   $("#coach-action-status").hidden = true;
   $("#coach-action-result").hidden = true;
+  $("#coach-action-result").replaceChildren();
   $("#coach-action-context").focus();
+}
+
+function renderRestaurantPlan(rawPlan) {
+  const plan = normalizeRestaurantPlan(rawPlan);
+  if (!plan) return false;
+  state.restaurantPlan = plan;
+  const result = $("#coach-action-result");
+  result.innerHTML = `<section class="restaurant-plan" aria-label="Restaurant recommendations">
+    <p class="restaurant-plan-intro">${escapeHtml(plan.overview)}</p>
+    ${plan.options.map((option, index) => {
+      const substitutions = Array.isArray(option.substitutions)
+        ? option.substitutions.map((item) => String(item).trim()).filter(Boolean).slice(0, 6)
+        : [];
+      const sourceUrl = safeRestaurantSourceUrl(option.source_url);
+      const published = option.evidence_type === "restaurant_published" && sourceUrl;
+      return `<article class="restaurant-choice">
+        <span class="restaurant-choice-letter" aria-hidden="true">${restaurantChoiceLetters[index]}</span>
+        <div class="restaurant-choice-main"><span>${escapeHtml(restaurantFitLabels[index])}</span><h3>${escapeHtml(String(option.title || `Option ${restaurantChoiceLetters[index]}`))}</h3><p>${escapeHtml(String(option.order || ""))}</p></div>
+        ${substitutions.length ? `<ul class="restaurant-substitutions" aria-label="Accepted substitutions">${substitutions.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : ""}
+        <div class="restaurant-choice-metrics"><span><strong>${formatEstimateNumber(option.calories)} cal</strong>Energy</span><span><strong>${formatEstimateNumber(option.protein_g)}g</strong>Protein</span><span><strong>${formatEstimateNumber(option.net_carbs_g)}g</strong>Net carbs</span><span><strong>${formatEstimateNumber(option.fiber_g)}g</strong>Fiber</span></div>
+        <p class="restaurant-choice-why">${escapeHtml(String(option.why || ""))}</p>
+        <p class="restaurant-choice-source">${published ? `Restaurant-published values · <a href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener noreferrer">view source</a>` : "Meal Daddy estimate · published values were not confirmed"}</p>
+        <button class="button" type="button" data-save-restaurant-option="${index}">Choose ${restaurantChoiceLetters[index]} — review &amp; save</button>
+      </article>`;
+    }).join("")}
+    <p class="restaurant-plan-note">Nutrition varies by location, preparation, portion, and substitutions. Review the final order before saving it to My Foods.</p>
+  </section>`;
+  return true;
 }
 
 $("#plan-dinner").addEventListener("click", () => openCoachAction("dinner"));
@@ -1378,6 +1409,15 @@ $("#close-coach-action").addEventListener("click", () => {
   $("#coach-action-form").hidden = true;
   clearCoachPhoto();
   clearRestaurantLocation();
+});
+
+$("#coach-action-result").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-save-restaurant-option]");
+  if (!button || !state.restaurantPlan || !state.savedFoodsApi) return;
+  const option = state.restaurantPlan.options[Number(button.dataset.saveRestaurantOption)];
+  if (!option) return;
+  state.savedFoodsApi.reviewRestaurantFood(restaurantOptionToSavedFood(state.restaurantPlan, option));
+  toast(`Option ${option.label} is ready for your review.`);
 });
 
 $("#coach-action-form").addEventListener("submit", async (event) => {
@@ -1431,12 +1471,19 @@ $("#coach-action-form").addEventListener("submit", async (event) => {
         }
       }
     });
-    if (error || !data?.guidance) {
+    if (error || (!data?.guidance && !data?.restaurantPlan)) {
       status.textContent = data?.error || error?.message || "Meal Daddy could not generate guidance right now.";
       return;
     }
     status.hidden = true;
-    result.textContent = data.guidance;
+    if (state.coachMode === "restaurant" && data.restaurantPlan) {
+      if (!renderRestaurantPlan(data.restaurantPlan)) {
+        result.textContent = data.guidance || "Meal Daddy could not format the restaurant choices. Please try again.";
+      }
+    } else {
+      state.restaurantPlan = null;
+      result.textContent = data.guidance;
+    }
     result.hidden = false;
     clearCoachPhoto();
     clearRestaurantLocation();
