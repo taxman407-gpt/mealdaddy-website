@@ -1,2 +1,4 @@
 .wrangler/
 supabase/.temp/
+dist/
+.netlify/

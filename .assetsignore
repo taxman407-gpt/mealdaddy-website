@@ -1,5 +1,6 @@
 .git
 .git/**
+.gitignore
 .github
 .github/**
 .wrangler
@@ -26,3 +27,6 @@ yarn.lock
 .assetsignore
 wrangler.jsonc
 README.md
+netlify.toml
+dist
+dist/**
