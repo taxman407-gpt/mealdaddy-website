@@ -1,8 +1,8 @@
-import { invokeAuthenticated, supabase, requireSession } from "./supabase-client.js?v=20260808-8";
-import { buildProteinGuidance } from "./feedback-guidance.js?v=20260808-8";
-import { estimatedAdultBmi, formatWeight, formatWeightChange, normalizeUnitSystem, parseHeightCm, shouldEnableWeightTracking, weightFromKg, weightToKg } from "./health-metrics.js?v=20260808-8";
-import { initializeSavedFoods } from "./saved-foods.js?v=20260808-8";
-import { normalizeRestaurantPlan, restaurantChoiceLetters, restaurantFitLabels, restaurantOptionToSavedFood, safeRestaurantSourceUrl } from "./restaurant-plan.js?v=20260808-8";
+import { invokeAuthenticated, supabase, requireSession } from "./supabase-client.js?v=20260810-1";
+import { buildProteinGuidance } from "./feedback-guidance.js?v=20260810-1";
+import { estimatedAdultBmi, formatWeight, formatWeightChange, normalizeUnitSystem, parseHeightCm, shouldEnableWeightTracking, weightFromKg, weightToKg } from "./health-metrics.js?v=20260810-1";
+import { initializeSavedFoods } from "./saved-foods.js?v=20260810-1";
+import { normalizeRestaurantPlan, restaurantChoiceLetters, restaurantFitLabels, restaurantOptionToSavedFood, safeRestaurantSourceUrl } from "./restaurant-plan.js?v=20260810-1";
 
 const dietStyles = ["Mediterranean", "Low-carb", "Pescatarian", "DASH", "Vegetarian", "High-protein", "Flexible"];
 const $ = (selector) => document.querySelector(selector);
@@ -1839,10 +1839,10 @@ function hideSavedFoodMatchPrompt() {
   state.pendingQuickLog = null;
 }
 
-function showSavedFoodMatchPrompt(description, selectedCategory, match) {
-  state.pendingQuickLog = { description, selectedCategory, match };
+function showSavedFoodMatchPrompt(description, selectedCategory, match, saveFavorite = false) {
+  state.pendingQuickLog = { description, selectedCategory, match, saveFavorite };
   $("#saved-food-match-title").textContent = `Use ${match.food.name} from My Foods?`;
-  $("#saved-food-match-copy").textContent = `${match.subtitle ? `${match.subtitle}. ` : ""}${match.nutritionLine}. These are your reviewed values, so no AI estimate is needed.`;
+  $("#saved-food-match-copy").textContent = `${match.subtitle ? `${match.subtitle}. ` : ""}${match.nutritionLine}. These are already saved reviewed values, so no AI estimate or duplicate favorite is needed.`;
   $("#saved-food-match-servings").value = match.servings;
   $("#saved-food-match-prompt").hidden = false;
   $("#use-saved-food-match").focus();
@@ -1891,7 +1891,7 @@ $("#estimate-new-entry").addEventListener("click", () => {
   $("#meal-label").value = pending.selectedCategory;
   state.skipSavedFoodMatch = true;
   hideSavedFoodMatchPrompt();
-  $("#entry-form").requestSubmit();
+  $("#entry-form").requestSubmit(pending.saveFavorite ? $("#log-favorite-entry") : $("#log-entry"));
 });
 
 $("#review-label-save").addEventListener("click", () => {
@@ -1904,9 +1904,21 @@ $("#review-label-save").addEventListener("click", () => {
 
 $("#dismiss-label-save").addEventListener("click", hideLabelSavePrompt);
 
+function setQuickLogBusy(busy) {
+  $("#log-entry").disabled = busy;
+  const hydrationOnly = $("#meal-label").value === "Hydration";
+  $("#log-favorite-entry").disabled = busy || hydrationOnly;
+  $("#log-favorite-entry").title = hydrationOnly ? "Favorite Meals are available for meals and snacks." : "Log this meal, calculate its nutrition, then review it as a reusable favorite.";
+}
+
+$("#meal-label").addEventListener("change", () => setQuickLogBusy(false));
+setQuickLogBusy(false);
+
 $("#entry-form").addEventListener("submit", async (event) => {
   event.preventDefault();
-  const input = $("#quick-entry"); const description = input.value.trim() || (state.photo ? "Meal photo" : "New meal");
+  const wantsFavorite = event.submitter?.value === "favorite";
+  const input = $("#quick-entry");
+  const description = input.value.trim() || (state.photo ? "Meal photo" : "New meal");
   const selectedCategory = $("#meal-label").value;
   const ounces = hydrationOunces(description);
   const kind = selectedCategory === "Hydration" ? "hydration" : "meal";
@@ -1914,47 +1926,76 @@ $("#entry-form").addEventListener("submit", async (event) => {
     toast("Include a fluid amount, such as 16 oz, 2 cups, 500 ml, or 1 liter.");
     return;
   }
+  if (kind === "hydration" && wantsFavorite) {
+    toast("Favorite Meals are for meals and snacks. Use Log for a Hydration-only entry.");
+    return;
+  }
   if (kind === "meal" && !state.photo && !state.skipSavedFoodMatch && state.savedFoodsApi) {
     const match = state.savedFoodsApi.findBestMatch(description);
     if (match) {
-      showSavedFoodMatchPrompt(description, selectedCategory, match);
+      showSavedFoodMatchPrompt(description, selectedCategory, match, wantsFavorite);
       return;
     }
   }
+
   state.skipSavedFoodMatch = false;
   hideSavedFoodMatchPrompt();
+  setQuickLogBusy(true);
   const submittedPhoto = state.photo;
   let photoPath = null;
-  if (submittedPhoto) {
-    const safeName = submittedPhoto.name.replace(/[^a-z0-9._-]/gi, "-"); photoPath = `${user.id}/${crypto.randomUUID()}-${safeName}`;
-    const { error: uploadError } = await supabase.storage.from("meal-photos").upload(photoPath, submittedPhoto, { upsert: false, contentType: submittedPhoto.type });
-    if (uploadError) { toast(`Photo was not uploaded: ${uploadError.message}`); return; }
-  }
-  const estimateHydration = kind === "hydration" && hydrationNeedsNutritionEstimate(description);
-  const nutrition = kind === "hydration" ? { ounces } : photoPath ? { photo_path: photoPath } : null;
-  const mealLabel = mealLabels.has(selectedCategory) ? selectedCategory : defaultMealLabel();
-  const { data: savedEntry, error } = await supabase.from("ledger_entries")
-    .insert({ user_id: user.id, client_request_id: crypto.randomUUID(), kind, occurred_at: new Date().toISOString(), description, meal_label: kind === "meal" ? mealLabel : null, nutrition_estimate: nutrition, status: kind === "hydration" && !estimateHydration ? "estimated" : "pending_estimate" })
-    .select("id")
-    .single();
-  if (error) { toast(error.message); return; }
-  input.value = ""; state.photo = null; $("#photo-input").value = ""; $("#meal-label").value = defaultMealLabel();
-  await loadLedger();
-  if (kind === "meal" || estimateHydration) {
-    toast(kind === "hydration" ? "Drink saved. Estimating its nutrition..." : "Meal saved. Estimating nutrition...");
-    const { data: estimateData, error: estimateError } = await invokeAuthenticated("estimate-entry", { body: { entryId: savedEntry.id } });
-    await loadLedger();
-    if (estimateError) await handleEstimateFailure(estimateError, kind === "hydration" ? "Drink" : "Meal");
-    else {
-      $("#estimate-membership-prompt").hidden = true;
-      if (estimateData?.labelCandidate && submittedPhoto && state.savedFoodsApi) {
-        showLabelSavePrompt(estimateData.labelCandidate, submittedPhoto);
-      } else {
-        toast("Nutrition estimate ready.");
+  try {
+    if (submittedPhoto) {
+      const safeName = submittedPhoto.name.replace(/[^a-z0-9._-]/gi, "-");
+      photoPath = `${user.id}/${crypto.randomUUID()}-${safeName}`;
+      const { error: uploadError } = await supabase.storage.from("meal-photos").upload(photoPath, submittedPhoto, { upsert: false, contentType: submittedPhoto.type });
+      if (uploadError) {
+        toast(`Photo was not uploaded: ${uploadError.message}`);
+        return;
       }
     }
-  } else {
-    toast("Saved to your private daily ledger.");
+    const estimateHydration = kind === "hydration" && hydrationNeedsNutritionEstimate(description);
+    const nutrition = kind === "hydration" ? { ounces } : photoPath ? { photo_path: photoPath } : null;
+    const mealLabel = mealLabels.has(selectedCategory) ? selectedCategory : defaultMealLabel();
+    const { data: savedEntry, error } = await supabase.from("ledger_entries")
+      .insert({ user_id: user.id, client_request_id: crypto.randomUUID(), kind, occurred_at: new Date().toISOString(), description, meal_label: kind === "meal" ? mealLabel : null, nutrition_estimate: nutrition, status: kind === "hydration" && !estimateHydration ? "estimated" : "pending_estimate" })
+      .select("id")
+      .single();
+    if (error) {
+      if (photoPath) await supabase.storage.from("meal-photos").remove([photoPath]).catch(() => {});
+      toast(error.message);
+      return;
+    }
+    input.value = "";
+    state.photo = null;
+    $("#photo-input").value = "";
+    $("#meal-label").value = defaultMealLabel();
+    await loadLedger();
+    if (kind === "meal" || estimateHydration) {
+      toast(kind === "hydration" ? "Drink saved. Estimating its nutrition..." : wantsFavorite ? "Meal saved. Building your Favorite Meal..." : "Meal saved. Estimating nutrition...");
+      const { data: estimateData, error: estimateError } = await invokeAuthenticated("estimate-entry", {
+        body: { entryId: savedEntry.id, saveFavorite: wantsFavorite }
+      });
+      await loadLedger();
+      if (estimateError) {
+        await handleEstimateFailure(estimateError, kind === "hydration" ? "Drink" : "Meal");
+      } else {
+        $("#estimate-membership-prompt").hidden = true;
+        if (wantsFavorite && estimateData?.estimate && state.savedFoodsApi) {
+          state.savedFoodsApi.reviewEstimatedMeal({ description, mealLabel, estimate: estimateData.estimate }, submittedPhoto);
+          toast("Nutrition is ready. Review and save your Favorite Meal.");
+        } else if (estimateData?.labelCandidate && submittedPhoto && state.savedFoodsApi) {
+          showLabelSavePrompt(estimateData.labelCandidate, submittedPhoto);
+        } else {
+          toast("Nutrition estimate ready.");
+        }
+      }
+    } else {
+      toast("Saved to your private daily ledger.");
+    }
+  } catch (error) {
+    toast(error.message || "The meal could not be logged.");
+  } finally {
+    setQuickLogBusy(false);
   }
 });
 

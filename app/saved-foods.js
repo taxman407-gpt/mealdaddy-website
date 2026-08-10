@@ -8,7 +8,12 @@ import {
   saveDeviceFood,
   setSavedFoodStorageMode,
   updateSyncedFoodCache
-} from "./saved-foods-store.js?v=20260808-8";
+} from "./saved-foods-store.js?v=20260810-1";
+import {
+  favoriteMealFromEstimate,
+  favoriteMealNutritionFields,
+  normalizeFavoriteComponents
+} from "./favorite-meal.js?v=20260810-1";
 
 const allowedPhotoTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 const maxPhotoBytes = 8 * 1024 * 1024;
@@ -27,8 +32,15 @@ const evidenceLabels = {
   nutrition_label: "Nutrition label values",
   restaurant_published: "Restaurant-published values",
   restaurant_estimate: "Restaurant meal estimate",
+  mixed_estimate: "Label + estimated items",
   photo_estimate: "Photo estimate",
+  description_estimate: "Description estimate",
   manual: "User-entered values"
+};
+const componentEvidenceLabels = {
+  nutrition_label: "Label values",
+  photo_estimate: "Estimated from photo",
+  description_estimate: "Estimated from description"
 };
 const itemTypeLabels = {
   packaged_product: "Packaged product",
@@ -69,6 +81,11 @@ function searchTokens(value) {
 }
 
 function normalizedFood(food) {
+  const componentFallback = food.evidence_type === "nutrition_label"
+    ? "nutrition_label"
+    : ["photo_estimate", "mixed_estimate"].includes(food.evidence_type)
+      ? "photo_estimate"
+      : "description_estimate";
   const normalized = {
     ...food,
     item_type: itemTypeLabels[food.item_type] ? food.item_type : "packaged_product",
@@ -77,7 +94,8 @@ function normalizedFood(food) {
     serving_description: String(food.serving_description || "1 serving").slice(0, 160),
     evidence_type: evidenceLabels[food.evidence_type] ? food.evidence_type : "manual",
     confidence: ["low", "medium", "high"].includes(food.confidence) ? food.confidence : "medium",
-    notes: String(food.notes || "").slice(0, 1000)
+    notes: String(food.notes || "").slice(0, 1000),
+    components: normalizeFavoriteComponents(food.components, componentFallback)
   };
   numericFields.forEach((field) => { normalized[field] = numberValue(food[field]); });
   return normalized;
@@ -147,6 +165,7 @@ export async function initializeSavedFoods({
     foods: [],
     pendingFile: null,
     editingFood: null,
+    reviewComponents: [],
     objectUrls: [],
     storageMode: getSavedFoodStorageMode(user.id)
   };
@@ -229,6 +248,30 @@ export async function initializeSavedFoods({
     openEditor();
   }
 
+  function reviewEstimatedMeal({ description, mealLabel, estimate }, photoFile = null) {
+    const candidate = normalizedFood(favoriteMealFromEstimate({ description, mealLabel, estimate }));
+    const existing = state.foods.find((savedFood) =>
+      savedFood.item_type === "home_meal" &&
+      normalizedSearchText(savedFood.name) === normalizedSearchText(candidate.name)
+    ) || null;
+    state.pendingFile = photoFile;
+    state.editingFood = existing;
+    populateReview(candidate, existing);
+    $("#saved-food-editor-title").textContent = existing ? "Review updated Favorite Meal" : "Review Favorite Meal";
+    $("#saved-food-photo-name").textContent = photoFile
+      ? `${photoFile.name || "Meal photo"} ready as an optional private reference.`
+      : "Photo and description estimates are ready for review.";
+    openEditor();
+  }
+
+  function componentEvidenceDetails(food) {
+    if (!food.components.length) return "";
+    return `<details class="saved-food-evidence">
+      <summary>How values were calculated</summary>
+      <ul>${food.components.map((component) => `<li><span>${escapeHtml(component.name)}</span><span>${escapeHtml(componentEvidenceLabels[component.evidence_type] || "Estimated")}</span></li>`).join("")}</ul>
+    </details>`;
+  }
+
   function foodCard(food) {
     const photo = food.photo_path || food.photo_blob
       ? `<div class="saved-food-photo"><span>${escapeHtml(food.name).charAt(0).toUpperCase()}</span><img data-saved-food-photo="${escapeHtml(food.storage_scope)}:${escapeHtml(food.id)}" alt="Saved reference for ${escapeHtml(food.name)}" hidden /></div>`
@@ -241,7 +284,10 @@ export async function initializeSavedFoods({
         <h3>${escapeHtml(food.name)}</h3>
         <p>${escapeHtml(foodSubtitle(food))}</p>
         <strong>${escapeHtml(foodNutritionLine(food))}</strong>
+        ${componentEvidenceDetails(food)}
+        ${food.evidence_type === "mixed_estimate" ? `<small>Readable label values were used where available; the remaining items are estimates.</small>` : ""}
         ${food.evidence_type === "photo_estimate" ? `<small>Estimated from a photo; review portions when they change.</small>` : ""}
+        ${food.evidence_type === "description_estimate" ? `<small>Estimated from your description; review portions when they change.</small>` : ""}
         ${food.evidence_type === "restaurant_estimate" ? `<small>Restaurant meal estimate; published values were not confirmed.</small>` : ""}
       </div>
       <form class="saved-food-log-form" data-log-saved-food="${escapeHtml(food.storage_scope)}:${escapeHtml(food.id)}">
@@ -344,6 +390,7 @@ export async function initializeSavedFoods({
     document.body.classList.remove("modal-open");
     state.pendingFile = null;
     state.editingFood = null;
+    state.reviewComponents = [];
     $("#saved-food-photo-input").value = "";
     $("#saved-food-scan-status").textContent = "";
   }
@@ -351,6 +398,7 @@ export async function initializeSavedFoods({
   function showCaptureStep() {
     state.pendingFile = null;
     state.editingFood = null;
+    state.reviewComponents = [];
     $("#saved-food-scan-form").reset();
     $("#saved-food-capture-step").hidden = false;
     $("#saved-food-review-step").hidden = true;
@@ -380,6 +428,7 @@ export async function initializeSavedFoods({
   function populateReview(food, editingFood = null) {
     const normalized = normalizedFood(food);
     state.editingFood = editingFood;
+    state.reviewComponents = normalized.components;
     setReviewField("item_type", normalized.item_type);
     setReviewField("name", normalized.name);
     setReviewField("brand_or_restaurant", normalized.brand_or_restaurant);
@@ -423,7 +472,8 @@ export async function initializeSavedFoods({
       serving_description: String(formData.get("serving_description") || "1 serving").trim(),
       evidence_type: String(formData.get("evidence_type") || "manual"),
       confidence: String(formData.get("confidence") || "medium"),
-      notes: String(formData.get("notes") || "").trim()
+      notes: String(formData.get("notes") || "").trim(),
+      components: state.reviewComponents
     };
     numericFields.forEach((field) => { food[field] = numberValue(formData.get(field)); });
     return normalizedFood(food);
@@ -494,6 +544,29 @@ export async function initializeSavedFoods({
     numericFields.forEach((field) => { totals[field] = Math.round(numberValue(food[field]) * multiplier * 10) / 10; });
     const servingText = multiplier === 1 ? food.serving_description : `${formatNumber(multiplier)} × ${food.serving_description}`;
     const description = [food.name, food.brand_or_restaurant ? `(${food.brand_or_restaurant})` : "", `— ${servingText}`].filter(Boolean).join(" ");
+    const componentSource = food.components?.length ? food.components : [{
+      name: food.name,
+      calories: food.calories,
+      protein_g: food.protein_g,
+      carbs_g: food.carbs_g,
+      net_carbs_g: food.net_carbs_g,
+      fat_g: food.fat_g,
+      fiber_g: food.fiber_g,
+      hydration_ounces: food.hydration_ounces,
+      evidence_type: food.evidence_type === "nutrition_label" ? "nutrition_label" : "description_estimate",
+      confidence: food.confidence
+    }];
+    const scaledComponents = componentSource.map((component) => {
+      const scaled = {
+        name: component.name,
+        evidence_type: component.evidence_type,
+        confidence: component.confidence
+      };
+      favoriteMealNutritionFields.forEach((field) => {
+        scaled[field] = Math.round(numberValue(component[field]) * multiplier * 10) / 10;
+      });
+      return scaled;
+    });
     const nutrition = {
       calories: totals.calories,
       protein_g: totals.protein_g,
@@ -506,16 +579,7 @@ export async function initializeSavedFoods({
       note: `${evidenceLabels[food.evidence_type]} reviewed by the user; ${servingText}.`,
       source: "saved_food",
       saved_food_id: food.storage_scope === "sync" ? food.id : null,
-      components: [{
-        name: food.name,
-        calories: totals.calories,
-        protein_g: totals.protein_g,
-        carbs_g: totals.carbs_g,
-        net_carbs_g: totals.net_carbs_g,
-        fat_g: totals.fat_g,
-        fiber_g: totals.fiber_g,
-        hydration_ounces: totals.hydration_ounces
-      }]
+      components: scaledComponents
     };
     const { error } = await supabase.from("ledger_entries").insert({
       user_id: user.id,
@@ -737,6 +801,7 @@ export async function initializeSavedFoods({
     findBestMatch,
     logFood,
     reviewDetectedFood,
+    reviewEstimatedMeal,
     reviewRestaurantFood,
     refresh: loadFoods
   };

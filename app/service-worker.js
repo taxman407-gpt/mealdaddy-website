@@ -1,5 +1,5 @@
-const CACHE = "mealdaddy-shell-v41";
-const SHELL = ["./", "./index.html", "./auth.html", "./app.html", "./account.html", "./setup.html", "./styles.css?v=20260808-8", "./auth.js?v=20260808-8", "./app.js?v=20260808-8", "./account.js?v=20260808-8", "./setup.js?v=20260808-8", "./feedback-guidance.js?v=20260808-8", "./health-metrics.js?v=20260808-8", "./saved-foods.js?v=20260808-8", "./saved-foods-store.js?v=20260808-8", "./restaurant-plan.js?v=20260808-8", "./supabase-client.js?v=20260808-8"];
+const CACHE = "mealdaddy-shell-v42";
+const SHELL = ["./", "./index.html", "./auth.html", "./app.html", "./account.html", "./setup.html", "./styles.css?v=20260810-1", "./auth.js?v=20260810-1", "./app.js?v=20260810-1", "./account.js?v=20260810-1", "./setup.js?v=20260810-1", "./feedback-guidance.js?v=20260810-1", "./health-metrics.js?v=20260810-1", "./favorite-meal.js?v=20260810-1", "./saved-foods.js?v=20260810-1", "./saved-foods-store.js?v=20260810-1", "./restaurant-plan.js?v=20260810-1", "./supabase-client.js?v=20260810-1"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)));

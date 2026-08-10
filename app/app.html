@@ -7,7 +7,7 @@
   <meta name="robots" content="noindex" />
   <title>Today - MealDaddy</title>
   <link rel="manifest" href="./manifest.webmanifest" />
-  <link rel="stylesheet" href="./styles.css?v=20260808-8" />
+  <link rel="stylesheet" href="./styles.css?v=20260810-1" />
 </head>
 <body class="app-page auth-loading">
   <header class="app-header">
@@ -74,9 +74,12 @@
           <button class="mode-button is-active" data-entry-mode="text" type="button"><span>Text</span></button>
           <button class="mode-button" data-entry-mode="voice" type="button"><span>Voice</span></button>
           <label class="mode-button" data-entry-mode="photo"><span>Photo</span><input id="photo-input" type="file" accept="image/*" capture="environment" /></label>
-          <button class="log-button" type="submit">Log</button>
+          <div class="entry-submit-actions">
+            <button class="log-button" id="log-entry" type="submit" name="quick_action" value="log">Log</button>
+            <button class="favorite-log-button" id="log-favorite-entry" type="submit" name="quick_action" value="favorite">Log &amp; save favorite</button>
+          </div>
         </div>
-        <p class="quick-photo-purpose"><strong>Photo:</strong> take a meal/before image or scan a nutrition label. If you leave food, open Edit on the saved entry and add an after / leftover photo.</p>
+        <p class="quick-photo-purpose"><strong>Photo:</strong> take a meal/before image or scan a nutrition label. Readable label values take priority; Meal Daddy estimates the other foods from your photo and description. If you leave food, open Edit on the saved entry and add an after / leftover photo.</p>
       </form>
       <aside class="quick-memory-prompt" id="saved-food-match-prompt" aria-live="polite" hidden>
         <div><span class="quick-memory-badge">Saved values found</span><strong id="saved-food-match-title">Use your saved food?</strong><p id="saved-food-match-copy"></p></div>
@@ -266,7 +269,7 @@
             <label><span>Sugar alcohols (g)</span><input name="sugar_alcohols_g" type="number" min="0" max="500" step="0.1" inputmode="decimal" /></label>
             <label><span>Allulose (g)</span><input name="allulose_g" type="number" min="0" max="500" step="0.1" inputmode="decimal" /></label>
             <label><span>Drink hydration (fl oz)</span><input name="hydration_ounces" type="number" min="0" max="500" step="0.1" inputmode="decimal" /></label>
-            <label><span>Value source</span><select name="evidence_type"><option value="nutrition_label">Nutrition label</option><option value="restaurant_published">Restaurant published</option><option value="restaurant_estimate">Restaurant meal estimate</option><option value="photo_estimate">Photo estimate</option><option value="manual">Entered manually</option></select></label>
+            <label><span>Value source</span><select name="evidence_type"><option value="nutrition_label">Nutrition label</option><option value="restaurant_published">Restaurant published</option><option value="restaurant_estimate">Restaurant meal estimate</option><option value="mixed_estimate">Label + estimated items</option><option value="photo_estimate">Photo estimate</option><option value="description_estimate">Description estimate</option><option value="manual">Entered manually</option></select></label>
             <label><span>Confidence</span><select name="confidence"><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option></select></label>
             <label class="saved-food-wide"><span>Notes or usual modifications</span><textarea name="notes" rows="2" maxlength="1000"></textarea></label>
           </div>
@@ -347,7 +350,7 @@
     <div class="onboarding-panel"><div class="step-indicator"><span class="is-active"></span><span></span><span></span></div><p class="eyebrow">A few basics first</p><h1 id="onboarding-title">How do you like to eat?</h1><p>Choose the closest fit. You can adjust individual preferences anytime.</p><div class="choice-grid" id="diet-options"></div><label class="select-field">Coaching tone<select id="tone-options"><option value="supportive">Supportive</option><option value="direct">Direct</option><option value="data_focused">Data-focused</option><option value="playful">Playful</option></select></label><button class="button button-primary full-button" id="continue-onboarding" type="button" disabled>Save my starting plan</button><p class="privacy-line">These preferences are protected by row-level security and can only be accessed by your account.</p></div>
   </section>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="./app.js?v=20260808-8" type="module"></script>
-  <script src="./register-sw.js?v=20260808-8"></script>
+  <script src="./app.js?v=20260810-1" type="module"></script>
+  <script src="./register-sw.js?v=20260810-1"></script>
 </body>
 </html>

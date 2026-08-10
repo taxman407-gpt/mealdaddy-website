@@ -1,5 +1,5 @@
-import { supabase, requireSession } from "./supabase-client.js?v=20260808-8";
-import { normalizeUnitSystem, suggestedStartingTargets, weightToKg, weightUnit } from "./health-metrics.js?v=20260808-8";
+import { supabase, requireSession } from "./supabase-client.js?v=20260810-1";
+import { normalizeUnitSystem, suggestedStartingTargets, weightToKg, weightUnit } from "./health-metrics.js?v=20260810-1";
 
 const session = await requireSession();
 if (!session) throw new Error("Authentication required");
