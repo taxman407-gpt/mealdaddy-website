@@ -8,12 +8,12 @@ import {
   saveDeviceFood,
   setSavedFoodStorageMode,
   updateSyncedFoodCache
-} from "./saved-foods-store.js?v=20260810-1";
+} from "./saved-foods-store.js?v=20260810-2";
 import {
   favoriteMealFromEstimate,
   favoriteMealNutritionFields,
   normalizeFavoriteComponents
-} from "./favorite-meal.js?v=20260810-1";
+} from "./favorite-meal.js?v=20260810-2";
 
 const allowedPhotoTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 const maxPhotoBytes = 8 * 1024 * 1024;
@@ -538,7 +538,7 @@ export async function initializeSavedFoods({
     });
   }
 
-  async function logFood(food, servings, mealLabel) {
+  async function logFood(food, servings, mealLabel, occurredAt = new Date().toISOString(), occurredLabel = "today") {
     const multiplier = Math.max(0.1, Math.min(50, numberValue(servings) || 1));
     const totals = {};
     numericFields.forEach((field) => { totals[field] = Math.round(numberValue(food[field]) * multiplier * 10) / 10; });
@@ -585,7 +585,7 @@ export async function initializeSavedFoods({
       user_id: user.id,
       client_request_id: crypto.randomUUID(),
       kind: "meal",
-      occurred_at: new Date().toISOString(),
+      occurred_at: occurredAt,
       description,
       meal_label: mealLabel,
       nutrition_estimate: nutrition,
@@ -610,7 +610,7 @@ export async function initializeSavedFoods({
     }
     await onLedgerChange();
     await loadFoods();
-    toast(`${food.name} logged from My Foods—no new AI request needed.`);
+    toast(`${food.name} logged for ${occurredLabel} from My Foods—no new AI request needed.`);
   }
 
   $("#add-saved-food").addEventListener("click", showCaptureStep);

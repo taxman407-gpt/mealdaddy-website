@@ -7,7 +7,7 @@
   <meta name="robots" content="noindex" />
   <title>Today - MealDaddy</title>
   <link rel="manifest" href="./manifest.webmanifest" />
-  <link rel="stylesheet" href="./styles.css?v=20260810-1" />
+  <link rel="stylesheet" href="./styles.css?v=20260810-2" />
 </head>
 <body class="app-page auth-loading">
   <header class="app-header">
@@ -69,7 +69,11 @@
       <div><p class="eyebrow">Quick log</p><h2 id="quick-log-title">What did you have?</h2></div>
       <form id="entry-form">
         <label class="entry-field"><span class="sr-only">Describe your meal or drink</span><input id="quick-entry" autocomplete="off" placeholder="e.g. turkey sandwich, apple, and 16 oz sparkling water" /></label>
-        <label class="quick-label-field"><span>Log as</span><select id="meal-label" aria-label="Entry category"><option>Breakfast</option><option>Brunch</option><option>Lunch</option><option>Dinner</option><option>Snack</option><option value="Hydration">Hydration only</option></select></label>
+        <div class="quick-entry-selectors">
+          <label class="quick-label-field"><span>Log as</span><select id="meal-label" aria-label="Entry category"><option>Breakfast</option><option>Brunch</option><option>Lunch</option><option>Dinner</option><option>Snack</option><option value="Hydration">Hydration only</option></select></label>
+          <label class="quick-date-field"><span>Date</span><select id="entry-date" aria-label="Entry date"></select></label>
+          <label class="quick-custom-date" id="quick-custom-date" hidden><span>Earlier date</span><input id="entry-custom-date" type="date" aria-label="Earlier entry date" /></label>
+        </div>
         <div class="entry-actions">
           <button class="mode-button is-active" data-entry-mode="text" type="button"><span>Text</span></button>
           <button class="mode-button" data-entry-mode="voice" type="button"><span>Voice</span></button>
@@ -99,33 +103,33 @@
         <button class="button button-primary" data-plan="core" type="button">Start 7-Day Trial</button>
       </div>
       <p class="privacy-line">Include drinks in the same description as your meal—Meal Daddy will count both their nutrition and hydration. Use Hydration only for standalone drinks. Entries are stored in your protected account.</p>
-      <p class="privacy-line">Your selected meal label always wins. Meal photos stay private with the entry for after-meal correction and are removed when the entry or account is deleted.</p>
+      <p class="privacy-line">Your selected meal label and date always win. Future dates are not allowed. Meal photos stay private with the entry for after-meal correction and are removed when the entry or account is deleted.</p>
     </section>
-    <section class="saved-foods-card" id="saved-foods" aria-labelledby="saved-foods-title">
-      <div class="saved-foods-heading">
-        <div><p class="eyebrow">Scan once. Log fast.</p><h2 id="saved-foods-title">My Foods</h2><p>Save a reviewed nutrition label, recurring meal, or restaurant item. Future logs use your saved values instantly without another AI request.</p></div>
-        <button class="button button-primary" id="add-saved-food" type="button">Scan or add food</button>
-      </div>
-      <aside class="saved-foods-notice">
-        <strong>Your choice, plainly explained</strong>
-        <p>By default, verified nutrition facts sync to your protected Meal Daddy account and are cached privately on this device. Processing photos are deleted unless you choose to keep a reference copy.</p>
-      </aside>
-      <details class="saved-food-storage-settings">
-        <summary>Choose how future saved foods are stored</summary>
-        <fieldset>
-          <legend>Default for new items on this device</legend>
-          <label><input type="radio" name="saved_food_default_storage" value="sync_cache" /><span><strong>Private account + device cache</strong><small>Recommended. Syncs across devices and keeps a convenient local copy.</small></span></label>
-          <label><input type="radio" name="saved_food_default_storage" value="device_only" /><span><strong>This device only</strong><small>Does not sync. It may be lost if browser or app data is cleared.</small></span></label>
-          <label><input type="radio" name="saved_food_default_storage" value="one_time" /><span><strong>Don't remember the next item</strong><small>Log it once, then discard the structured product record.</small></span></label>
-        </fieldset>
-        <p id="saved-food-storage-copy"></p>
-      </details>
-      <details class="saved-foods-list-dropdown">
-        <summary><span>Saved foods</span><small id="saved-food-count">Loading...</small></summary>
+    <details class="saved-foods-card" id="saved-foods" aria-labelledby="saved-foods-title">
+      <summary class="saved-foods-summary">
+        <div><p class="eyebrow">Scan once. Log fast.</p><h2 id="saved-foods-title">My Foods</h2><p>Saved labels, Favorite Meals, and restaurant orders.</p></div>
+        <span><small id="saved-food-count">Loading...</small><b aria-hidden="true">⌄</b></span>
+      </summary>
+      <div class="saved-foods-content">
+        <div class="saved-foods-toolbar"><button class="button button-primary" id="add-saved-food" type="button">Scan or add food</button></div>
+        <aside class="saved-foods-notice">
+          <strong>Your choice, plainly explained</strong>
+          <p>By default, verified nutrition facts sync to your protected Meal Daddy account and are cached privately on this device. Processing photos are deleted unless you choose to keep a reference copy.</p>
+        </aside>
+        <details class="saved-food-storage-settings">
+          <summary>Choose how future saved foods are stored</summary>
+          <fieldset>
+            <legend>Default for new items on this device</legend>
+            <label><input type="radio" name="saved_food_default_storage" value="sync_cache" /><span><strong>Private account + device cache</strong><small>Recommended. Syncs across devices and keeps a convenient local copy.</small></span></label>
+            <label><input type="radio" name="saved_food_default_storage" value="device_only" /><span><strong>This device only</strong><small>Does not sync. It may be lost if browser or app data is cleared.</small></span></label>
+            <label><input type="radio" name="saved_food_default_storage" value="one_time" /><span><strong>Don't remember the next item</strong><small>Log it once, then discard the structured product record.</small></span></label>
+          </fieldset>
+          <p id="saved-food-storage-copy"></p>
+        </details>
         <p class="saved-foods-status" id="saved-foods-status" role="status" aria-live="polite"></p>
         <div class="saved-foods-list" id="saved-foods-list"><p class="saved-foods-empty">Loading your private foods...</p></div>
-      </details>
-    </section>
+      </div>
+    </details>
     <section class="metric-grid" aria-label="Daily nutrition totals">
       <button class="metric-card primary-metric" type="button" data-metric="calories" aria-haspopup="dialog" aria-controls="metric-breakdown"><span>Energy</span><strong id="energy-total">0</strong><small id="energy-goal-label">of 2,050 cal</small><span class="metric-detail-cue">View sources</span><progress id="energy-progress" value="0" max="2050"></progress></button>
       <button class="metric-card" type="button" data-metric="protein" aria-haspopup="dialog" aria-controls="metric-breakdown"><span>Protein</span><strong id="protein-total">0g</strong><small id="protein-goal-label">of 130g</small><span class="metric-detail-cue">View sources</span><progress id="protein-progress" value="0" max="130"></progress></button>
@@ -350,7 +354,7 @@
     <div class="onboarding-panel"><div class="step-indicator"><span class="is-active"></span><span></span><span></span></div><p class="eyebrow">A few basics first</p><h1 id="onboarding-title">How do you like to eat?</h1><p>Choose the closest fit. You can adjust individual preferences anytime.</p><div class="choice-grid" id="diet-options"></div><label class="select-field">Coaching tone<select id="tone-options"><option value="supportive">Supportive</option><option value="direct">Direct</option><option value="data_focused">Data-focused</option><option value="playful">Playful</option></select></label><button class="button button-primary full-button" id="continue-onboarding" type="button" disabled>Save my starting plan</button><p class="privacy-line">These preferences are protected by row-level security and can only be accessed by your account.</p></div>
   </section>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="./app.js?v=20260810-1" type="module"></script>
-  <script src="./register-sw.js?v=20260810-1"></script>
+  <script src="./app.js?v=20260810-2" type="module"></script>
+  <script src="./register-sw.js?v=20260810-2"></script>
 </body>
 </html>
