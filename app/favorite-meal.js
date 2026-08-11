@@ -1,3 +1,5 @@
+import { inflammationImpact, inflammationScore } from "./inflammation-impact.js?v=20260811-2";
+
 const nutritionFields = [
   "calories",
   "protein_g",
@@ -42,6 +44,12 @@ export function normalizeFavoriteComponents(components, fallbackEvidence = "desc
         : "medium"
     };
     nutritionFields.forEach((field) => { normalized[field] = safeNumber(component?.[field]); });
+    const impactScore = inflammationScore(component?.inflammation_score);
+    if (impactScore !== null) {
+      normalized.inflammation_score = impactScore;
+      normalized.inflammation_impact = inflammationImpact(component?.inflammation_impact);
+      normalized.inflammation_note = cleanName(component?.inflammation_note).slice(0, 140) || "Estimated food-pattern impact.";
+    }
     return normalized;
   });
 }

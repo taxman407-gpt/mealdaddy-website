@@ -15,6 +15,9 @@ const components = normalizeFavoriteComponents([
     fat_g: 1,
     fiber_g: 9,
     hydration_ounces: 0,
+    inflammation_score: 4,
+    inflammation_impact: "neutral",
+    inflammation_note: "Processed bread is balanced by its high fiber content.",
     evidence_type: "nutrition_label",
     confidence: "high"
   },
@@ -27,6 +30,9 @@ const components = normalizeFavoriteComponents([
     fat_g: 15,
     fiber_g: 0,
     hydration_ounces: 0,
+    inflammation_score: 3,
+    inflammation_impact: "helpful",
+    inflammation_note: "Minimally processed protein with no added sugar.",
     evidence_type: "description_estimate",
     confidence: "medium"
   }
@@ -58,5 +64,7 @@ assert.match(favorite.notes, /Label values: Nature's Own low-carb bread/);
 assert.match(favorite.notes, /Estimated from description: Scrambled eggs/);
 assert.equal(favorite.net_carbs_g, 3);
 assert.equal(favorite.components.length, 2);
+assert.equal(favorite.components[0].inflammation_score, 4);
+assert.equal(favorite.components[1].inflammation_impact, "helpful");
 
 console.log("Favorite-meal evidence checks passed.");

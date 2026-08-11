@@ -1,5 +1,5 @@
-import { invokeAuthenticated, supabase, requireSession } from "./supabase-client.js?v=20260811-1";
-import { clearLocalSavedFoods, getDeviceSavedFoods } from "./saved-foods-store.js?v=20260811-1";
+import { invokeAuthenticated, supabase, requireSession } from "./supabase-client.js?v=20260811-2";
+import { clearLocalSavedFoods, getDeviceSavedFoods } from "./saved-foods-store.js?v=20260811-2";
 
 const $ = (selector) => document.querySelector(selector);
 const session = await requireSession();
@@ -259,6 +259,8 @@ function ledgerCsv(entries) {
     "fat_g_estimate",
     "fiber_g_estimate",
     "hydration_ounces_estimate",
+    "inflammation_score_estimate_1_to_10",
+    "inflammation_summary",
     "estimate_confidence",
     "estimate_note"
   ];
@@ -277,6 +279,8 @@ function ledgerCsv(entries) {
       nutrition.fat_g,
       nutrition.fiber_g,
       entry.kind === "hydration" ? nutrition.ounces : nutrition.hydration_ounces,
+      nutrition.inflammation_score,
+      nutrition.inflammation_summary,
       nutrition.confidence,
       nutrition.note
     ].map(csvCell).join(",");

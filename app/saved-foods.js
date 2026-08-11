@@ -8,12 +8,13 @@ import {
   saveDeviceFood,
   setSavedFoodStorageMode,
   updateSyncedFoodCache
-} from "./saved-foods-store.js?v=20260811-1";
+} from "./saved-foods-store.js?v=20260811-2";
 import {
   favoriteMealFromEstimate,
   favoriteMealNutritionFields,
   normalizeFavoriteComponents
-} from "./favorite-meal.js?v=20260811-1";
+} from "./favorite-meal.js?v=20260811-2";
+import { weightedInflammationScore } from "./inflammation-impact.js?v=20260811-2";
 
 const allowedPhotoTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 const maxPhotoBytes = 8 * 1024 * 1024;
@@ -562,6 +563,11 @@ export async function initializeSavedFoods({
         evidence_type: component.evidence_type,
         confidence: component.confidence
       };
+      if (typeof component.inflammation_score === "number") {
+        scaled.inflammation_score = component.inflammation_score;
+        scaled.inflammation_impact = component.inflammation_impact;
+        scaled.inflammation_note = component.inflammation_note;
+      }
       favoriteMealNutritionFields.forEach((field) => {
         scaled[field] = Math.round(numberValue(component[field]) * multiplier * 10) / 10;
       });
@@ -581,6 +587,11 @@ export async function initializeSavedFoods({
       saved_food_id: food.storage_scope === "sync" ? food.id : null,
       components: scaledComponents
     };
+    const savedInflammationScore = weightedInflammationScore(scaledComponents);
+    if (savedInflammationScore !== null) {
+      nutrition.inflammation_score = savedInflammationScore;
+      nutrition.inflammation_summary = "Based on the saved meal's reviewed food components. Review again when ingredients or preparation change.";
+    }
     const { error } = await supabase.from("ledger_entries").insert({
       user_id: user.id,
       client_request_id: crypto.randomUUID(),

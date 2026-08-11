@@ -1,9 +1,10 @@
-import { invokeAuthenticated, supabase, requireSession } from "./supabase-client.js?v=20260811-1";
-import { buildProteinGuidance } from "./feedback-guidance.js?v=20260811-1";
-import { entryDateDisplayLabel, localDateValue as localEntryDateValue, occurredAtForEntryDate, quickDateOptions } from "./entry-date.js?v=20260811-1";
-import { estimatedAdultBmi, formatWeight, formatWeightChange, normalizeUnitSystem, parseHeightCm, shouldEnableWeightTracking, weightFromKg, weightToKg } from "./health-metrics.js?v=20260811-1";
-import { initializeSavedFoods } from "./saved-foods.js?v=20260811-1";
-import { normalizeRestaurantPlan, restaurantChoiceLetters, restaurantFitLabels, restaurantOptionToSavedFood, safeRestaurantSourceUrl } from "./restaurant-plan.js?v=20260811-1";
+import { invokeAuthenticated, supabase, requireSession } from "./supabase-client.js?v=20260811-2";
+import { buildProteinGuidance } from "./feedback-guidance.js?v=20260811-2";
+import { entryDateDisplayLabel, localDateValue as localEntryDateValue, occurredAtForEntryDate, quickDateOptions } from "./entry-date.js?v=20260811-2";
+import { estimatedAdultBmi, formatWeight, formatWeightChange, normalizeUnitSystem, parseHeightCm, shouldEnableWeightTracking, weightFromKg, weightToKg } from "./health-metrics.js?v=20260811-2";
+import { initializeSavedFoods } from "./saved-foods.js?v=20260811-2";
+import { normalizeRestaurantPlan, restaurantChoiceLetters, restaurantFitLabels, restaurantOptionToSavedFood, safeRestaurantSourceUrl } from "./restaurant-plan.js?v=20260811-2";
+import { estimateInflammationScore, inflammationBand, inflammationImpact, summarizeInflammationEntries, summarizeInflammationReport, weightedInflammationScore } from "./inflammation-impact.js?v=20260811-2";
 
 const dietStyles = ["Mediterranean", "Low-carb", "Pescatarian", "DASH", "Vegetarian", "High-protein", "Flexible"];
 const $ = (selector) => document.querySelector(selector);
@@ -257,6 +258,43 @@ async function retryEstimateEntry(entryId, { announceStart = true, announceSucce
     return true;
   } catch (error) {
     await handleEstimateFailure(error, subject, "saved", entryId);
+    return false;
+  } finally {
+    state.estimatingEntryIds.delete(entryId);
+    renderLedger();
+  }
+}
+
+async function addMealImpactDetails(entryId, { announceStart = true, announceSuccess = true } = {}) {
+  const entry = state.entries.find((item) => item.id === entryId);
+  if (!entry || entry.kind !== "meal" || entry.status !== "estimated" || state.estimatingEntryIds.has(entryId)) return false;
+  if (!hasCurrentCoreMembership()) {
+    showEstimateMembershipPrompt("Meal", "saved");
+    return false;
+  }
+  state.estimatingEntryIds.add(entryId);
+  renderLedger();
+  if (announceStart) toast("Adding food impact details and the Inflammation Score...");
+  try {
+    const { error } = await invokeAuthenticated("estimate-entry", { body: { entryId, itemizeExisting: true } });
+    if (error) {
+      const failure = await readFunctionFailure(error);
+      if (failure.status === 402 && state.membershipAccess === "family") {
+        toast("Complimentary access could not be verified. Sign out and back in, then try again.");
+      } else if (failure.status === 402) {
+        showEstimateMembershipPrompt("Meal", "saved");
+      } else if (failure.status === 429) {
+        toast("This month's Core AI allowance has been reached. Existing nutrition totals are unchanged.");
+      } else {
+        toast("Meal impact details could not be added. Your existing nutrition totals are unchanged.");
+      }
+      return false;
+    }
+    await loadLedger();
+    if (announceSuccess) toast("Meal details and Inflammation Score added.");
+    return true;
+  } catch {
+    toast("Meal impact details could not be added. Your existing nutrition totals are unchanged.");
     return false;
   } finally {
     state.estimatingEntryIds.delete(entryId);
@@ -573,6 +611,88 @@ async function loadLedger() {
   renderTotals();
 }
 
+function normalizedMealImpactComponents(estimate = {}) {
+  const components = Array.isArray(estimate.components)
+    ? estimate.components.filter((component) => component && typeof component.name === "string").map((component) => ({ ...component }))
+    : [];
+  if (!components.length) return components;
+  for (const field of ["calories", "protein_g", "carbs_g", "fat_g", "fiber_g", "hydration_ounces"]) {
+    const target = Number(estimate[field] || 0);
+    const componentTotal = components.reduce((sum, component) => sum + Number(component[field] || 0), 0);
+    if (target >= 0 && componentTotal > 0) {
+      const scale = target / componentTotal;
+      components.forEach((component) => { component[field] = Number(component[field] || 0) * scale; });
+    }
+  }
+  const targetNet = typeof estimate.net_carbs_g === "number"
+    ? Math.max(0, Number(estimate.net_carbs_g))
+    : Math.max(0, Number(estimate.carbs_g || 0) - Number(estimate.fiber_g || 0));
+  const componentNetTotal = components.reduce((sum, component) => sum + Math.max(0, Number(component.net_carbs_g || 0)), 0);
+  if (componentNetTotal > 0) {
+    const netScale = targetNet / componentNetTotal;
+    components.forEach((component) => {
+      component.net_carbs_g = Math.min(Number(component.carbs_g || 0), Math.max(0, Number(component.net_carbs_g || 0) * netScale));
+    });
+  }
+  const normalizedNetTotal = components.reduce((sum, component) => sum + Number(component.net_carbs_g || 0), 0);
+  if (normalizedNetTotal < targetNet) {
+    const headroom = components.reduce((sum, component) => sum + Math.max(0, Number(component.carbs_g || 0) - Number(component.net_carbs_g || 0)), 0);
+    if (headroom > 0) {
+      components.forEach((component) => {
+        const componentHeadroom = Math.max(0, Number(component.carbs_g || 0) - Number(component.net_carbs_g || 0));
+        component.net_carbs_g = Number(component.net_carbs_g || 0) + (targetNet - normalizedNetTotal) * (componentHeadroom / headroom);
+      });
+    }
+  }
+  return components;
+}
+
+function mealImpactDetails(entry) {
+  if (entry.kind !== "meal" || entry.status === "pending_estimate") return "";
+  const estimate = entry.nutrition_estimate || {};
+  const components = normalizedMealImpactComponents(estimate);
+  const score = estimateInflammationScore(estimate);
+  const band = inflammationBand(score);
+  const isRunning = state.estimatingEntryIds.has(entry.id);
+  const complete = score !== null && components.length > 0 && components.every((component) => estimateInflammationScore(component) !== null);
+  const impactLabels = { helpful: "Helpful", neutral: "Neutral", watch: "Worth watching" };
+  const componentRows = components.length
+    ? components.map((component) => {
+        const componentScore = estimateInflammationScore(component);
+        const impact = inflammationImpact(component.inflammation_impact);
+        const netCarbs = typeof component.net_carbs_g === "number"
+          ? Number(component.net_carbs_g)
+          : Math.max(0, Number(component.carbs_g || 0) - Number(component.fiber_g || 0));
+        const impactCopy = componentScore === null
+          ? "Impact estimate is being added."
+          : String(component.inflammation_note || "Estimated from the food, preparation, and processing details supplied.");
+        return `<li>
+          <div class="meal-impact-component-heading"><strong>${escapeHtml(component.name)}</strong>${componentScore === null ? "" : `<span class="impact-${impact}">${escapeHtml(impactLabels[impact])} · ${formatEstimateNumber(componentScore)}/10</span>`}</div>
+          <p>${Math.round(Number(component.calories || 0)).toLocaleString()} cal · ${formatEstimateNumber(component.protein_g)}g protein · ${formatEstimateNumber(component.carbs_g)}g/${formatEstimateNumber(netCarbs)}g total/net carbs</p>
+          <small>${escapeHtml(impactCopy)}</small>
+        </li>`;
+      }).join("")
+    : '<li class="meal-impact-empty">Food-by-food details have not been added to this earlier estimate yet.</li>';
+  const scoreBlock = score === null
+    ? `<div class="meal-impact-score is-unscored"><span>Inflammation Score™</span><strong>Not scored yet</strong></div>`
+    : `<div class="meal-impact-score impact-score-${band.tone}"><span>Inflammation Score™</span><strong>${formatEstimateNumber(score)}/10</strong><em>${escapeHtml(band.label)}</em></div>`;
+  const summary = score === null
+    ? "Add impact details to see how the foods and preparation may influence this guidance score."
+    : String(estimate.inflammation_summary || "Food-pattern impact estimated from the details supplied.");
+  const addDetails = complete
+    ? ""
+    : `<button class="button button-quiet meal-impact-add" type="button" data-add-impact="${entry.id}"${isRunning ? " disabled" : ""}>${isRunning ? "Adding details…" : "Add impact details"}</button>`;
+  return `<details class="meal-impact-details">
+    <summary><span>Meal details &amp; food impact</span>${score === null ? "" : `<em>${formatEstimateNumber(score)}/10</em>`}</summary>
+    <div class="meal-impact-body">
+      <div class="meal-impact-overview">${scoreBlock}<p>${escapeHtml(summary)}</p></div>
+      <p class="meal-impact-scale">1 = strongly anti-inflammatory · 10 = highly inflammatory. This is an estimated food-pattern score, not a medical test or diagnosis.</p>
+      <ul class="meal-impact-components">${componentRows}</ul>
+      ${addDetails}
+    </div>
+  </details>`;
+}
+
 function renderLedger() {
   if (!state.entries.length) {
     $("#ledger-list").innerHTML = '<li class="ledger-empty">Nothing logged yet. Your first entry takes only a few seconds.</li>';
@@ -609,6 +729,7 @@ function renderLedger() {
       <span class="ledger-main"><strong>${escapeHtml(entry.description)}</strong></span>
       <span class="ledger-actions"><small>${meta}</small>${sourceBadge}${edit}</span>
       ${retryEstimate}
+      ${mealImpactDetails(entry)}
       ${editor}
     </li>`;
   }).join("");
@@ -719,6 +840,14 @@ function needsIngredientItemization(entry) {
   return entry.status === "estimated" &&
     typeof entry.nutrition_estimate?.calories === "number" &&
     (!Array.isArray(components) || components.length === 0);
+}
+
+function needsMealImpactDetails(entry) {
+  if (entry.kind !== "meal" || entry.status !== "estimated" || typeof entry.nutrition_estimate?.calories !== "number") return false;
+  const components = Array.isArray(entry.nutrition_estimate?.components) ? entry.nutrition_estimate.components : [];
+  return estimateInflammationScore(entry.nutrition_estimate) === null ||
+    components.length === 0 ||
+    components.some((component) => estimateInflammationScore(component) === null);
 }
 
 function buildMetricContributions(metric) {
@@ -966,6 +1095,8 @@ function renderCoachFeedback(providedTotals) {
       .map((value) => String(value).toLowerCase().replaceAll("-", " ").trim())
   );
   const carbFocus = ["low carb", "keto", "better blood sugar"].some((value) => preferences.has(value));
+  const inflammationFocus = preferences.has("reduce inflammation");
+  const inflammationSummary = summarizeInflammationEntries(state.entries);
   const everyMacro = state.trackingDetail === "Every macro";
   const basicsOnly = state.trackingDetail === "Just the basics";
   const fiberFocus = !basicsOnly || ["mediterranean", "dash", "vegetarian", "vegan", "reduce inflammation", "better blood sugar", "heart healthy"].some((value) => preferences.has(value));
@@ -1058,6 +1189,9 @@ function renderCoachFeedback(providedTotals) {
   if (everyMacro || preferences.has("keto")) summaryMetrics.push(`${Math.round(totals.fat)}g fat`);
   if (fiberFocus) summaryMetrics.push(`${Math.round(totals.fiber)}g fiber`);
   if (hydrationFocus) summaryMetrics.push(`${Math.round(totals.water)} oz hydration`);
+  if (inflammationFocus && inflammationSummary.score !== null) {
+    summaryMetrics.push(`Inflammation Score™ ${formatEstimateNumber(inflammationSummary.score)}/10 (${inflammationBand(inflammationSummary.score).label.toLowerCase()})`);
+  }
   support.textContent = `So far: ${new Intl.ListFormat(undefined, { style: "long", type: "conjunction" }).format(summaryMetrics)}.`;
   const roundedNetCarbs = Math.round(totals.netCarbs);
   const netCarbRemaining = state.netCarbGoal
@@ -1099,6 +1233,30 @@ function renderCoachFeedback(providedTotals) {
     suggestion.textContent = `For your ${preferenceLabel} preference, keep the next meal centered on a protein you enjoy and non-starchy vegetables.`;
   } else {
     suggestion.textContent = "Keep the next meal balanced: a protein you enjoy, something colorful, and a portion that feels satisfying.";
+  }
+  if (inflammationFocus) {
+    if (inflammationSummary.score === null) {
+      suggestion.textContent += " Your reduce-inflammation goal is saved; meals with the new impact details will include the Inflammation Score™ and food-by-food context.";
+    } else {
+      const score = inflammationSummary.score;
+      const highestNutrition = inflammationSummary.highest?.entry?.nutrition_estimate || {};
+      const watchFoods = (Array.isArray(highestNutrition.components) ? highestNutrition.components : [])
+        .filter((component) => inflammationImpact(component.inflammation_impact) === "watch")
+        .sort((left, right) => Number(right.inflammation_score || 0) - Number(left.inflammation_score || 0))
+        .slice(0, 2)
+        .map((component) => component.name)
+        .filter(Boolean);
+      const foodContext = watchFoods.length
+        ? ` The main items worth watching were ${new Intl.ListFormat(undefined, { style: "long", type: "conjunction" }).format(watchFoods)}.`
+        : "";
+      if (score <= 3) {
+        suggestion.textContent += " Your logged meals currently lean toward the lower end of the Inflammation Score™ scale. Keep the whole-food pattern working for you.";
+      } else if (score <= 6) {
+        suggestion.textContent += ` Your inflammation-focused pattern is mixed so far.${foodContext} Open a meal's details to see the helpful and worth-watching foods.`;
+      } else {
+        suggestion.textContent += ` Your Inflammation Score™ is toward the higher end today.${foodContext} A useful next choice is minimally processed protein, colorful non-starchy vegetables, and a clearly identified cooking oil or sauce.`;
+      }
+    }
   }
   if (netCarbGuardrail) suggestion.textContent += ` ${netCarbGuardrail}`;
 }
@@ -1153,6 +1311,7 @@ function summarizeReport(entries) {
   const pendingDays = [...entriesByDay.values()].filter((dayEntries) => dayEntries.some((entry) => entry.status === "pending_estimate"));
   const includedDays = [...entriesByDay.values()].filter((dayEntries) => !dayEntries.some((entry) => entry.status === "pending_estimate"));
   const includedEntries = includedDays.flat();
+  const inflammation = summarizeInflammationReport(includedEntries, reportDateKey);
   const totals = includedEntries.reduce((sum, entry) => {
     const nutrition = entry.nutrition_estimate || {};
     sum.calories += Number(nutrition.calories || 0);
@@ -1173,7 +1332,8 @@ function summarizeReport(entries) {
     includedEntries,
     averagedDays: includedDays.length,
     totalLoggedDays: entriesByDay.size,
-    pendingDays: pendingDays.length
+    pendingDays: pendingDays.length,
+    inflammation
   };
 }
 
@@ -1205,7 +1365,7 @@ function weightReportMetrics(range, weightEntries) {
 }
 
 function renderReport(period, range, entries, weightEntries = state.weightEntries) {
-  const { totals, includedEntries, averagedDays, totalLoggedDays, pendingDays } = summarizeReport(entries);
+  const { totals, includedEntries, averagedDays, totalLoggedDays, pendingDays, inflammation } = summarizeReport(entries);
   const divisor = Math.max(1, averagedDays);
   const averageLabel = " average/included day";
   const averageValue = (value, suffix = "") => averagedDays ? `${Math.round(value / divisor).toLocaleString()}${suffix}` : "No data";
@@ -1214,6 +1374,9 @@ function renderReport(period, range, entries, weightEntries = state.weightEntrie
     ? dateFormat.format(range.start)
     : `${dateFormat.format(range.start)}–${dateFormat.format(range.end)}`;
   const weightSummary = weightReportMetrics(range, weightEntries);
+  const inflammationValue = inflammation.score === null
+    ? "No scored meals"
+    : `${inflammation.score.toFixed(1)}/10 · ${inflammationBand(inflammation.score).label}`;
   const metrics = [
     ["Entries included", includedEntries.length.toLocaleString()],
     ["Days averaged", averagedDays.toLocaleString()],
@@ -1223,9 +1386,13 @@ function renderReport(period, range, entries, weightEntries = state.weightEntrie
     [`Fat${averageLabel}`, averageValue(totals.fat, "g")],
     [`Fiber${averageLabel}`, averageValue(totals.fiber, "g")],
     [`Hydration${averageLabel}`, averageValue(totals.water, "oz")],
+    ["Inflammation Score™ average/scored day", inflammationValue],
     ...weightSummary.metrics
   ];
-  const completeness = `Average based on ${averagedDays} included ${averagedDays === 1 ? "day" : "days"}. ${totalLoggedDays} of ${range.days} completed calendar days contained entries.${pendingDays ? ` ${pendingDays} ${pendingDays === 1 ? "day was" : "days were"} excluded because a nutrition estimate is still pending.` : ""} Some logged days may be incomplete; entering every meal and drink provides more accurate averages and long-term trends.`;
+  const inflammationCoverage = inflammation.scoredMeals
+    ? ` The Inflammation Score™ average uses ${inflammation.scoredMeals} scored ${inflammation.scoredMeals === 1 ? "meal" : "meals"} across ${inflammation.scoredDays} ${inflammation.scoredDays === 1 ? "day" : "days"}.${inflammation.unscoredMeals ? ` ${inflammation.unscoredMeals} earlier ${inflammation.unscoredMeals === 1 ? "meal does" : "meals do"} not yet have an impact score and were not treated as zero.` : ""}`
+    : " No meals in this period include an Inflammation Score™ yet; missing scores are never treated as zero.";
+  const completeness = `Average based on ${averagedDays} included ${averagedDays === 1 ? "day" : "days"}. ${totalLoggedDays} of ${range.days} completed calendar days contained entries.${pendingDays ? ` ${pendingDays} ${pendingDays === 1 ? "day was" : "days were"} excluded because a nutrition estimate is still pending.` : ""}${inflammationCoverage} Some logged days may be incomplete; entering every meal and drink provides more accurate averages and long-term trends.`;
   $("#report-range").textContent = rangeLabel;
   $("#report-period-title").textContent = `${range.label} report`;
   $("#report-metrics").innerHTML = metrics.map(([label, value]) => `<article><span>${label}</span><strong>${value}</strong></article>`).join("");
@@ -1776,6 +1943,14 @@ $("#leftover-review-form").addEventListener("submit", async (event) => {
     leftoverNutritionFields.forEach((field) => {
       adjusted[field] = roundNutrition(adjusted.components.reduce((sum, component) => sum + Number(component[field] || 0), 0));
     });
+    const distinctPortions = new Set(componentPercentages.map((item) => Math.round(item.percent_eaten)));
+    if (distinctPortions.size > 1) {
+      const adjustedInflammationScore = weightedInflammationScore(adjusted.components);
+      if (adjustedInflammationScore !== null) {
+        adjusted.inflammation_score = adjustedInflammationScore;
+        adjusted.inflammation_summary = "Food-pattern impact updated to reflect the different portions reviewed from the after-meal photo.";
+      }
+    }
   } else {
     leftoverNutritionFields.forEach((field) => {
       if (typeof adjusted[field] === "number") adjusted[field] = roundNutrition(adjusted[field] * overallPercent / 100);
@@ -1813,6 +1988,7 @@ $("#leftover-review-form").addEventListener("submit", async (event) => {
 
 $("#ledger-list").addEventListener("click", async (event) => {
   const retryButton = event.target.closest("[data-retry-estimate]");
+  const impactButton = event.target.closest("[data-add-impact]");
   const editButton = event.target.closest("[data-edit-entry]");
   const cancelButton = event.target.closest("[data-cancel-edit]");
   const deleteButton = event.target.closest("[data-delete-entry]");
@@ -1820,6 +1996,10 @@ $("#ledger-list").addEventListener("click", async (event) => {
   const undoButton = event.target.closest("[data-undo-leftover]");
   if (retryButton) {
     await retryEstimateEntry(retryButton.dataset.retryEstimate);
+    return;
+  }
+  if (impactButton) {
+    await addMealImpactDetails(impactButton.dataset.addImpact);
     return;
   }
   if (adjustButton) {
@@ -2146,17 +2326,23 @@ async function estimatePendingEntries() {
 
 async function itemizeCurrentEntries() {
   if (!hasCurrentCoreMembership()) return;
-  const missing = state.entries.filter(needsIngredientItemization).slice(0, 6);
+  const missing = state.entries.filter((entry) => needsIngredientItemization(entry) || needsMealImpactDetails(entry)).slice(0, 6);
   if (!missing.length) return;
   ingredientItemizationFailed = false;
   if (metricBreakdownCurrentMetric) renderMetricBreakdown(metricBreakdownCurrentMetric);
   for (const entry of missing) {
-    const { error } = await invokeAuthenticated("estimate-entry", {
-      body: { entryId: entry.id, itemizeExisting: true }
-    });
-    if (error) {
-      ingredientItemizationFailed = true;
-      break;
+    if (entry.kind === "meal") {
+      const completed = await addMealImpactDetails(entry.id, { announceStart: false, announceSuccess: false });
+      if (!completed) {
+        ingredientItemizationFailed = true;
+        break;
+      }
+    } else {
+      const { error } = await invokeAuthenticated("estimate-entry", { body: { entryId: entry.id, itemizeExisting: true } });
+      if (error) {
+        ingredientItemizationFailed = true;
+        break;
+      }
     }
   }
   await loadLedger();
