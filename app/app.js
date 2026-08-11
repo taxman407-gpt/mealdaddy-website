@@ -1,9 +1,9 @@
-import { invokeAuthenticated, supabase, requireSession } from "./supabase-client.js?v=20260810-2";
-import { buildProteinGuidance } from "./feedback-guidance.js?v=20260810-2";
-import { entryDateDisplayLabel, localDateValue as localEntryDateValue, occurredAtForEntryDate, quickDateOptions } from "./entry-date.js?v=20260810-2";
-import { estimatedAdultBmi, formatWeight, formatWeightChange, normalizeUnitSystem, parseHeightCm, shouldEnableWeightTracking, weightFromKg, weightToKg } from "./health-metrics.js?v=20260810-2";
-import { initializeSavedFoods } from "./saved-foods.js?v=20260810-2";
-import { normalizeRestaurantPlan, restaurantChoiceLetters, restaurantFitLabels, restaurantOptionToSavedFood, safeRestaurantSourceUrl } from "./restaurant-plan.js?v=20260810-2";
+import { invokeAuthenticated, supabase, requireSession } from "./supabase-client.js?v=20260811-1";
+import { buildProteinGuidance } from "./feedback-guidance.js?v=20260811-1";
+import { entryDateDisplayLabel, localDateValue as localEntryDateValue, occurredAtForEntryDate, quickDateOptions } from "./entry-date.js?v=20260811-1";
+import { estimatedAdultBmi, formatWeight, formatWeightChange, normalizeUnitSystem, parseHeightCm, shouldEnableWeightTracking, weightFromKg, weightToKg } from "./health-metrics.js?v=20260811-1";
+import { initializeSavedFoods } from "./saved-foods.js?v=20260811-1";
+import { normalizeRestaurantPlan, restaurantChoiceLetters, restaurantFitLabels, restaurantOptionToSavedFood, safeRestaurantSourceUrl } from "./restaurant-plan.js?v=20260811-1";
 
 const dietStyles = ["Mediterranean", "Low-carb", "Pescatarian", "DASH", "Vegetarian", "High-protein", "Flexible"];
 const $ = (selector) => document.querySelector(selector);
@@ -18,7 +18,7 @@ const entryCategories = [...mealLabels, "Hydration"];
 const query = new URLSearchParams(location.search);
 let pendingPlan = allowedPlans.has(query.get("plan")) ? query.get("plan") : null;
 const checkoutResult = query.get("checkout");
-const state = { diet: "", tone: "supportive", provider: "best_value", entries: [], weightEntries: [], photo: null, coachPhoto: null, restaurantLocation: null, restaurantPlan: null, coachMode: "dinner", membershipPlan: null, membershipStatus: null, membershipAccess: null, calorieGoal: 2050, proteinGoal: 130, netCarbGoal: 0, fiberGoal: 30, waterGoal: 90, unitSystem: "us", heightCm: null, age: null, trackBmi: false, goalWeightKg: null, eatingStyles: [], goals: [], trackingDetail: "Moderate", uses: [], reminders: [], favoriteProteins: [], foodsLoved: "", foodsDisliked: "", foodsToAvoid: "", biggestChallenge: "", suggestedProteinTarget: 40, leftoverEntryId: null, leftoverPhoto: null, leftoverAnalysis: null, leftoverReturnFocus: null, savedFoodsApi: null, pendingQuickLog: null, skipSavedFoodMatch: false, pendingLabelCandidate: null, pendingLabelPhoto: null, currentTotals: { calories: 0, protein: 0, carbs: 0, netCarbs: 0, fat: 0, fiber: 0, water: 0 } };
+const state = { diet: "", tone: "supportive", provider: "best_value", entries: [], weightEntries: [], photo: null, coachPhoto: null, restaurantLocation: null, restaurantPlan: null, coachMode: "dinner", membershipPlan: null, membershipStatus: null, membershipAccess: null, calorieGoal: 2050, proteinGoal: 130, netCarbGoal: 0, fiberGoal: 30, waterGoal: 90, unitSystem: "us", heightCm: null, age: null, trackBmi: false, goalWeightKg: null, eatingStyles: [], goals: [], trackingDetail: "Moderate", uses: [], reminders: [], favoriteProteins: [], foodsLoved: "", foodsDisliked: "", foodsToAvoid: "", biggestChallenge: "", suggestedProteinTarget: 40, leftoverEntryId: null, leftoverPhoto: null, leftoverAnalysis: null, leftoverReturnFocus: null, savedFoodsApi: null, pendingQuickLog: null, skipSavedFoodMatch: false, pendingLabelCandidate: null, pendingLabelPhoto: null, estimatingEntryIds: new Set(), estimateFailures: new Map(), currentTotals: { calories: 0, protein: 0, carbs: 0, netCarbs: 0, fat: 0, fiber: 0, water: 0 } };
 const installDismissedKey = "mealdaddy-install-tip-dismissed";
 let deferredInstallPrompt = null;
 let latestReport = null;
@@ -202,18 +202,66 @@ function showEstimateMembershipPrompt(subject, action) {
   toast(`${subject} ${action}. Start the Core trial to add its nutrition estimate.`);
 }
 
-async function handleEstimateFailure(error, subject, action = "saved") {
+function rememberEstimateFailure(entryId, message) {
+  if (!entryId) return;
+  state.estimateFailures.set(entryId, message);
+  renderLedger();
+}
+
+async function handleEstimateFailure(error, subject, action = "saved", entryId = null) {
   const failure = await readFunctionFailure(error);
   const membershipRequired = failure.status === 402 || /active Meal Daddy Core membership is required/i.test(failure.message);
-  if (membershipRequired || !hasCurrentCoreMembership()) {
+  if (membershipRequired && state.membershipAccess === "family") {
+    const message = "Complimentary access could not be verified. Retry the estimate, then sign out and back in if it continues.";
+    rememberEstimateFailure(entryId, message);
+    toast(message);
+    return message;
+  }
+  if (membershipRequired) {
+    const message = "An active Meal Daddy Core membership is required before this estimate can finish.";
+    rememberEstimateFailure(entryId, message);
     showEstimateMembershipPrompt(subject, action);
-    return;
+    return message;
   }
   if (failure.status === 429 || /monthly Core AI allowance/i.test(failure.message)) {
-    toast(`${subject} ${action}. This month's Core AI allowance has been reached; the estimate remains pending.`);
-    return;
+    const message = "This month's Core AI allowance has been reached. This entry is not included in totals yet.";
+    rememberEstimateFailure(entryId, message);
+    toast(`${subject} ${action}. ${message}`);
+    return message;
   }
-  toast(`${subject} ${action}, but the nutrition estimate could not finish. Refresh to retry.`);
+  const message = "The estimate needs another try. This entry is not included in totals yet.";
+  rememberEstimateFailure(entryId, message);
+  toast(`${subject} ${action}, but the nutrition estimate could not finish. Use Retry estimate on the entry.`);
+  return message;
+}
+
+async function retryEstimateEntry(entryId, { announceStart = true, announceSuccess = true } = {}) {
+  const entry = state.entries.find((item) => item.id === entryId);
+  if (!entry || entry.status !== "pending_estimate" || state.estimatingEntryIds.has(entryId)) return false;
+  const subject = entry.kind === "hydration" ? "Drink" : "Meal";
+  state.estimatingEntryIds.add(entryId);
+  state.estimateFailures.delete(entryId);
+  renderLedger();
+  if (announceStart) toast(`Retrying the ${subject.toLowerCase()} estimate...`);
+  try {
+    const { data, error } = await invokeAuthenticated("estimate-entry", { body: { entryId } });
+    if (error) {
+      await handleEstimateFailure(error, subject, "saved", entryId);
+      return false;
+    }
+    state.estimateFailures.delete(entryId);
+    $("#estimate-membership-prompt").hidden = true;
+    await loadLedger();
+    if (data?.labelCandidate && state.savedFoodsApi) showLabelSavePrompt(data.labelCandidate, null);
+    if (announceSuccess) toast(`${subject} estimate updated and included in today’s totals.`);
+    return true;
+  } catch (error) {
+    await handleEstimateFailure(error, subject, "saved", entryId);
+    return false;
+  } finally {
+    state.estimatingEntryIds.delete(entryId);
+    renderLedger();
+  }
 }
 
 async function startCheckout(plan) {
@@ -517,6 +565,10 @@ async function loadLedger() {
   const { data, error } = await supabase.from("ledger_entries").select("id,kind,occurred_at,description,meal_label,nutrition_estimate,status").gte("occurred_at", start.toISOString()).order("occurred_at", { ascending: false });
   if (error) throw error;
   state.entries = data || [];
+  const pendingIds = new Set(state.entries.filter((entry) => entry.status === "pending_estimate").map((entry) => entry.id));
+  for (const entryId of state.estimateFailures.keys()) {
+    if (!pendingIds.has(entryId)) state.estimateFailures.delete(entryId);
+  }
   renderLedger();
   renderTotals();
 }
@@ -540,6 +592,11 @@ function renderLedger() {
     const canAdjustPortion = entry.kind === "meal" && entry.status === "estimated" && typeof estimate.calories === "number";
     const sourceLabel = estimate.source === "saved_food" ? "Reviewed saved values" : estimate.source === "nutrition_label_photo" ? "Label-informed" : estimate.source === "meal_photo_estimate" ? "Photo estimate" : entry.status === "estimated" ? "AI estimate" : "";
     const sourceBadge = sourceLabel ? `<em class="ledger-source-badge">${sourceLabel}</em>` : "";
+    const estimateIsRunning = state.estimatingEntryIds.has(entry.id);
+    const pendingMessage = state.estimateFailures.get(entry.id) || "Nutrition is not included in your totals until this estimate finishes.";
+    const retryEstimate = entry.status === "pending_estimate"
+      ? `<div class="ledger-estimate-retry" role="status"><span>${escapeHtml(estimateIsRunning ? "Estimating now…" : pendingMessage)}</span><button type="button" data-retry-estimate="${entry.id}"${estimateIsRunning ? " disabled" : ""}>${estimateIsRunning ? "Estimating…" : "Retry estimate"}</button></div>`
+      : "";
     const adjustPortion = canAdjustPortion ? `<button class="button button-quiet ledger-after-photo-button" type="button" data-adjust-leftovers="${entry.id}">Add after / leftover photo</button>` : "";
     const undoPortion = portionAdjusted ? `<button class="button button-quiet" type="button" data-undo-leftover="${entry.id}">Undo portion correction</button>` : "";
     const editor = `<form class="ledger-edit-form" data-edit-form="${entry.id}" hidden>
@@ -551,6 +608,7 @@ function renderLedger() {
       <span class="ledger-icon" aria-hidden="true">${ledgerIcon}</span>
       <span class="ledger-main"><strong>${escapeHtml(entry.description)}</strong></span>
       <span class="ledger-actions"><small>${meta}</small>${sourceBadge}${edit}</span>
+      ${retryEstimate}
       ${editor}
     </li>`;
   }).join("");
@@ -1754,11 +1812,16 @@ $("#leftover-review-form").addEventListener("submit", async (event) => {
 });
 
 $("#ledger-list").addEventListener("click", async (event) => {
+  const retryButton = event.target.closest("[data-retry-estimate]");
   const editButton = event.target.closest("[data-edit-entry]");
   const cancelButton = event.target.closest("[data-cancel-edit]");
   const deleteButton = event.target.closest("[data-delete-entry]");
   const adjustButton = event.target.closest("[data-adjust-leftovers]");
   const undoButton = event.target.closest("[data-undo-leftover]");
+  if (retryButton) {
+    await retryEstimateEntry(retryButton.dataset.retryEstimate);
+    return;
+  }
   if (adjustButton) {
     const entry = state.entries.find((item) => item.id === adjustButton.dataset.adjustLeftovers);
     if (entry) openLeftoverAdjustment(entry, adjustButton);
@@ -1867,12 +1930,7 @@ $("#ledger-list").addEventListener("submit", async (event) => {
   await loadLedger();
   if ((targetKind === "meal" && (descriptionChanged || kindChanged)) || estimateHydration) {
     toast(targetKind === "hydration" ? "Drink updated. Estimating its nutrition..." : "Meal updated. Recalculating nutrition...");
-    const { data: estimateData, error: estimateError } = await invokeAuthenticated("estimate-entry", { body: { entryId: entry.id } });
-    await loadLedger();
-    const subject = targetKind === "hydration" ? "Drink" : "Meal";
-    if (estimateError) await handleEstimateFailure(estimateError, subject, "updated");
-    else if (estimateData?.labelCandidate && state.savedFoodsApi) showLabelSavePrompt(estimateData.labelCandidate, null);
-    else toast(`${subject} and nutrition estimate updated.`);
+    await retryEstimateEntry(entry.id, { announceStart: false });
   } else if (targetKind === "hydration") {
     toast(`Hydration updated: ${ounces} fl oz.`);
   } else {
@@ -2033,12 +2091,24 @@ $("#entry-form").addEventListener("submit", async (event) => {
     await loadLedger();
     if (kind === "meal" || estimateHydration) {
       toast(kind === "hydration" ? `Drink saved${dateSuffix}. Estimating its nutrition...` : wantsFavorite ? `Meal saved${dateSuffix}. Building your Favorite Meal...` : `Meal saved${dateSuffix}. Estimating nutrition...`);
-      const { data: estimateData, error: estimateError } = await invokeAuthenticated("estimate-entry", {
-        body: { entryId: savedEntry.id, saveFavorite: wantsFavorite }
-      });
+      state.estimatingEntryIds.add(savedEntry.id);
+      renderLedger();
+      let estimateData = null;
+      let estimateError = null;
+      try {
+        const result = await invokeAuthenticated("estimate-entry", {
+          body: { entryId: savedEntry.id, saveFavorite: wantsFavorite }
+        });
+        estimateData = result.data;
+        estimateError = result.error;
+      } catch (error) {
+        estimateError = error;
+      } finally {
+        state.estimatingEntryIds.delete(savedEntry.id);
+      }
       await loadLedger();
       if (estimateError) {
-        await handleEstimateFailure(estimateError, kind === "hydration" ? "Drink" : "Meal");
+        await handleEstimateFailure(estimateError, kind === "hydration" ? "Drink" : "Meal", "saved", savedEntry.id);
       } else {
         $("#estimate-membership-prompt").hidden = true;
         if (wantsFavorite && estimateData?.estimate && state.savedFoodsApi) {
@@ -2069,10 +2139,9 @@ async function estimatePendingEntries() {
       hydrationNeedsNutritionEstimate(entry.description))
   ).slice(0, 3);
   for (const entry of pending) {
-    const { error } = await invokeAuthenticated("estimate-entry", { body: { entryId: entry.id } });
-    if (error) break;
+    const completed = await retryEstimateEntry(entry.id, { announceStart: false, announceSuccess: false });
+    if (!completed) break;
   }
-  if (pending.length) await loadLedger();
 }
 
 async function itemizeCurrentEntries() {

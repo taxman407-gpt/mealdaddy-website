@@ -8,12 +8,12 @@ import {
   saveDeviceFood,
   setSavedFoodStorageMode,
   updateSyncedFoodCache
-} from "./saved-foods-store.js?v=20260810-2";
+} from "./saved-foods-store.js?v=20260811-1";
 import {
   favoriteMealFromEstimate,
   favoriteMealNutritionFields,
   normalizeFavoriteComponents
-} from "./favorite-meal.js?v=20260810-2";
+} from "./favorite-meal.js?v=20260811-1";
 
 const allowedPhotoTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 const maxPhotoBytes = 8 * 1024 * 1024;
