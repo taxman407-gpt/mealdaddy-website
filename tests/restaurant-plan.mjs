@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {
   normalizeRestaurantPlan,
+  restaurantOptionToLedgerEntry,
   restaurantOptionToSavedFood,
   safeRestaurantSourceUrl
 } from "../app/restaurant-plan.js";
@@ -47,5 +48,13 @@ const estimatedFavorite = restaurantOptionToSavedFood(plan, {
   evidence_type: "restaurant_published"
 });
 assert.equal(estimatedFavorite.evidence_type, "restaurant_estimate");
+
+const ledgerEntry = restaurantOptionToLedgerEntry(plan, plan.options[0]);
+assert.match(ledgerEntry.description, /Example Restaurant/);
+assert.match(ledgerEntry.description, /Vegetables instead of pasta/);
+assert.equal(ledgerEntry.nutrition_estimate.calories, 400);
+assert.equal(ledgerEntry.nutrition_estimate.source, "restaurant_published");
+assert.equal(ledgerEntry.nutrition_estimate.substitutions.length, 2);
+assert.match(ledgerEntry.nutrition_estimate.source_url, /^https:/);
 
 console.log("Restaurant recommendation and favorite-meal checks passed.");

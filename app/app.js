@@ -1,10 +1,10 @@
-import { invokeAuthenticated, supabase, requireSession } from "./supabase-client.js?v=20260813-2";
-import { buildProteinGuidance } from "./feedback-guidance.js?v=20260813-2";
-import { entryDateDisplayLabel, localDateValue as localEntryDateValue, occurredAtForEntryDate, quickDateOptions } from "./entry-date.js?v=20260813-2";
-import { estimatedAdultBmi, formatWeight, formatWeightChange, normalizeUnitSystem, parseHeightCm, shouldEnableWeightTracking, weightFromKg, weightToKg } from "./health-metrics.js?v=20260813-2";
-import { initializeSavedFoods } from "./saved-foods.js?v=20260813-2";
-import { normalizeRestaurantPlan, restaurantChoiceLetters, restaurantFitLabels, restaurantOptionToSavedFood, safeRestaurantSourceUrl } from "./restaurant-plan.js?v=20260813-2";
-import { estimateInflammationScore, inflammationBand, inflammationImpact, summarizeInflammationEntries, summarizeInflammationReport, weightedInflammationScore } from "./inflammation-impact.js?v=20260813-2";
+import { invokeAuthenticated, supabase, requireSession } from "./supabase-client.js?v=20260813-3";
+import { buildProteinGuidance } from "./feedback-guidance.js?v=20260813-3";
+import { entryDateDisplayLabel, localDateValue as localEntryDateValue, occurredAtForEntryDate, quickDateOptions } from "./entry-date.js?v=20260813-3";
+import { estimatedAdultBmi, formatWeight, formatWeightChange, normalizeUnitSystem, parseHeightCm, shouldEnableWeightTracking, weightFromKg, weightToKg } from "./health-metrics.js?v=20260813-3";
+import { initializeSavedFoods } from "./saved-foods.js?v=20260813-3";
+import { normalizeRestaurantPlan, restaurantChoiceLetters, restaurantFitLabels, restaurantOptionToLedgerEntry, safeRestaurantSourceUrl } from "./restaurant-plan.js?v=20260813-3";
+import { estimateInflammationScore, inflammationBand, inflammationImpact, summarizeInflammationEntries, summarizeInflammationReport, weightedInflammationScore } from "./inflammation-impact.js?v=20260813-3";
 
 document.querySelector("#focus-quick-entry")?.addEventListener("click", () => {
   document.querySelector("#quick-entry")?.focus();
@@ -714,7 +714,8 @@ function renderLedger() {
     const edit = `<button class="ledger-edit-button" type="button" data-edit-entry="${entry.id}" aria-label="Edit ${escapeHtml(label)}">Edit</button>`;
     const portionAdjusted = Boolean(estimate.leftover_adjustment?.original_estimate);
     const canAdjustPortion = entry.kind === "meal" && entry.status === "estimated" && typeof estimate.calories === "number";
-    const sourceLabel = estimate.source === "saved_food" ? "Reviewed saved values" : estimate.source === "nutrition_label_photo" ? "Label-informed" : estimate.source === "meal_photo_estimate" ? "Photo estimate" : entry.status === "estimated" ? "AI estimate" : "";
+    const canSaveFavorite = entry.kind === "meal" && entry.status === "estimated" && typeof estimate.calories === "number";
+    const sourceLabel = estimate.source === "saved_food" ? "Reviewed saved values" : estimate.source === "restaurant_published" ? "Restaurant-published" : estimate.source === "restaurant_estimate" ? "Restaurant estimate" : estimate.source === "nutrition_label_photo" ? "Label-informed" : estimate.source === "meal_photo_estimate" ? "Photo estimate" : entry.status === "estimated" ? "AI estimate" : "";
     const sourceBadge = sourceLabel ? `<em class="ledger-source-badge">${sourceLabel}</em>` : "";
     const estimateIsRunning = state.estimatingEntryIds.has(entry.id);
     const pendingMessage = state.estimateFailures.get(entry.id) || "Nutrition is not included in your totals until this estimate finishes.";
@@ -731,7 +732,7 @@ function renderLedger() {
     return `<li class="ledger-item">
       <span class="ledger-icon" aria-hidden="true">${ledgerIcon}</span>
       <span class="ledger-main"><strong>${escapeHtml(entry.description)}</strong></span>
-      <span class="ledger-actions"><small>${meta}</small>${sourceBadge}${edit}</span>
+      <span class="ledger-actions"><small>${meta}</small>${sourceBadge}${canSaveFavorite ? `<button class="ledger-favorite-button" type="button" data-save-entry-favorite="${entry.id}">Save as favorite</button>` : ""}${edit}</span>
       ${retryEstimate}
       ${mealImpactDetails(entry)}
       ${editor}
@@ -1661,10 +1662,10 @@ function renderRestaurantPlan(rawPlan) {
         <div class="restaurant-choice-metrics"><span><strong>${formatEstimateNumber(option.calories)} cal</strong>Energy</span><span><strong>${formatEstimateNumber(option.protein_g)}g</strong>Protein</span><span><strong>${formatEstimateNumber(option.net_carbs_g)}g</strong>Net carbs</span><span><strong>${formatEstimateNumber(option.fiber_g)}g</strong>Fiber</span></div>
         <p class="restaurant-choice-why">${escapeHtml(String(option.why || ""))}</p>
         <p class="restaurant-choice-source">${published ? `Restaurant-published values · <a href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener noreferrer">view source</a>` : "Meal Daddy estimate · published values were not confirmed"}</p>
-        <button class="button" type="button" data-save-restaurant-option="${index}">Choose ${restaurantChoiceLetters[index]} — review &amp; save</button>
+        <button class="button" type="button" data-log-restaurant-option="${index}">Add ${restaurantChoiceLetters[index]} to Today’s Entries</button>
       </article>`;
     }).join("")}
-    <p class="restaurant-plan-note">Nutrition varies by location, preparation, portion, and substitutions. Review the final order before saving it to My Foods.</p>
+    <p class="restaurant-plan-note">Nutrition varies by location, preparation, portion, and substitutions. Choosing an option adds the customized order to Today’s Entries. You can save it as a favorite from the entry afterward.</p>
   </section>`;
   return true;
 }
@@ -1686,13 +1687,33 @@ $("#close-coach-action").addEventListener("click", () => {
   clearRestaurantLocation();
 });
 
-$("#coach-action-result").addEventListener("click", (event) => {
-  const button = event.target.closest("[data-save-restaurant-option]");
-  if (!button || !state.restaurantPlan || !state.savedFoodsApi) return;
-  const option = state.restaurantPlan.options[Number(button.dataset.saveRestaurantOption)];
+$("#coach-action-result").addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-log-restaurant-option]");
+  if (!button || !state.restaurantPlan) return;
+  const option = state.restaurantPlan.options[Number(button.dataset.logRestaurantOption)];
   if (!option) return;
-  state.savedFoodsApi.reviewRestaurantFood(restaurantOptionToSavedFood(state.restaurantPlan, option));
-  toast(`Option ${option.label} is ready for your review.`);
+  button.disabled = true;
+  button.textContent = "Adding to Today’s Entries…";
+  const ledgerEntry = restaurantOptionToLedgerEntry(state.restaurantPlan, option);
+  const { error } = await supabase.from("ledger_entries").insert({
+    user_id: user.id,
+    client_request_id: crypto.randomUUID(),
+    kind: "meal",
+    occurred_at: new Date().toISOString(),
+    description: ledgerEntry.description,
+    meal_label: defaultMealLabel(),
+    nutrition_estimate: ledgerEntry.nutrition_estimate,
+    status: "estimated"
+  });
+  if (error) {
+    toast(error.message || "The restaurant choice could not be added.");
+    button.disabled = false;
+    button.textContent = `Add ${option.label} to Today’s Entries`;
+    return;
+  }
+  await loadLedger();
+  button.textContent = `Added ${option.label} to Today’s Entries`;
+  toast(`${state.restaurantPlan.restaurant} option ${option.label} was added to Today’s Entries.`);
 });
 
 $("#coach-action-form").addEventListener("submit", async (event) => {
@@ -1998,12 +2019,51 @@ $("#ledger-list").addEventListener("click", async (event) => {
   const deleteButton = event.target.closest("[data-delete-entry]");
   const adjustButton = event.target.closest("[data-adjust-leftovers]");
   const undoButton = event.target.closest("[data-undo-leftover]");
+  const favoriteButton = event.target.closest("[data-save-entry-favorite]");
   if (retryButton) {
     await retryEstimateEntry(retryButton.dataset.retryEstimate);
     return;
   }
   if (impactButton) {
     await addMealImpactDetails(impactButton.dataset.addImpact);
+    return;
+  }
+  if (favoriteButton) {
+    const entry = state.entries.find((item) => item.id === favoriteButton.dataset.saveEntryFavorite);
+    if (!entry || !state.savedFoodsApi) return;
+    const estimate = entry.nutrition_estimate || {};
+    if (estimate.restaurant) {
+      state.savedFoodsApi.reviewRestaurantFood({
+        item_type: "restaurant_item",
+        name: String(estimate.restaurant_order || entry.description).slice(0, 160),
+        brand_or_restaurant: String(estimate.restaurant).slice(0, 160),
+        serving_description: "1 customized order",
+        calories: Number(estimate.calories || 0),
+        protein_g: Number(estimate.protein_g || 0),
+        carbs_g: Number(estimate.carbs_g || 0),
+        net_carbs_g: Number(estimate.net_carbs_g || 0),
+        fat_g: Number(estimate.fat_g || 0),
+        fiber_g: Number(estimate.fiber_g || 0),
+        sugar_alcohols_g: 0,
+        allulose_g: 0,
+        hydration_ounces: Number(estimate.hydration_ounces || 0),
+        evidence_type: estimate.source === "restaurant_published" ? "restaurant_published" : "restaurant_estimate",
+        confidence: estimate.confidence || "medium",
+        notes: [
+          `Customized order: ${estimate.restaurant_order || entry.description}`,
+          Array.isArray(estimate.substitutions) && estimate.substitutions.length ? `Substitutions: ${estimate.substitutions.join("; ")}` : "",
+          estimate.note || "",
+          estimate.source_url ? `Source checked ${estimate.source_checked_on || ""}: ${estimate.source_url}` : ""
+        ].filter(Boolean).join("\n").slice(0, 1000)
+      });
+    } else {
+      state.savedFoodsApi.reviewEstimatedMeal({
+        description: entry.description,
+        mealLabel: mealLabels.has(entry.meal_label) ? entry.meal_label : "Meal",
+        estimate
+      });
+    }
+    toast("Review the meal, then save it to My Foods.");
     return;
   }
   if (adjustButton) {

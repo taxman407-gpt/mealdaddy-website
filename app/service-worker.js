@@ -1,5 +1,5 @@
-const CACHE = "mealdaddy-shell-v48";
-const SHELL = ["./", "./index.html", "./auth.html", "./app.html", "./account.html", "./setup.html", "./styles.css?v=20260813-2", "./auth.js?v=20260813-2", "./app.js?v=20260813-2", "./account.js?v=20260813-2", "./setup.js?v=20260813-2", "./entry-date.js?v=20260813-2", "./feedback-guidance.js?v=20260813-2", "./health-metrics.js?v=20260813-2", "./favorite-meal.js?v=20260813-2", "./inflammation-impact.js?v=20260813-2", "./saved-foods.js?v=20260813-2", "./saved-foods-store.js?v=20260813-2", "./restaurant-plan.js?v=20260813-2", "./supabase-client.js?v=20260813-2", "./vendor/supabase-js.js?v=20260813-2"];
+const CACHE = "mealdaddy-shell-v49";
+const SHELL = ["./", "./index.html", "./auth.html", "./app.html", "./account.html", "./setup.html", "./styles.css?v=20260813-3", "./auth.js?v=20260813-3", "./app.js?v=20260813-3", "./account.js?v=20260813-3", "./setup.js?v=20260813-3", "./entry-date.js?v=20260813-3", "./feedback-guidance.js?v=20260813-3", "./health-metrics.js?v=20260813-3", "./favorite-meal.js?v=20260813-3", "./inflammation-impact.js?v=20260813-3", "./saved-foods.js?v=20260813-3", "./saved-foods-store.js?v=20260813-3", "./restaurant-plan.js?v=20260813-3", "./supabase-client.js?v=20260813-3", "./vendor/supabase-js.js?v=20260813-3"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)));

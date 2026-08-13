@@ -1,4 +1,4 @@
-import { invokeAuthenticated, requireSession, supabase } from "./supabase-client.js?v=20260813-2";
+import { invokeAuthenticated, requireSession, supabase } from "./supabase-client.js?v=20260813-3";
 
 const $ = (selector) => document.querySelector(selector);
 const session = await requireSession();

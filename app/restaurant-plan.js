@@ -55,3 +55,37 @@ export function restaurantOptionToSavedFood(plan, option) {
     notes
   };
 }
+
+export function restaurantOptionToLedgerEntry(plan, option) {
+  const substitutions = Array.isArray(option.substitutions)
+    ? option.substitutions.map((item) => String(item).trim()).filter(Boolean).slice(0, 6)
+    : [];
+  const sourceUrl = safeRestaurantSourceUrl(option.source_url);
+  const order = String(option.order || option.title || "Customized restaurant order").replace(/\s+/g, " ").trim();
+  const evidenceType = option.evidence_type === "restaurant_published" && sourceUrl
+    ? "restaurant_published"
+    : "restaurant_estimate";
+  return {
+    description: [
+      `${plan.restaurant}: ${order}`,
+      substitutions.length ? `Substitutions: ${substitutions.join("; ")}` : ""
+    ].filter(Boolean).join(". ").slice(0, 1200),
+    nutrition_estimate: {
+      calories: Number(option.calories || 0),
+      protein_g: Number(option.protein_g || 0),
+      carbs_g: Number(option.carbs_g || 0),
+      net_carbs_g: Number(option.net_carbs_g || 0),
+      fat_g: Number(option.fat_g || 0),
+      fiber_g: Number(option.fiber_g || 0),
+      hydration_ounces: 0,
+      confidence: ["low", "medium", "high"].includes(option.confidence) ? option.confidence : "medium",
+      note: String(option.why || "Restaurant nutrition varies by location, preparation, and portion.").slice(0, 300),
+      source: evidenceType,
+      restaurant: plan.restaurant,
+      restaurant_order: order,
+      substitutions,
+      source_url: sourceUrl,
+      source_checked_on: plan.source_checked_on
+    }
+  };
+}

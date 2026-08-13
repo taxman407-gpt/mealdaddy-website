@@ -8,13 +8,13 @@ import {
   saveDeviceFood,
   setSavedFoodStorageMode,
   updateSyncedFoodCache
-} from "./saved-foods-store.js?v=20260813-2";
+} from "./saved-foods-store.js?v=20260813-3";
 import {
   favoriteMealFromEstimate,
   favoriteMealNutritionFields,
   normalizeFavoriteComponents
-} from "./favorite-meal.js?v=20260813-2";
-import { weightedInflammationScore } from "./inflammation-impact.js?v=20260813-2";
+} from "./favorite-meal.js?v=20260813-3";
+import { weightedInflammationScore } from "./inflammation-impact.js?v=20260813-3";
 
 const allowedPhotoTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 const maxPhotoBytes = 8 * 1024 * 1024;

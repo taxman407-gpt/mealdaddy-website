@@ -330,7 +330,7 @@ h2 { font-size: clamp(1.65rem, 3vw, 2.6rem); line-height: 1.06; letter-spacing: 
 .ledger-main { display: grid; gap: 3px; }.ledger-item small { color: var(--muted); font-size: .73rem; }
 .ledger-actions { display: grid; justify-items: end; gap: 6px; }
 .ledger-source-badge { border-radius: 999px; padding: 4px 7px; color: var(--forest); background: var(--soft); font-size: .58rem; font-style: normal; font-weight: 820; white-space: nowrap; }
-.ledger-edit-button, .ledger-portion-button, .ledger-undo-portion { border: 0; padding: 3px 0; color: var(--forest-2); background: transparent; font-size: .72rem; font-weight: 800; cursor: pointer; }
+.ledger-edit-button, .ledger-favorite-button, .ledger-portion-button, .ledger-undo-portion { border: 0; padding: 3px 0; color: var(--forest-2); background: transparent; font-size: .72rem; font-weight: 800; cursor: pointer; }
 .ledger-estimate-retry { grid-column: 2 / -1; display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid #e8c896; border-radius: 12px; padding: 10px 12px; color: #70421d; background: #fff8e8; }
 .ledger-estimate-retry span { font-size: .7rem; font-weight: 720; line-height: 1.4; }
 .ledger-estimate-retry button { flex: 0 0 auto; min-height: 36px; border: 1px solid var(--orange); border-radius: 10px; padding: 0 12px; color: white; background: var(--orange); font: inherit; font-size: .7rem; font-weight: 820; cursor: pointer; }
