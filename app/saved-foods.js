@@ -8,13 +8,13 @@ import {
   saveDeviceFood,
   setSavedFoodStorageMode,
   updateSyncedFoodCache
-} from "./saved-foods-store.js?v=20260813-3";
+} from "./saved-foods-store.js?v=20260813-4";
 import {
   favoriteMealFromEstimate,
   favoriteMealNutritionFields,
   normalizeFavoriteComponents
-} from "./favorite-meal.js?v=20260813-3";
-import { weightedInflammationScore } from "./inflammation-impact.js?v=20260813-3";
+} from "./favorite-meal.js?v=20260813-4";
+import { weightedInflammationScore } from "./inflammation-impact.js?v=20260813-4";
 
 const allowedPhotoTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 const maxPhotoBytes = 8 * 1024 * 1024;
@@ -133,6 +133,44 @@ export function findSavedFoodMatch(foods, description) {
   };
 }
 
+export function favoriteStatusForEntry(foods, entry) {
+  if (entry?.kind !== "meal") return null;
+  const estimate = entry.nutrition_estimate || {};
+  const origin = estimate.favorite_origin;
+  const direct = origin?.key
+    ? foods.find((food) => `${food.storage_scope}:${food.id}` === origin.key)
+    : estimate.saved_food_id
+      ? foods.find((food) => food.storage_scope === "sync" && food.id === estimate.saved_food_id)
+      : null;
+  if (direct) return { status: estimate.source === "saved_food" ? "exact" : "edited", food: direct };
+
+  const description = normalizedSearchText(entry.description);
+  const namedMatches = foods.filter((food) => {
+    const name = normalizedSearchText(food.name);
+    const brand = normalizedSearchText(food.brand_or_restaurant);
+    return name && description.includes(name) && (!brand || description.includes(brand));
+  });
+  if (namedMatches.length === 1) {
+    const food = namedMatches[0];
+    const sameNutrition = numericFields.every((field) =>
+      Math.abs(numberValue(food[field]) - numberValue(estimate[field])) < 0.11
+    );
+    return { status: sameNutrition ? "exact" : "edited", food };
+  }
+
+  const candidate = favoriteMealFromEstimate({
+    description: entry.description,
+    mealLabel: entry.meal_label || "Meal",
+    estimate
+  });
+  const exact = foods.find((food) =>
+    normalizedSearchText(food.name) === normalizedSearchText(candidate.name) &&
+    normalizedSearchText(food.brand_or_restaurant) === normalizedSearchText(candidate.brand_or_restaurant) &&
+    numericFields.every((field) => Math.abs(numberValue(food[field]) - numberValue(candidate[field])) < 0.11)
+  );
+  return exact ? { status: "exact", food: exact } : null;
+}
+
 function safePhotoPath(userId, path) {
   return typeof path === "string" && path.startsWith(`${userId}/`) && !path.includes("..");
 }
@@ -230,13 +268,13 @@ export async function initializeSavedFoods({
     openEditor();
   }
 
-  function reviewRestaurantFood(food) {
+  function reviewRestaurantFood(food, options = {}) {
     const candidate = normalizedFood({
       ...food,
       item_type: "restaurant_item",
       evidence_type: food.evidence_type === "restaurant_published" ? "restaurant_published" : "restaurant_estimate"
     });
-    const existing = state.foods.find((savedFood) =>
+    const existing = options.forceNew ? null : options.existingFood || state.foods.find((savedFood) =>
       savedFood.item_type === "restaurant_item" &&
       normalizedSearchText(savedFood.name) === normalizedSearchText(candidate.name) &&
       normalizedSearchText(savedFood.brand_or_restaurant) === normalizedSearchText(candidate.brand_or_restaurant)
@@ -249,9 +287,9 @@ export async function initializeSavedFoods({
     openEditor();
   }
 
-  function reviewEstimatedMeal({ description, mealLabel, estimate }, photoFile = null) {
+  function reviewEstimatedMeal({ description, mealLabel, estimate }, photoFile = null, options = {}) {
     const candidate = normalizedFood(favoriteMealFromEstimate({ description, mealLabel, estimate }));
-    const existing = state.foods.find((savedFood) =>
+    const existing = options.forceNew ? null : options.existingFood || state.foods.find((savedFood) =>
       savedFood.item_type === "home_meal" &&
       normalizedSearchText(savedFood.name) === normalizedSearchText(candidate.name)
     ) || null;
@@ -585,6 +623,21 @@ export async function initializeSavedFoods({
       note: `${evidenceLabels[food.evidence_type]} reviewed by the user; ${servingText}.`,
       source: "saved_food",
       saved_food_id: food.storage_scope === "sync" ? food.id : null,
+      favorite_origin: {
+        key: `${food.storage_scope}:${food.id}`,
+        id: food.id,
+        storage_scope: food.storage_scope,
+        name: food.name,
+        brand_or_restaurant: food.brand_or_restaurant || "",
+        description,
+        calories: totals.calories,
+        protein_g: totals.protein_g,
+        carbs_g: totals.carbs_g,
+        net_carbs_g: totals.net_carbs_g,
+        fat_g: totals.fat_g,
+        fiber_g: totals.fiber_g,
+        hydration_ounces: totals.hydration_ounces
+      },
       components: scaledComponents
     };
     const savedInflammationScore = weightedInflammationScore(scaledComponents);
@@ -726,6 +779,7 @@ export async function initializeSavedFoods({
         $("#saved-foods-status").textContent = "Saved to your protected account and cached on this device.";
       }
       await loadFoods();
+      await onLedgerChange();
       closeEditor();
       toast(`${food.name} saved to My Foods.`);
     } catch (error) {
@@ -808,7 +862,11 @@ export async function initializeSavedFoods({
 
   setStorageMode(state.storageMode, false);
   await loadFoods();
+  function favoriteStatus(entry) {
+    return favoriteStatusForEntry(state.foods, entry);
+  }
   return {
+    favoriteStatus,
     findBestMatch,
     logFood,
     reviewDetectedFood,

@@ -1,4 +1,4 @@
-import { createClient } from "./vendor/supabase-js.js?v=20260813-3";
+import { createClient } from "./vendor/supabase-js.js?v=20260813-4";
 
 const SUPABASE_URL = "https://egbieqvbwniaxgqjzqkp.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_fvCS-xqbn7q5hLUuqFxl5w_uac4cNmc";

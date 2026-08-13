@@ -1,10 +1,10 @@
-import { invokeAuthenticated, supabase, requireSession } from "./supabase-client.js?v=20260813-3";
-import { buildProteinGuidance } from "./feedback-guidance.js?v=20260813-3";
-import { entryDateDisplayLabel, localDateValue as localEntryDateValue, occurredAtForEntryDate, quickDateOptions } from "./entry-date.js?v=20260813-3";
-import { estimatedAdultBmi, formatWeight, formatWeightChange, normalizeUnitSystem, parseHeightCm, shouldEnableWeightTracking, weightFromKg, weightToKg } from "./health-metrics.js?v=20260813-3";
-import { initializeSavedFoods } from "./saved-foods.js?v=20260813-3";
-import { normalizeRestaurantPlan, restaurantChoiceLetters, restaurantFitLabels, restaurantOptionToLedgerEntry, safeRestaurantSourceUrl } from "./restaurant-plan.js?v=20260813-3";
-import { estimateInflammationScore, inflammationBand, inflammationImpact, summarizeInflammationEntries, summarizeInflammationReport, weightedInflammationScore } from "./inflammation-impact.js?v=20260813-3";
+import { invokeAuthenticated, supabase, requireSession } from "./supabase-client.js?v=20260813-4";
+import { buildProteinGuidance } from "./feedback-guidance.js?v=20260813-4";
+import { entryDateDisplayLabel, localDateValue as localEntryDateValue, occurredAtForEntryDate, quickDateOptions } from "./entry-date.js?v=20260813-4";
+import { estimatedAdultBmi, formatWeight, formatWeightChange, normalizeUnitSystem, parseHeightCm, shouldEnableWeightTracking, weightFromKg, weightToKg } from "./health-metrics.js?v=20260813-4";
+import { initializeSavedFoods } from "./saved-foods.js?v=20260813-4";
+import { normalizeRestaurantPlan, restaurantChoiceLetters, restaurantFitLabels, restaurantOptionToLedgerEntry, safeRestaurantSourceUrl } from "./restaurant-plan.js?v=20260813-4";
+import { estimateInflammationScore, inflammationBand, inflammationImpact, summarizeInflammationEntries, summarizeInflammationReport, weightedInflammationScore } from "./inflammation-impact.js?v=20260813-4";
 
 document.querySelector("#focus-quick-entry")?.addEventListener("click", () => {
   document.querySelector("#quick-entry")?.focus();
@@ -715,6 +715,14 @@ function renderLedger() {
     const portionAdjusted = Boolean(estimate.leftover_adjustment?.original_estimate);
     const canAdjustPortion = entry.kind === "meal" && entry.status === "estimated" && typeof estimate.calories === "number";
     const canSaveFavorite = entry.kind === "meal" && entry.status === "estimated" && typeof estimate.calories === "number";
+    const favoriteStatus = canSaveFavorite ? state.savedFoodsApi?.favoriteStatus(entry) : null;
+    const favoriteControl = favoriteStatus?.status === "exact"
+      ? `<span class="ledger-favorite-status" title="Already saved in My Foods"><span aria-hidden="true">🍎</span><span>Favorite</span></span>`
+      : favoriteStatus?.status === "edited"
+        ? `<span class="ledger-favorite-status ledger-favorite-edited" title="This meal was edited after it was logged from My Foods"><span aria-hidden="true">🍎</span><span>Edited favorite</span></span><span class="ledger-favorite-choices"><button type="button" data-save-entry-favorite="${entry.id}" data-favorite-mode="update">Update favorite</button><button type="button" data-save-entry-favorite="${entry.id}" data-favorite-mode="new">Save as new</button></span>`
+        : canSaveFavorite
+          ? `<button class="ledger-favorite-button" type="button" data-save-entry-favorite="${entry.id}" data-favorite-mode="new">Save as favorite</button>`
+          : "";
     const sourceLabel = estimate.source === "saved_food" ? "Reviewed saved values" : estimate.source === "restaurant_published" ? "Restaurant-published" : estimate.source === "restaurant_estimate" ? "Restaurant estimate" : estimate.source === "nutrition_label_photo" ? "Label-informed" : estimate.source === "meal_photo_estimate" ? "Photo estimate" : entry.status === "estimated" ? "AI estimate" : "";
     const sourceBadge = sourceLabel ? `<em class="ledger-source-badge">${sourceLabel}</em>` : "";
     const estimateIsRunning = state.estimatingEntryIds.has(entry.id);
@@ -732,7 +740,7 @@ function renderLedger() {
     return `<li class="ledger-item">
       <span class="ledger-icon" aria-hidden="true">${ledgerIcon}</span>
       <span class="ledger-main"><strong>${escapeHtml(entry.description)}</strong></span>
-      <span class="ledger-actions"><small>${meta}</small>${sourceBadge}${canSaveFavorite ? `<button class="ledger-favorite-button" type="button" data-save-entry-favorite="${entry.id}">Save as favorite</button>` : ""}${edit}</span>
+      <span class="ledger-actions"><small>${meta}</small>${sourceBadge}${favoriteControl}${edit}</span>
       ${retryEstimate}
       ${mealImpactDetails(entry)}
       ${editor}
@@ -2032,6 +2040,9 @@ $("#ledger-list").addEventListener("click", async (event) => {
     const entry = state.entries.find((item) => item.id === favoriteButton.dataset.saveEntryFavorite);
     if (!entry || !state.savedFoodsApi) return;
     const estimate = entry.nutrition_estimate || {};
+    const favoriteStatus = state.savedFoodsApi.favoriteStatus(entry);
+    const forceNew = favoriteButton.dataset.favoriteMode === "new";
+    const existingFood = favoriteButton.dataset.favoriteMode === "update" ? favoriteStatus?.food || null : null;
     if (estimate.restaurant) {
       state.savedFoodsApi.reviewRestaurantFood({
         item_type: "restaurant_item",
@@ -2055,15 +2066,15 @@ $("#ledger-list").addEventListener("click", async (event) => {
           estimate.note || "",
           estimate.source_url ? `Source checked ${estimate.source_checked_on || ""}: ${estimate.source_url}` : ""
         ].filter(Boolean).join("\n").slice(0, 1000)
-      });
+      }, { forceNew, existingFood });
     } else {
       state.savedFoodsApi.reviewEstimatedMeal({
         description: entry.description,
         mealLabel: mealLabels.has(entry.meal_label) ? entry.meal_label : "Meal",
         estimate
-      });
+      }, null, { forceNew, existingFood });
     }
-    toast("Review the meal, then save it to My Foods.");
+    toast(existingFood ? "Review the changes, then update the existing favorite." : "Review the meal, then save it to My Foods.");
     return;
   }
   if (adjustButton) {
@@ -2162,7 +2173,19 @@ $("#ledger-list").addEventListener("submit", async (event) => {
     changes.status = estimateHydration ? "pending_estimate" : "estimated";
   } else if (descriptionChanged || kindChanged) {
     const retainedPhotoPath = typeof entry.nutrition_estimate?.photo_path === "string" ? entry.nutrition_estimate.photo_path : null;
-    changes.nutrition_estimate = retainedPhotoPath ? { photo_path: retainedPhotoPath } : null;
+    const favoriteOrigin = entry.nutrition_estimate?.favorite_origin || (
+      entry.nutrition_estimate?.source === "saved_food"
+        ? {
+            id: entry.nutrition_estimate.saved_food_id || null,
+            key: entry.nutrition_estimate.saved_food_id ? `sync:${entry.nutrition_estimate.saved_food_id}` : "",
+            description: entry.description
+          }
+        : null
+    );
+    changes.nutrition_estimate = {
+      ...(retainedPhotoPath ? { photo_path: retainedPhotoPath } : {}),
+      ...(favoriteOrigin ? { favorite_origin: favoriteOrigin } : {})
+    };
     changes.status = "pending_estimate";
   }
   const { error } = await supabase.from("ledger_entries").update(changes).eq("id", entry.id).eq("user_id", user.id);
@@ -2482,6 +2505,7 @@ try {
     showMembershipPrompt: showEstimateMembershipPrompt,
     onLedgerChange: loadLedger
   });
+  await loadLedger();
   const weeklyReportButton = document.querySelector('[data-report-period="weekly"]');
   await generateReport("weekly", weeklyReportButton);
   if (location.hash === "#onboarding") showOnboarding();

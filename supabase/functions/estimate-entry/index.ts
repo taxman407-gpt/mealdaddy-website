@@ -509,6 +509,9 @@ Deno.serve(async (request) => {
     }
   }
   if (photoPath) estimate.photo_path = photoPath;
+  if (entry.nutrition_estimate?.favorite_origin) {
+    estimate.favorite_origin = entry.nutrition_estimate.favorite_origin;
+  }
   if (entry.kind === "hydration") {
     estimate.ounces = Number(entry.nutrition_estimate?.ounces || 0);
   }
