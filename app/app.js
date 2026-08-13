@@ -1,10 +1,10 @@
-import { invokeAuthenticated, supabase, requireSession } from "./supabase-client.js?v=20260813-1";
-import { buildProteinGuidance } from "./feedback-guidance.js?v=20260813-1";
-import { entryDateDisplayLabel, localDateValue as localEntryDateValue, occurredAtForEntryDate, quickDateOptions } from "./entry-date.js?v=20260813-1";
-import { estimatedAdultBmi, formatWeight, formatWeightChange, normalizeUnitSystem, parseHeightCm, shouldEnableWeightTracking, weightFromKg, weightToKg } from "./health-metrics.js?v=20260813-1";
-import { initializeSavedFoods } from "./saved-foods.js?v=20260813-1";
-import { normalizeRestaurantPlan, restaurantChoiceLetters, restaurantFitLabels, restaurantOptionToSavedFood, safeRestaurantSourceUrl } from "./restaurant-plan.js?v=20260813-1";
-import { estimateInflammationScore, inflammationBand, inflammationImpact, summarizeInflammationEntries, summarizeInflammationReport, weightedInflammationScore } from "./inflammation-impact.js?v=20260813-1";
+import { invokeAuthenticated, supabase, requireSession } from "./supabase-client.js?v=20260813-2";
+import { buildProteinGuidance } from "./feedback-guidance.js?v=20260813-2";
+import { entryDateDisplayLabel, localDateValue as localEntryDateValue, occurredAtForEntryDate, quickDateOptions } from "./entry-date.js?v=20260813-2";
+import { estimatedAdultBmi, formatWeight, formatWeightChange, normalizeUnitSystem, parseHeightCm, shouldEnableWeightTracking, weightFromKg, weightToKg } from "./health-metrics.js?v=20260813-2";
+import { initializeSavedFoods } from "./saved-foods.js?v=20260813-2";
+import { normalizeRestaurantPlan, restaurantChoiceLetters, restaurantFitLabels, restaurantOptionToSavedFood, safeRestaurantSourceUrl } from "./restaurant-plan.js?v=20260813-2";
+import { estimateInflammationScore, inflammationBand, inflammationImpact, summarizeInflammationEntries, summarizeInflammationReport, weightedInflammationScore } from "./inflammation-impact.js?v=20260813-2";
 
 document.querySelector("#focus-quick-entry")?.addEventListener("click", () => {
   document.querySelector("#quick-entry")?.focus();
@@ -2320,7 +2320,10 @@ $("#entry-form").addEventListener("submit", async (event) => {
 async function estimatePendingEntries() {
   if (!hasCurrentCoreMembership()) return;
   const pending = state.entries.filter((entry) =>
-    (entry.kind === "meal" && entry.status === "pending_estimate") ||
+    (entry.kind === "meal" && (
+      entry.status === "pending_estimate" ||
+      (entry.description.trim().toLowerCase() === "meal photo" && typeof entry.nutrition_estimate?.photo_path === "string")
+    )) ||
     (entry.kind === "hydration" &&
       typeof entry.nutrition_estimate?.calories !== "number" &&
       hydrationNeedsNutritionEstimate(entry.description))

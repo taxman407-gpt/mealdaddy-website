@@ -1,4 +1,4 @@
-const release = "20260813-1";
+const release = "20260813-2";
 
 const securityHeaders = {
   "Content-Security-Policy": "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' https://egbieqvbwniaxgqjzqkp.supabase.co wss://egbieqvbwniaxgqjzqkp.supabase.co; script-src 'self'; style-src 'self'; manifest-src 'self'; worker-src 'self' blob:",

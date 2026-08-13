@@ -266,9 +266,13 @@ Deno.serve(async (request) => {
       component.inflammation_score >= 1 &&
       component.inflammation_score <= 10
     ));
+  const needsPhotoDescription = entry.kind === "meal" &&
+    entry.description.trim().toLowerCase() === "meal photo" &&
+    typeof entry.nutrition_estimate?.photo_path === "string";
   if (
     entry.status === "estimated" &&
     typeof entry.nutrition_estimate?.calories === "number" &&
+    !needsPhotoDescription &&
     (!itemizeExisting || (hasComponents && hasInflammationImpact))
   ) {
     return json({ ok: true, alreadyEstimated: true });
