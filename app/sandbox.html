@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#173f35" />
+  <title>Local Sandbox - MealDaddy</title>
+  <link rel="stylesheet" href="./styles.css?v=20260813-5-preview2" />
+</head>
+<body class="app-page sandbox-page">
+  <header class="app-header">
+    <span class="brand"><span class="brand-mark">M</span><span>MealDaddy</span></span>
+    <span class="sandbox-badge">Local sandbox · fictional data</span>
+  </header>
+  <main class="dashboard">
+    <aside class="sandbox-notice"><strong>Safe preview</strong><span>No account, AI request, upload, payment, or production data is used here. Refreshing restores the sample day.</span></aside>
+    <section class="today-heading"><div><p class="eyebrow">Thursday, August 13</p><h1>Good evening, Stephen.</h1><p>Here is a fictional day for testing the next MealDaddy update.</p></div><span class="diet-badge">Lower carb</span></section>
+
+    <section class="today-status" aria-labelledby="sandbox-status-title">
+      <div class="today-status-heading"><p class="eyebrow">1 · Where am I today?</p><h2 id="sandbox-status-title">Your day at a glance</h2><p>Tap any number to see the meals behind it.</p></div>
+      <section class="metric-grid" aria-label="Sample daily nutrition totals">
+        <button class="metric-card primary-metric" type="button" data-sandbox-metric="Energy"><span>Energy</span><strong id="sandbox-calories">1,245</strong><small>of 2,050 cal</small><span class="metric-detail-cue">View sources</span><progress value="1245" max="2050"></progress></button>
+        <button class="metric-card" type="button" data-sandbox-metric="Protein"><span>Protein</span><strong id="sandbox-protein">86g</strong><small>of 130g</small><span class="metric-detail-cue">View sources</span><progress value="86" max="130"></progress></button>
+        <button class="metric-card" type="button" data-sandbox-metric="Carbohydrates"><span>Carbohydrates/Net Carbs</span><strong>64g/43g</strong><small>estimated total/net</small><span class="metric-detail-cue">View sources</span></button>
+        <button class="metric-card" type="button" data-sandbox-metric="Fat"><span>Fat</span><strong>68g</strong><small>estimated total</small><span class="metric-detail-cue">View sources</span></button>
+        <button class="metric-card" type="button" data-sandbox-metric="Fiber"><span>Fiber</span><strong>21g</strong><small>of 30g</small><span class="metric-detail-cue">View sources</span><progress value="21" max="30"></progress></button>
+        <button class="metric-card" type="button" data-sandbox-metric="Hydration"><span>Hydration</span><strong>54oz</strong><small>of 90oz</small><span class="metric-detail-cue">View sources</span><progress value="54" max="90"></progress></button>
+      </section>
+      <p class="estimate-note"><span aria-hidden="true">≈</span> Nutrition totals are estimates. Each entry explains its source, confidence, and main uncertainty.</p>
+      <p class="sandbox-result" id="sandbox-metric-result" role="status">Choose a total to preview its source explanation.</p>
+    </section>
+
+    <section class="coach-launcher" aria-label="Sample meal planning tools">
+      <div class="coach-launcher-copy"><p class="eyebrow">2 · What should I do next?</p><h2>Protein and hydration are the clearest opportunities.</h2><p>About 44g protein and 36 oz fluid remain. Fiber is moving in the right direction.</p></div>
+      <div class="coach-buttons"><button type="button" data-sandbox-plan="home">Plan Your Next Meal</button><button type="button" data-sandbox-plan="restaurant">Restaurant Mode</button></div>
+      <div class="coach-action-result sandbox-guidance" id="sandbox-guidance" hidden></div>
+    </section>
+
+    <section class="quick-log-card" aria-labelledby="sandbox-log-title">
+      <div><p class="eyebrow">3 · Log something</p><h2 id="sandbox-log-title">What did you have?</h2></div>
+      <form id="sandbox-entry-form">
+        <label class="entry-field"><span class="sr-only">Describe a sample meal</span><input id="sandbox-entry" autocomplete="off" placeholder="Try: grilled salmon, broccoli, and 16 oz water" required /></label>
+        <div class="entry-submit-actions sandbox-submit"><button class="log-button" type="submit">Add sample entry</button></div>
+      </form>
+      <p class="privacy-line">Sandbox entries remain only on this page and disappear when it is refreshed.</p>
+    </section>
+
+    <details class="saved-foods-card" open>
+      <summary class="saved-foods-summary"><div><p class="eyebrow">Existing feature · preserved</p><h2>My Foods</h2><p>Saved labels, Favorite Meals, and restaurant orders.</p></div><span><small>3 sample foods</small><b aria-hidden="true">⌄</b></span></summary>
+      <div class="saved-foods-content">
+        <div class="saved-foods-toolbar"><button class="button button-primary" type="button" data-sandbox-message="The full app opens the existing Scan or Add Food workflow here.">Scan or add food</button></div>
+        <div class="sandbox-food-grid">
+          <article><span>Favorite meal</span><strong>Dinner salad</strong><small>320 cal · 12g protein</small></article>
+          <article><span>Nutrition label</span><strong>Greek yogurt</strong><small>140 cal · 15g protein</small></article>
+          <article><span>Restaurant item</span><strong>Grilled salmon plate</strong><small>610 cal · 42g protein</small></article>
+        </div>
+      </div>
+    </details>
+
+    <section class="dashboard-grid sandbox-review">
+      <article class="ledger-card"><div class="section-title"><div><p class="eyebrow">4 · Review details</p><h2>Today's sample entries</h2></div></div><ul id="sandbox-ledger" class="ledger-list"></ul></article>
+      <aside class="coach-card"><span class="coach-label">Meal Daddy feedback</span><h2>Build dinner around protein.</h2><p>Your fictional lunch supplied useful fiber. A protein-forward dinner and another drink would balance this sample day.</p><p class="coach-suggestion"><strong>Suggestion</strong><span>Try salmon or chicken with vegetables, then adjust the portion to your appetite.</span></p></aside>
+    </section>
+
+    <section class="sandbox-existing-grid" aria-label="Existing features retained in the update">
+      <article class="sandbox-feature-card">
+        <p class="eyebrow">Existing feature · preserved</p><h2>Weight & progress</h2>
+        <div class="weight-summary"><article><span>Starting</span><strong>218 lb</strong></article><article><span>Latest</span><strong>211 lb</strong></article><article><span>Change</span><strong>−7 lb</strong></article><article><span>Trend</span><strong>Down</strong></article></div>
+        <svg class="weight-chart" role="img" aria-label="Sample downward weight trend" viewBox="0 0 600 120" preserveAspectRatio="none"><polyline points="10,20 150,34 290,52 430,70 590,96" /></svg>
+        <button class="button button-quiet" type="button" data-sandbox-message="The full app opens the existing weight panel here.">Log today’s weight</button>
+      </article>
+      <article class="sandbox-feature-card">
+        <p class="eyebrow">Existing feature · preserved</p><h2>Reports</h2><p>Weekly, monthly, and annual nutrition, hydration, inflammation, and weight summaries remain below the daily workflow.</p>
+        <div class="report-periods"><button class="is-active" type="button" data-sandbox-report="Weekly">Weekly</button><button type="button" data-sandbox-report="Monthly">Monthly</button><button type="button" data-sandbox-report="Annual">Annual</button></div>
+        <div class="report-metrics"><article><span>Daily calories</span><strong>1,875</strong></article><article><span>Daily protein</span><strong>116g</strong></article><article><span>Hydration</span><strong>78oz</strong></article><article><span>Logged days</span><strong>6/7</strong></article></div>
+        <p class="sandbox-result" id="sandbox-report-result">Sample weekly report</p>
+      </article>
+    </section>
+
+    <details class="tips-dropdown sandbox-preserved">
+      <summary><span>Tips & phone shortcut</span><small>Existing guidance remains available</small></summary>
+      <div class="tips-dropdown-content"><div class="tips-grid"><article><strong>Photo logging</strong><p>Photographs create one written meal description; typed measurements clarify the image.</p></article><article><strong>Restaurant Mode</strong><p>Current-source choices can be added to Today’s Entries and saved later as favorites.</p></article><article><strong>After-meal correction</strong><p>Add a leftover photograph to estimate what was actually eaten.</p></article><article><strong>Install on phone</strong><p>Add MealDaddy to the home screen for faster camera and voice access.</p></article></div></div>
+    </details>
+
+    <section class="rating-card sandbox-preserved"><div><p class="eyebrow">Existing feature · preserved</p><h2>Feedback and account tools</h2><p>Ratings, comments, account export, privacy information, billing management, and account deletion remain part of the full application. They are inactive in this safe sandbox.</p></div><button class="button button-quiet" type="button" data-sandbox-message="Account and privacy tools remain unchanged in the pending full update.">Preview account explanation</button></section>
+    <p class="sandbox-toast" id="sandbox-toast" role="status" aria-live="polite"></p>
+  </main>
+  <script type="module" src="./sandbox.js?v=20260813-5-preview2"></script>
+</body>
+</html>

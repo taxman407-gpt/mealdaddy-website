@@ -7,7 +7,7 @@
   <meta name="robots" content="noindex" />
   <title>Sign in - MealDaddy</title>
   <link rel="manifest" href="./manifest.webmanifest" />
-  <link rel="stylesheet" href="./styles.css?v=20260813-4" />
+  <link rel="stylesheet" href="./styles.css?v=20260813-5" />
 </head>
 <body class="auth-page">
   <header class="marketing-nav">
@@ -25,7 +25,8 @@
       </div>
       <form id="auth-form">
         <label>Email<input id="email" type="email" autocomplete="email" required /></label>
-        <label>Password<input id="password" type="password" autocomplete="current-password" minlength="8" required /></label>
+        <label>Password<span class="password-input-wrap"><input id="password" type="password" autocomplete="current-password" minlength="8" required /><button class="password-visibility" type="button" data-password-toggle="password" aria-label="Show password" aria-pressed="false">Show</button></span></label>
+        <label id="confirm-password-label" hidden>Confirm new password<span class="password-input-wrap"><input id="confirm-password" type="password" autocomplete="new-password" minlength="8" /><button class="password-visibility" type="button" data-password-toggle="confirm-password" aria-label="Show confirmed password" aria-pressed="false">Show</button></span></label>
         <button class="button button-primary full-button" id="auth-submit" type="submit">Sign in</button>
       </form>
       <button class="text-button auth-reset" id="reset-password" type="button">Send a password reset email</button>
@@ -34,7 +35,7 @@
       <p class="auth-status" id="auth-status" role="status" aria-live="polite"></p>
     </section>
   </main>
-  <script type="module" src="./auth.js?v=20260813-4"></script>
-  <script src="./register-sw.js?v=20260813-4"></script>
+  <script type="module" src="./auth.js?v=20260813-5"></script>
+  <script src="./register-sw.js?v=20260813-5"></script>
 </body>
 </html>

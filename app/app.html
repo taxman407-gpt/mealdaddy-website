@@ -7,7 +7,7 @@
   <meta name="robots" content="noindex" />
   <title>Today - MealDaddy</title>
   <link rel="manifest" href="./manifest.webmanifest" />
-  <link rel="stylesheet" href="./styles.css?v=20260813-4" />
+  <link rel="stylesheet" href="./styles.css?v=20260813-5" />
 </head>
 <body class="app-page auth-loading">
   <header class="app-header">
@@ -43,8 +43,20 @@
     <div class="weight-launcher" id="weight-launcher" hidden>
       <button class="weight-launch-button" id="open-weight-panel" type="button" aria-haspopup="dialog" aria-controls="weight-panel">Log today’s weight</button>
     </div>
+    <section class="today-status" aria-labelledby="today-status-title">
+      <div class="today-status-heading"><p class="eyebrow">1 · Where am I today?</p><h2 id="today-status-title">Your day at a glance</h2><p>Tap any number to see which meals contributed to it.</p></div>
+      <section class="metric-grid" aria-label="Daily nutrition totals">
+        <button class="metric-card primary-metric" type="button" data-metric="calories" aria-haspopup="dialog" aria-controls="metric-breakdown"><span>Energy</span><strong id="energy-total">0</strong><small id="energy-goal-label">of 2,050 cal</small><span class="metric-detail-cue">View sources</span><progress id="energy-progress" value="0" max="2050"></progress></button>
+        <button class="metric-card" type="button" data-metric="protein" aria-haspopup="dialog" aria-controls="metric-breakdown"><span>Protein</span><strong id="protein-total">0g</strong><small id="protein-goal-label">of 130g</small><span class="metric-detail-cue">View sources</span><progress id="protein-progress" value="0" max="130"></progress></button>
+        <button class="metric-card" type="button" data-metric="carbs" aria-haspopup="dialog" aria-controls="metric-breakdown"><span>Carbohydrates/Net Carbs</span><strong id="carbs-total">0g/0g</strong><small id="carbs-goal-label">estimated total/net</small><span class="metric-detail-cue">View sources</span></button>
+        <button class="metric-card" type="button" data-metric="fat" aria-haspopup="dialog" aria-controls="metric-breakdown"><span>Fat</span><strong id="fat-total">0g</strong><small>estimated total</small><span class="metric-detail-cue">View sources</span></button>
+        <button class="metric-card" type="button" data-metric="fiber" aria-haspopup="dialog" aria-controls="metric-breakdown"><span>Fiber</span><strong id="fiber-total">0g</strong><small>of 30g</small><span class="metric-detail-cue">View sources</span><progress id="fiber-progress" value="0" max="30"></progress></button>
+        <button class="metric-card" type="button" data-metric="water" aria-haspopup="dialog" aria-controls="metric-breakdown"><span>Hydration</span><strong id="water-total">0oz</strong><small>of 90oz</small><span class="metric-detail-cue">View sources</span><progress id="water-progress" value="0" max="90"></progress></button>
+      </section>
+      <p class="estimate-note"><span aria-hidden="true">≈</span> Nutrition totals are estimates. Each entry now explains its source, confidence, and main uncertainty.</p>
+    </section>
     <section class="coach-launcher" aria-label="Meal planning tools">
-      <div class="coach-launcher-copy"><p class="eyebrow">What are you deciding?</p><h2>Get help with your next choice.</h2></div>
+      <div class="coach-launcher-copy"><p class="eyebrow">2 · What should I do next?</p><h2>Get help with your next choice.</h2></div>
       <div class="coach-buttons"><button id="plan-dinner" type="button" aria-controls="coach-action-form">Plan Your Next Meal</button><button id="restaurant-mode" type="button" aria-controls="coach-action-form">Restaurant Mode</button></div>
       <form id="coach-action-form" class="coach-action-form" hidden>
         <label><strong id="coach-action-title">Plan Your Next Meal</strong><span id="coach-action-prompt">Describe what you have, or add a fridge or pantry photo. Include your available time or what sounds good.</span><textarea id="coach-action-context" maxlength="1000" rows="3"></textarea></label>
@@ -66,7 +78,7 @@
       </form>
     </section>
     <section class="quick-log-card" aria-labelledby="quick-log-title">
-      <div><p class="eyebrow">Quick log</p><h2 id="quick-log-title">What did you have?</h2></div>
+      <div><p class="eyebrow">3 · Log something</p><h2 id="quick-log-title">What did you have?</h2></div>
       <form id="entry-form">
         <label class="entry-field"><span class="sr-only">Describe your meal or drink</span><input id="quick-entry" autocomplete="off" placeholder="e.g. turkey sandwich, apple, and 16 oz sparkling water" /></label>
         <div class="quick-entry-selectors">
@@ -130,15 +142,6 @@
         <div class="saved-foods-list" id="saved-foods-list"><p class="saved-foods-empty">Loading your private foods...</p></div>
       </div>
     </details>
-    <section class="metric-grid" aria-label="Daily nutrition totals">
-      <button class="metric-card primary-metric" type="button" data-metric="calories" aria-haspopup="dialog" aria-controls="metric-breakdown"><span>Energy</span><strong id="energy-total">0</strong><small id="energy-goal-label">of 2,050 cal</small><span class="metric-detail-cue">View sources</span><progress id="energy-progress" value="0" max="2050"></progress></button>
-      <button class="metric-card" type="button" data-metric="protein" aria-haspopup="dialog" aria-controls="metric-breakdown"><span>Protein</span><strong id="protein-total">0g</strong><small id="protein-goal-label">of 130g</small><span class="metric-detail-cue">View sources</span><progress id="protein-progress" value="0" max="130"></progress></button>
-      <button class="metric-card" type="button" data-metric="carbs" aria-haspopup="dialog" aria-controls="metric-breakdown"><span>Carbohydrates/Net Carbs</span><strong id="carbs-total">0g/0g</strong><small id="carbs-goal-label">estimated total/net</small><span class="metric-detail-cue">View sources</span></button>
-      <button class="metric-card" type="button" data-metric="fat" aria-haspopup="dialog" aria-controls="metric-breakdown"><span>Fat</span><strong id="fat-total">0g</strong><small>estimated total</small><span class="metric-detail-cue">View sources</span></button>
-      <button class="metric-card" type="button" data-metric="fiber" aria-haspopup="dialog" aria-controls="metric-breakdown"><span>Fiber</span><strong id="fiber-total">0g</strong><small>of 30g</small><span class="metric-detail-cue">View sources</span><progress id="fiber-progress" value="0" max="30"></progress></button>
-      <button class="metric-card" type="button" data-metric="water" aria-haspopup="dialog" aria-controls="metric-breakdown"><span>Hydration</span><strong id="water-total">0oz</strong><small>of 90oz</small><span class="metric-detail-cue">View sources</span><progress id="water-progress" value="0" max="90"></progress></button>
-    </section>
-    <p class="estimate-note"><span aria-hidden="true">≈</span> Nutrition totals are estimates. Open an entry to review or correct its description.</p>
     <section class="metric-breakdown" id="metric-breakdown" role="dialog" aria-modal="true" aria-labelledby="metric-breakdown-title" hidden>
       <button class="metric-breakdown-backdrop" type="button" data-close-metric-breakdown aria-label="Close nutrition breakdown"></button>
       <article class="metric-breakdown-panel" tabindex="-1">
@@ -354,7 +357,7 @@
     <div class="onboarding-panel"><div class="step-indicator"><span class="is-active"></span><span></span><span></span></div><p class="eyebrow">A few basics first</p><h1 id="onboarding-title">How do you like to eat?</h1><p>Choose the closest fit. You can adjust individual preferences anytime.</p><div class="choice-grid" id="diet-options"></div><label class="select-field">Coaching tone<select id="tone-options"><option value="supportive">Supportive</option><option value="direct">Direct</option><option value="data_focused">Data-focused</option><option value="playful">Playful</option></select></label><button class="button button-primary full-button" id="continue-onboarding" type="button" disabled>Save my starting plan</button><p class="privacy-line">These preferences are protected by row-level security and can only be accessed by your account.</p></div>
   </section>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="./app.js?v=20260813-4" type="module"></script>
-  <script src="./register-sw.js?v=20260813-4"></script>
+  <script src="./app.js?v=20260813-5" type="module"></script>
+  <script src="./register-sw.js?v=20260813-5"></script>
 </body>
 </html>

@@ -697,6 +697,30 @@ function mealImpactDetails(entry) {
   </details>`;
 }
 
+export function estimateTrustDetails(entry) {
+  const estimate = entry?.nutrition_estimate || {};
+  if (entry?.kind !== "meal" || entry.status !== "estimated") return null;
+  const sourceDetails = {
+    saved_food: ["Reviewed saved values", "Values came from a food or meal you previously reviewed."],
+    restaurant_published: ["Restaurant-published", "The restaurant’s published information supports these values."],
+    restaurant_estimate: ["Restaurant estimate", "The restaurant did not publish complete values for this customized order."],
+    nutrition_label_photo: ["Label-informed", "A readable Nutrition Facts label supplied the primary values."],
+    meal_photo_estimate: ["Photo estimate", "Meal contents and portions were interpreted from the photograph and your clarifying details."],
+    ai_text_estimate: ["Description estimate", "Values were estimated from the food, amounts, and preparation details you entered."]
+  };
+  const [label, explanation] = sourceDetails[estimate.source] || ["Nutrition estimate", "Values were estimated from the information available for this entry."];
+  const confidence = ["low", "medium", "high"].includes(estimate.confidence) ? estimate.confidence : "medium";
+  let uncertainty = String(estimate.description_reconciliation_note || "").trim();
+  if (!uncertainty) {
+    if (estimate.source === "meal_photo_estimate") uncertainty = confidence === "high" ? "Visible foods were clear; exact portion size can still vary." : "Portion size and ingredients not visible in the photo are the main uncertainty.";
+    else if (estimate.source === "restaurant_estimate") uncertainty = "Preparation, serving size, and restaurant substitutions may change the result.";
+    else if (estimate.source === "nutrition_label_photo") uncertainty = "Accuracy depends on the photographed serving size and the amount actually eaten.";
+    else if (estimate.source === "saved_food") uncertainty = "These values are reliable only while the saved recipe and serving remain unchanged.";
+    else uncertainty = "Unstated serving size, ingredients, oils, and sauces can change the result.";
+  }
+  return { label, explanation, confidence, uncertainty };
+}
+
 function renderLedger() {
   if (!state.entries.length) {
     $("#ledger-list").innerHTML = '<li class="ledger-empty">Nothing logged yet. Your first entry takes only a few seconds.</li>';
@@ -723,8 +747,10 @@ function renderLedger() {
         : canSaveFavorite
           ? `<button class="ledger-favorite-button" type="button" data-save-entry-favorite="${entry.id}" data-favorite-mode="new">Save as favorite</button>`
           : "";
-    const sourceLabel = estimate.source === "saved_food" ? "Reviewed saved values" : estimate.source === "restaurant_published" ? "Restaurant-published" : estimate.source === "restaurant_estimate" ? "Restaurant estimate" : estimate.source === "nutrition_label_photo" ? "Label-informed" : estimate.source === "meal_photo_estimate" ? "Photo estimate" : entry.status === "estimated" ? "AI estimate" : "";
+    const trust = estimateTrustDetails(entry);
+    const sourceLabel = trust?.label || "";
     const sourceBadge = sourceLabel ? `<em class="ledger-source-badge">${sourceLabel}</em>` : "";
+    const trustDetails = trust ? `<details class="ledger-trust-details"><summary>How reliable is this?</summary><div><p><strong>${escapeHtml(trust.label)} · ${escapeHtml(trust.confidence)} confidence</strong>${escapeHtml(trust.explanation)}</p><p><strong>Main uncertainty</strong>${escapeHtml(trust.uncertainty)}</p><button type="button" data-edit-entry="${entry.id}">Correct this entry</button></div></details>` : "";
     const estimateIsRunning = state.estimatingEntryIds.has(entry.id);
     const pendingMessage = state.estimateFailures.get(entry.id) || "Nutrition is not included in your totals until this estimate finishes.";
     const retryEstimate = entry.status === "pending_estimate"
@@ -742,6 +768,7 @@ function renderLedger() {
       <span class="ledger-main"><strong>${escapeHtml(entry.description)}</strong></span>
       <span class="ledger-actions"><small>${meta}</small>${sourceBadge}${favoriteControl}${edit}</span>
       ${retryEstimate}
+      ${trustDetails}
       ${mealImpactDetails(entry)}
       ${editor}
     </li>`;

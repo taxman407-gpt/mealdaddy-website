@@ -32,3 +32,5 @@ pnpm-workspace.yaml
 netlify.toml
 dist
 dist/**
+app/sandbox.html
+app/sandbox.js
