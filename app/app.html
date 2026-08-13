@@ -7,7 +7,7 @@
   <meta name="robots" content="noindex" />
   <title>Today - MealDaddy</title>
   <link rel="manifest" href="./manifest.webmanifest" />
-  <link rel="stylesheet" href="./styles.css?v=20260811-2" />
+  <link rel="stylesheet" href="./styles.css?v=20260813-1" />
 </head>
 <body class="app-page auth-loading">
   <header class="app-header">
@@ -83,7 +83,7 @@
             <button class="favorite-log-button" id="log-favorite-entry" type="submit" name="quick_action" value="favorite">Log &amp; save favorite</button>
           </div>
         </div>
-        <p class="quick-photo-purpose"><strong>Photo:</strong> take a meal/before image or scan a nutrition label. Readable label values take priority; Meal Daddy estimates the other foods from your photo and description. If you leave food, open Edit on the saved entry and add an after / leftover photo.</p>
+        <p class="quick-photo-purpose"><strong>Photo:</strong> take a meal/before image or scan a nutrition label. Meal Daddy writes the entry description from the photo. Optional typed measurements or details clarify the pictured food and are not counted again as separate items. If the details and photo appear different, Meal Daddy flags it for review. If you leave food, open Edit on the saved entry and add an after / leftover photo.</p>
       </form>
       <aside class="quick-memory-prompt" id="saved-food-match-prompt" aria-live="polite" hidden>
         <div><span class="quick-memory-badge">Saved values found</span><strong id="saved-food-match-title">Use your saved food?</strong><p id="saved-food-match-copy"></p></div>
@@ -234,7 +234,7 @@
         <div class="feedback-actions"><button class="button button-primary" type="submit">Save feedback</button><span id="feedback-status" role="status" aria-live="polite"></span></div>
       </form>
     </section>
-    <nav class="bottom-nav" aria-label="App navigation"><a class="is-current" href="./app.html">Today</a><a href="#plan">Plan</a><button type="button" onclick="document.querySelector('#quick-entry').focus()">+</button><a href="#reports">Reports</a><a href="./account.html">Account</a></nav>
+    <nav class="bottom-nav" aria-label="App navigation"><a class="is-current" href="./app.html">Today</a><a href="#plan">Plan</a><button id="focus-quick-entry" type="button">+</button><a href="#reports">Reports</a><a href="./account.html">Account</a></nav>
   </main>
   <section class="saved-food-editor" id="saved-food-editor" role="dialog" aria-modal="true" aria-labelledby="saved-food-editor-title" hidden>
     <button class="saved-food-editor-backdrop" id="saved-food-editor-backdrop" type="button" aria-label="Close My Foods editor"></button>
@@ -354,7 +354,7 @@
     <div class="onboarding-panel"><div class="step-indicator"><span class="is-active"></span><span></span><span></span></div><p class="eyebrow">A few basics first</p><h1 id="onboarding-title">How do you like to eat?</h1><p>Choose the closest fit. You can adjust individual preferences anytime.</p><div class="choice-grid" id="diet-options"></div><label class="select-field">Coaching tone<select id="tone-options"><option value="supportive">Supportive</option><option value="direct">Direct</option><option value="data_focused">Data-focused</option><option value="playful">Playful</option></select></label><button class="button button-primary full-button" id="continue-onboarding" type="button" disabled>Save my starting plan</button><p class="privacy-line">These preferences are protected by row-level security and can only be accessed by your account.</p></div>
   </section>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="./app.js?v=20260811-2" type="module"></script>
-  <script src="./register-sw.js?v=20260811-2"></script>
+  <script src="./app.js?v=20260813-1" type="module"></script>
+  <script src="./register-sw.js?v=20260813-1"></script>
 </body>
 </html>

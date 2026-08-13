@@ -1,4 +1,4 @@
-import { supabase } from "./supabase-client.js?v=20260811-2";
+import { supabase } from "./supabase-client.js?v=20260813-1";
 
 const form = document.querySelector("#auth-form");
 const email = document.querySelector("#email");
@@ -8,9 +8,21 @@ const submit = document.querySelector("#auth-submit");
 const title = document.querySelector("#auth-title");
 const copy = document.querySelector("#auth-copy");
 let mode = "signin";
+let recoverySession = false;
 
 const returnTo = new URLSearchParams(location.search).get("returnTo") || "./app.html";
-const safeReturnTo = returnTo.startsWith("/") || returnTo.startsWith("./") ? returnTo : "./app.html";
+function safeSameOriginPath(value) {
+  if (typeof value !== "string" || value.includes("\\")) return "./app.html";
+  try {
+    const destination = new URL(value, location.href);
+    if (destination.origin !== location.origin) return "./app.html";
+    if (!destination.pathname.startsWith("/app/")) return "./app.html";
+    return `${destination.pathname}${destination.search}${destination.hash}`;
+  } catch {
+    return "./app.html";
+  }
+}
+const safeReturnTo = safeSameOriginPath(returnTo);
 const signupTarget = new URL(safeReturnTo, location.href);
 signupTarget.hash = "onboarding";
 const accountWasDeleted = new URLSearchParams(location.search).get("account") === "deleted";
@@ -35,6 +47,19 @@ document.querySelector("#signup-tab").addEventListener("click", () => setMode("s
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
   submit.disabled = true;
+  if (recoverySession) {
+    status.textContent = "Updating your password...";
+    const { error } = await supabase.auth.updateUser({ password: password.value });
+    submit.disabled = false;
+    if (error) {
+      status.textContent = error.message;
+      return;
+    }
+    await supabase.auth.signOut({ scope: "others" }).catch(() => {});
+    status.textContent = "Password updated. Opening your account...";
+    location.replace(safeReturnTo);
+    return;
+  }
   status.textContent = mode === "signup" ? "Creating your account..." : "Signing in...";
 
   const credentials = { email: email.value.trim(), password: password.value };
@@ -73,7 +98,18 @@ document.querySelector("#reset-password").addEventListener("click", async () => 
 });
 
 const { data } = await supabase.auth.getSession();
-if (data.session) location.replace(safeReturnTo);
+const recoveryFromUrl = location.hash.includes("type=recovery") || new URLSearchParams(location.search).get("type") === "recovery";
+if (data.session && recoveryFromUrl) {
+  recoverySession = true;
+  document.querySelector(".auth-tabs").hidden = true;
+  email.closest("label").hidden = true;
+  email.required = false;
+  title.textContent = "Choose a new password";
+  copy.textContent = "Use at least eight characters. Updating it will invalidate your other active sessions.";
+  password.autocomplete = "new-password";
+  submit.textContent = "Update password";
+  document.querySelector("#reset-password").hidden = true;
+} else if (data.session) location.replace(safeReturnTo);
 if (accountWasDeleted) {
   status.textContent = "Your Meal Daddy account and private app data were permanently deleted, and billing was stopped.";
 }

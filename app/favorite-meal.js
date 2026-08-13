@@ -1,4 +1,4 @@
-import { inflammationImpact, inflammationScore } from "./inflammation-impact.js?v=20260811-2";
+import { inflammationImpact, inflammationScore } from "./inflammation-impact.js?v=20260813-1";
 
 const nutritionFields = [
   "calories",

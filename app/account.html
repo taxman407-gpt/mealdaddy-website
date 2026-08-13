@@ -7,7 +7,7 @@
   <meta name="robots" content="noindex, nofollow" />
   <title>Account & Privacy - MealDaddy</title>
   <link rel="manifest" href="./manifest.webmanifest" />
-  <link rel="stylesheet" href="./styles.css?v=20260811-2" />
+  <link rel="stylesheet" href="./styles.css?v=20260813-1" />
 </head>
 <body class="app-page auth-loading account-page">
   <header class="app-header">
@@ -100,7 +100,7 @@
         <article><strong>Payments</strong><p>Stripe processes payment methods, subscription status, and invoices for paid memberships. Complimentary Family Access does not create a Stripe subscription. Meal Daddy never receives your complete card number.</p></article>
         <article><strong>Health context</strong><p>Optional nutrition and health preferences help personalize general wellness guidance. Meal Daddy is not medical care and does not diagnose or treat conditions.</p></article>
       </div>
-      <p class="account-explainer"><strong>Launch note:</strong> this transparent product summary does not replace the formal Privacy Policy and Terms that should be reviewed and published before broad public launch.</p>
+      <p class="account-explainer">Review the <a href="../privacy.html">Privacy Policy</a>, <a href="../terms.html">Terms of Use</a>, and <a href="../health-disclaimer.html">Health and Nutrition Disclaimer</a>. The current drafts require qualified legal review before broad promotion.</p>
     </section>
 
     <section class="account-card danger-card" aria-labelledby="delete-title">
@@ -126,13 +126,17 @@
         <span>Type <strong>DELETE MY ACCOUNT</strong> to confirm</span>
         <input id="delete-confirmation" type="text" autocomplete="off" spellcheck="false" />
       </label>
+      <label class="delete-confirm-field">
+        <span>Re-enter your current password</span>
+        <input id="delete-password" type="password" autocomplete="current-password" minlength="8" />
+      </label>
       <button class="button button-danger" id="delete-account" type="button" disabled>Permanently delete my account</button>
       <p class="account-status danger-status" id="delete-message" role="alert" aria-live="assertive"></p>
     </section>
   </main>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="./account.js?v=20260811-2"></script>
-  <script src="./register-sw.js?v=20260811-2"></script>
+  <script type="module" src="./account.js?v=20260813-1"></script>
+  <script src="./register-sw.js?v=20260813-1"></script>
 </body>
 </html>

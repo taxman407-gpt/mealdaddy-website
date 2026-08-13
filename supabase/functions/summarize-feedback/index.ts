@@ -251,9 +251,9 @@ Deno.serve(async (request) => {
   const secretKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ??
     namedKey("SUPABASE_SECRET_KEYS", "SUPABASE_SERVICE_ROLE_KEY");
   const openAiKey = Deno.env.get("OPENAI_API_KEY");
-  const allowedEmails = (Deno.env.get("FEEDBACK_ADMIN_EMAILS") ?? "")
+  const allowedUserIds = (Deno.env.get("MEALDADDY_ADMIN_USER_IDS") ?? "")
     .split(",")
-    .map((email) => email.trim().toLowerCase())
+    .map((id) => id.trim())
     .filter(Boolean);
   if (!supabaseUrl || !publishableKey || !secretKey) {
     return json({ error: "Feedback insights are not configured." }, 503);
@@ -264,14 +264,18 @@ Deno.serve(async (request) => {
   });
   const { data: { user }, error: authError } = await authClient.auth.getUser();
   if (authError || !user) return json({ error: "Authentication required." }, 401);
-  if (!allowedEmails.length) {
+  if (!allowedUserIds.length) {
     return json({ error: "Owner access is not configured in the feedback service." }, 503);
   }
-  if (!user.email) {
-    return json({ error: "This signed-in account does not have a confirmed email address." }, 403);
-  }
-  if (!allowedEmails.includes(user.email.trim().toLowerCase())) {
+  if (!allowedUserIds.includes(user.id)) {
     return json({ error: "This account is not authorized to view feedback insights." }, 403);
+  }
+  try {
+    const encoded = authHeader.slice("Bearer ".length).split(".")[1];
+    const claims = JSON.parse(atob(encoded.replace(/-/g, "+").replace(/_/g, "/")));
+    if (claims.aal !== "aal2") return json({ error: "Owner multi-factor authentication is required for feedback insights." }, 403);
+  } catch {
+    return json({ error: "Owner authentication assurance could not be verified." }, 403);
   }
 
   let action = "latest";

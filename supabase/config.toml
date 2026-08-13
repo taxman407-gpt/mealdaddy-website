@@ -1,5 +1,35 @@
 project_id = "meal-daddy-app"
 
+[functions.create-checkout]
+verify_jwt = true
+
+[functions.stripe-webhook]
+verify_jwt = false
+
+[functions.estimate-entry]
+verify_jwt = true
+
+[functions.coach-action]
+verify_jwt = true
+
+[functions.summarize-feedback]
+verify_jwt = true
+
+[functions.create-billing-portal]
+verify_jwt = true
+
+[functions.delete-account]
+verify_jwt = true
+
+[functions.manage-family-access]
+verify_jwt = true
+
+[functions.analyze-saved-food]
+verify_jwt = true
+
+[functions.adjust-leftovers]
+verify_jwt = true
+
 [api]
 enabled = true
 

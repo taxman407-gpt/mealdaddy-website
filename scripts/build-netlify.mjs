@@ -4,8 +4,12 @@ import { dirname, join, resolve } from "node:path";
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const outputRoot = join(projectRoot, "dist");
-const publicFiles = ["index.html", "faq.html", "instructions.html", "script.js", "styles.css"];
+const publicFiles = ["index.html", "faq.html", "instructions.html", "privacy.html", "terms.html", "health-disclaimer.html", "script.js", "styles.css"];
 const publicDirectories = ["app", "assets"];
+
+if (!existsSync(join(projectRoot, "app", "vendor", "supabase-js.js"))) {
+  throw new Error("Missing bundled Supabase client. Run npm run build:vendor first.");
+}
 
 rmSync(outputRoot, { recursive: true, force: true });
 mkdirSync(outputRoot, { recursive: true });

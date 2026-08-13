@@ -2,3 +2,4 @@
 supabase/.temp/
 dist/
 .netlify/
+node_modules/

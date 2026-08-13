@@ -1,5 +1,5 @@
-import { invokeAuthenticated, supabase, requireSession } from "./supabase-client.js?v=20260811-2";
-import { clearLocalSavedFoods, getDeviceSavedFoods } from "./saved-foods-store.js?v=20260811-2";
+import { invokeAuthenticated, supabase, requireSession } from "./supabase-client.js?v=20260813-1";
+import { clearLocalSavedFoods, getDeviceSavedFoods } from "./saved-foods-store.js?v=20260813-1";
 
 const $ = (selector) => document.querySelector(selector);
 const session = await requireSession();
@@ -241,7 +241,9 @@ async function showOwnerToolsIfAuthorized() {
 
 function csvCell(value) {
   if (value === null || value === undefined) return "";
-  const text = typeof value === "object" ? JSON.stringify(value) : String(value);
+  const raw = typeof value === "object" ? JSON.stringify(value) : String(value);
+  const withoutControls = raw.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "");
+  const text = /^[=+\-@\t\r]/.test(withoutControls) ? `'${withoutControls}` : withoutControls;
   return `"${text.replaceAll('"', '""')}"`;
 }
 
@@ -409,12 +411,14 @@ $("#download-saved-foods-csv").addEventListener("click", async () => {
 function updateDeleteButton() {
   $("#delete-account").disabled = !(
     $("#delete-understood").checked &&
-    $("#delete-confirmation").value.trim() === "DELETE MY ACCOUNT"
+    $("#delete-confirmation").value.trim() === "DELETE MY ACCOUNT" &&
+    $("#delete-password").value.length >= 8
   );
 }
 
 $("#delete-understood").addEventListener("change", updateDeleteButton);
 $("#delete-confirmation").addEventListener("input", updateDeleteButton);
+$("#delete-password").addEventListener("input", updateDeleteButton);
 $("#delete-account").addEventListener("click", async () => {
   const button = $("#delete-account");
   const status = $("#delete-message");
@@ -424,7 +428,10 @@ $("#delete-account").addEventListener("click", async () => {
 
   try {
     const { data, error } = await invokeAuthenticated("delete-account", {
-      body: { confirmation: $("#delete-confirmation").value.trim() }
+      body: {
+        confirmation: $("#delete-confirmation").value.trim(),
+        currentPassword: $("#delete-password").value
+      }
     });
     if (error) throw error;
     if (!data?.ok) throw new Error("Account deletion was not confirmed.");

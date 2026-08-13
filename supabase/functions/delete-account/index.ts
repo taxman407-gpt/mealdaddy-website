@@ -105,7 +105,7 @@ Deno.serve(async (request) => {
   const { data: { user }, error: authError } = await authClient.auth.getUser();
   if (authError || !user) return json({ error: "Authentication required." }, 401);
 
-  let payload: { confirmation?: string };
+  let payload: { confirmation?: string; currentPassword?: string };
   try {
     payload = await request.json();
   } catch {
@@ -113,6 +113,16 @@ Deno.serve(async (request) => {
   }
   if (payload.confirmation !== "DELETE MY ACCOUNT") {
     return json({ error: "Type DELETE MY ACCOUNT to confirm permanent deletion." }, 400);
+  }
+  if (!user.email || typeof payload.currentPassword !== "string" || payload.currentPassword.length < 8) {
+    return json({ error: "Re-enter your current password before permanent deletion." }, 401);
+  }
+  const { data: reauthData, error: reauthError } = await authClient.auth.signInWithPassword({
+    email: user.email,
+    password: payload.currentPassword
+  });
+  if (reauthError || reauthData.user?.id !== user.id) {
+    return json({ error: "Your password could not be verified. Nothing was deleted." }, 401);
   }
 
   const admin = createClient(supabaseUrl, serviceKey);

@@ -27,6 +27,8 @@ yarn.lock
 .assetsignore
 wrangler.jsonc
 README.md
+LAUNCH_RUNBOOK.md
+pnpm-workspace.yaml
 netlify.toml
 dist
 dist/**

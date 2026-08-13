@@ -271,9 +271,18 @@ Deno.serve(async (request) => {
     .select("plan_key,status")
     .eq("user_id", user.id)
     .maybeSingle();
+  const { data: complimentaryGrant, error: complimentaryError } = await admin
+    .from("complimentary_access_grants")
+    .select("status")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (complimentaryError) return json({ error: "Membership status could not be checked." }, 500);
+  const hasComplimentaryAccess = complimentaryGrant?.status === "active";
   if (
-    membership?.plan_key !== "core" ||
-    !["trialing", "active", "past_due"].includes(membership.status)
+    !hasComplimentaryAccess && (
+      membership?.plan_key !== "core" ||
+      !["trialing", "active"].includes(membership.status)
+    )
   ) {
     return json({ error: "An active Meal Daddy Core membership is required." }, 402);
   }
@@ -350,6 +359,30 @@ Deno.serve(async (request) => {
     body: JSON.stringify(body)
   });
 
+  const monthlyLimitMicros = membership?.status === "trialing" ? 500_000 : monthlyBudgetMicros;
+  const dailyCallLimit = membership?.status === "trialing" ? 30 : 50;
+  const { data: reservationRows, error: reservationError } = await admin.rpc("reserve_ai_usage", {
+    requested_user_id: user.id,
+    requested_ledger_entry_id: null,
+    requested_kind: "coach-action",
+    requested_reserved_micros: mode === "restaurant" ? 150_000 : 100_000,
+    requested_monthly_limit_micros: monthlyLimitMicros,
+    requested_daily_call_limit: dailyCallLimit
+  });
+  if (reservationError || !reservationRows?.[0]?.reservation_id) {
+    const detail = reservationError?.message ?? "";
+    if (detail.includes("AI_PAUSED")) return json({ error: "Meal Daddy coaching is temporarily paused. Please try again later." }, 503);
+    if (detail.includes("AI_REQUEST_IN_PROGRESS")) return json({ error: "Another AI request is already running for this account. Please wait a moment." }, 429);
+    if (detail.includes("AI_DAILY_LIMIT")) return json({ error: "Today's Core AI request limit has been reached." }, 429);
+    if (detail.includes("AI_MONTHLY_LIMIT")) return json({ error: "The Core AI allowance has been reached." }, 429);
+    return json({ error: "AI usage could not be reserved. No provider request was made." }, 503);
+  }
+  const reservationId = reservationRows[0].reservation_id;
+  const releaseReservation = () => admin.rpc("release_ai_usage", {
+    requested_reservation_id: reservationId,
+    requested_user_id: user.id
+  });
+
   let openAiResponse = await callOpenAi(requestBody);
   if (mode === "restaurant" && [400, 403].includes(openAiResponse.status)) {
     const fallbackBody = { ...requestBody };
@@ -370,6 +403,7 @@ Deno.serve(async (request) => {
   }
 
   if (!openAiResponse.ok) {
+    await releaseReservation();
     const errorBody = await openAiResponse.json().catch(() => ({}));
     return json({
       error: "Meal Daddy could not generate guidance right now.",
@@ -381,6 +415,7 @@ Deno.serve(async (request) => {
   const restaurantPlan = mode === "restaurant" ? normalizedRestaurantPlan(response) : null;
   const guidance = mode === "restaurant" ? restaurantPlan?.overview ?? "" : outputText(response).trim();
   if (!guidance || (mode === "restaurant" && !restaurantPlan)) {
+    await releaseReservation();
     return json({ error: "Meal Daddy returned an incomplete response. Please try again." }, 502);
   }
 
@@ -390,14 +425,16 @@ Deno.serve(async (request) => {
     ? response.output.filter((item: Record<string, unknown>) => item.type === "web_search_call").length
     : 0;
   const estimatedCostMicros = inputTokens * 1 + outputTokens * 6 + webSearchCalls * 10_000;
-  await admin.from("ai_usage_events").insert({
-    user_id: user.id,
-    provider: "openai",
-    model,
-    input_tokens: inputTokens,
-    output_tokens: outputTokens,
-    estimated_cost_micros: estimatedCostMicros
+  const { error: settleError } = await admin.rpc("settle_ai_usage", {
+    requested_reservation_id: reservationId,
+    requested_user_id: user.id,
+    requested_provider: "openai",
+    requested_model: model,
+    requested_input_tokens: inputTokens,
+    requested_output_tokens: outputTokens,
+    requested_actual_cost_micros: estimatedCostMicros
   });
+  if (settleError) return json({ error: "Guidance was generated, but usage accounting needs attention." }, 503);
 
   return json({ ok: true, guidance, restaurantPlan });
 });

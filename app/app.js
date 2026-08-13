@@ -1,10 +1,14 @@
-import { invokeAuthenticated, supabase, requireSession } from "./supabase-client.js?v=20260811-2";
-import { buildProteinGuidance } from "./feedback-guidance.js?v=20260811-2";
-import { entryDateDisplayLabel, localDateValue as localEntryDateValue, occurredAtForEntryDate, quickDateOptions } from "./entry-date.js?v=20260811-2";
-import { estimatedAdultBmi, formatWeight, formatWeightChange, normalizeUnitSystem, parseHeightCm, shouldEnableWeightTracking, weightFromKg, weightToKg } from "./health-metrics.js?v=20260811-2";
-import { initializeSavedFoods } from "./saved-foods.js?v=20260811-2";
-import { normalizeRestaurantPlan, restaurantChoiceLetters, restaurantFitLabels, restaurantOptionToSavedFood, safeRestaurantSourceUrl } from "./restaurant-plan.js?v=20260811-2";
-import { estimateInflammationScore, inflammationBand, inflammationImpact, summarizeInflammationEntries, summarizeInflammationReport, weightedInflammationScore } from "./inflammation-impact.js?v=20260811-2";
+import { invokeAuthenticated, supabase, requireSession } from "./supabase-client.js?v=20260813-1";
+import { buildProteinGuidance } from "./feedback-guidance.js?v=20260813-1";
+import { entryDateDisplayLabel, localDateValue as localEntryDateValue, occurredAtForEntryDate, quickDateOptions } from "./entry-date.js?v=20260813-1";
+import { estimatedAdultBmi, formatWeight, formatWeightChange, normalizeUnitSystem, parseHeightCm, shouldEnableWeightTracking, weightFromKg, weightToKg } from "./health-metrics.js?v=20260813-1";
+import { initializeSavedFoods } from "./saved-foods.js?v=20260813-1";
+import { normalizeRestaurantPlan, restaurantChoiceLetters, restaurantFitLabels, restaurantOptionToSavedFood, safeRestaurantSourceUrl } from "./restaurant-plan.js?v=20260813-1";
+import { estimateInflammationScore, inflammationBand, inflammationImpact, summarizeInflammationEntries, summarizeInflammationReport, weightedInflammationScore } from "./inflammation-impact.js?v=20260813-1";
+
+document.querySelector("#focus-quick-entry")?.addEventListener("click", () => {
+  document.querySelector("#quick-entry")?.focus();
+});
 
 const dietStyles = ["Mediterranean", "Low-carb", "Pescatarian", "DASH", "Vegetarian", "High-protein", "Flexible"];
 const $ = (selector) => document.querySelector(selector);
@@ -2291,13 +2295,16 @@ $("#entry-form").addEventListener("submit", async (event) => {
         await handleEstimateFailure(estimateError, kind === "hydration" ? "Drink" : "Meal", "saved", savedEntry.id);
       } else {
         $("#estimate-membership-prompt").hidden = true;
+        const reconciledDescription = estimateData?.entryDescription || description;
         if (wantsFavorite && estimateData?.estimate && state.savedFoodsApi) {
-          state.savedFoodsApi.reviewEstimatedMeal({ description, mealLabel, estimate: estimateData.estimate }, submittedPhoto);
+          state.savedFoodsApi.reviewEstimatedMeal({ description: reconciledDescription, mealLabel, estimate: estimateData.estimate }, submittedPhoto);
           toast(`Nutrition${dateSuffix} is ready. Review and save your Favorite Meal.`);
         } else if (estimateData?.labelCandidate && submittedPhoto && state.savedFoodsApi) {
           showLabelSavePrompt(estimateData.labelCandidate, submittedPhoto);
+        } else if (estimateData?.descriptionReconciliationNote) {
+          toast(`${estimateData.descriptionReconciliationNote} Edit the entry if you want to change the written description.`);
         } else {
-          toast(`Nutrition estimate ready${dateSuffix}.`);
+          toast(submittedPhoto ? `Photo identified and nutrition estimate ready${dateSuffix}.` : `Nutrition estimate ready${dateSuffix}.`);
         }
       }
     } else {
