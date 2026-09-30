@@ -429,17 +429,22 @@ async function loadProfile() {
   state.proteinGoal = proteinGoal;
   state.fiberGoal = fiberGoal;
   state.waterGoal = waterGoal;
+  const totalCarbGoal = state.netCarbGoal ? state.netCarbGoal + fiberGoal : Math.round(calorieGoal * 0.45 / 4);
+  const fatGoal = Math.max(30, Math.round((calorieGoal - proteinGoal * 4 - totalCarbGoal * 4) / 9));
   $("#energy-progress").max = calorieGoal;
   $("#protein-progress").max = proteinGoal;
+  $("#carbs-progress").max = totalCarbGoal;
+  $("#net-carbs-progress").max = state.netCarbGoal || totalCarbGoal;
+  $("#fat-progress").max = fatGoal;
   $("#fiber-progress").max = fiberGoal;
   $("#water-progress").max = waterGoal;
-  $("#energy-goal-label").textContent = `of ${calorieGoal.toLocaleString()} cal`;
-  $("#protein-goal-label").textContent = `of ${proteinGoal}g`;
-  $("#fiber-total").nextElementSibling.textContent = `of ${fiberGoal}g`;
-  $("#water-total").nextElementSibling.textContent = `of ${waterGoal}oz`;
-  $("#carbs-goal-label").textContent = state.netCarbGoal
-    ? `${state.netCarbGoal}g net daily ceiling`
-    : "estimated total/net";
+  $("#energy-goal-label").textContent = calorieGoal.toLocaleString();
+  $("#protein-goal-label").textContent = `${proteinGoal}g`;
+  $("#carbs-goal-label").textContent = `${totalCarbGoal}g`;
+  $("#net-carbs-goal-label").textContent = `${state.netCarbGoal || totalCarbGoal}g`;
+  $("#fat-goal-label").textContent = `${fatGoal}g`;
+  $("#fiber-goal-label").textContent = `${fiberGoal}g`;
+  $("#water-goal-label").textContent = `${waterGoal}oz`;
   $("#profile-diet").textContent = state.diet;
   $("#weight-unit").value = state.unitSystem;
   $("#tone-options").value = state.tone;
@@ -833,11 +838,18 @@ function renderTotals() {
   }, { calories: 0, protein: 0, carbs: 0, netCarbs: 0, fat: 0, fiber: 0, water: 0 });
   $("#energy-total").textContent = Math.round(totals.calories).toLocaleString();
   $("#protein-total").textContent = `${Math.round(totals.protein)}g`;
-  $("#carbs-total").textContent = `${Math.round(totals.carbs)}g/${Math.round(totals.netCarbs)}g`;
+  $("#carbs-total").textContent = `${Math.round(totals.carbs)}g`;
+  $("#net-carbs-total").textContent = `${Math.round(totals.netCarbs)}g`;
   $("#fat-total").textContent = `${Math.round(totals.fat)}g`;
   $("#fiber-total").textContent = `${Math.round(totals.fiber)}g`;
   $("#water-total").textContent = `${Math.round(totals.water)}oz`;
-  $("#energy-progress").value = totals.calories; $("#protein-progress").value = totals.protein; $("#fiber-progress").value = totals.fiber; $("#water-progress").value = totals.water;
+  $("#energy-progress").value = totals.calories;
+  $("#protein-progress").value = totals.protein;
+  $("#carbs-progress").value = totals.carbs;
+  $("#net-carbs-progress").value = totals.netCarbs;
+  $("#fat-progress").value = totals.fat;
+  $("#fiber-progress").value = totals.fiber;
+  $("#water-progress").value = totals.water;
   renderCoachFeedback(totals);
 }
 

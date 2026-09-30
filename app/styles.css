@@ -728,12 +728,17 @@ h2 { font-size: clamp(1.65rem, 3vw, 2.6rem); line-height: 1.06; letter-spacing: 
   --v1-muted: #bed0c8;
   background: #171a19;
   color: var(--v1-text);
+  min-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto !important;
+  touch-action: pan-y;
 }
+html:has(.v1-live) { height: auto; min-height: 100%; overflow-y: auto !important; }
 .v1-live .app-header,
 .v1-top-tabs,
 .v1-live .dashboard { width: min(100%, 760px); margin-inline: auto; }
 .v1-live .app-header { background: var(--v1-panel); border-color: var(--v1-line); }
-.v1-live .dashboard { background: var(--v1-bg); min-height: calc(100vh - 132px); padding: 18px; }
+.v1-live .dashboard { background: var(--v1-bg); min-height: calc(100vh - 132px); height: auto; overflow: visible; padding: 18px 18px 80px; }
 .v1-top-tabs {
   display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; padding: 8px;
   position: sticky; top: 0; z-index: 20; background: var(--v1-panel);
@@ -769,6 +774,28 @@ h2 { font-size: clamp(1.65rem, 3vw, 2.6rem); line-height: 1.06; letter-spacing: 
 .v1-live .reports-card,
 .v1-live .rating-card,
 .v1-live .saved-foods-card { background: var(--v1-panel); border-color: var(--v1-line); color: var(--v1-text); }
+.v1-live .today-status .metric-grid { display: grid; grid-template-columns: 1fr; gap: 7px; }
+.v1-live .today-status .metric-card {
+  display: grid; grid-template-columns: 88px minmax(90px, 1fr) auto; gap: 10px; align-items: center;
+  min-height: 42px; border: 0; border-radius: 0; padding: 4px 0; background: transparent; box-shadow: none;
+}
+.v1-live .today-status .metric-card > span { color: var(--v1-muted); font-size: .78rem; }
+.v1-live .today-status .metric-card strong { color: white; font-size: .78rem; letter-spacing: 0; white-space: nowrap; }
+.v1-live .today-status .metric-card progress {
+  width: 100%; height: 9px; margin: 0; overflow: hidden; border: 0; border-radius: 99px;
+  accent-color: var(--v1-lime); background: var(--v1-line);
+}
+.v1-live .today-status .metric-card progress::-webkit-progress-bar { background: var(--v1-line); border-radius: 99px; }
+.v1-live .today-status .metric-card progress::-webkit-progress-value { background: var(--v1-lime); border-radius: 99px; }
+.v1-live .today-status .metric-card progress::-moz-progress-bar { background: var(--v1-lime); border-radius: 99px; }
+.v1-live .weight-trend {
+  display: block; min-height: 118px; border: 1px solid var(--v1-line);
+  background: linear-gradient(180deg, rgba(221,246,93,.18), rgba(25,55,46,.12));
+}
+.v1-live .weight-trend[hidden] { display: none; }
+.v1-live .weight-chart { display: block; width: 100%; height: 82px; }
+.v1-live .weight-chart polyline { stroke: var(--v1-lime); stroke-width: 4; }
+.v1-live .weight-chart circle { fill: var(--v1-lime); stroke: #071711; }
 .v1-live .button-primary,
 .v1-live .log-button,
 .v1-live .coach-buttons button:first-child { background: var(--v1-lime); color: #071711; }
