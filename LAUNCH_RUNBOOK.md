@@ -37,6 +37,24 @@ Use a Stripe test-mode Core account and a separate Complimentary Family Access t
 - OpenAI: set the global provider budget and alerts at 25/50/75/100 percent; restrict allowed models and keys; document emergency ownership.
 - Cloudflare/GitHub: owner MFA, least-privilege tokens, branch protection, preview protection, secret scanning, and rollback ownership.
 
+## Commercial email compliance gate
+
+Do not send the first product-news, recipe, promotional, or re-engagement campaign until every item below is verified in the actual sending service and approved by counsel. Transactional account, security, billing, and password-reset messages must remain operationally separate from marketing campaigns.
+
+- Setup clearly discloses that finishing setup activates occasional optional email updates and identifies where the member can opt out.
+- The preference record preserves the signup source and timestamp. Editing setup later must never resubscribe a member who previously opted out.
+- Every marketing audience query requires `opted_in = true`; unsubscribed and bounced addresses are kept on a suppression list and excluded from every campaign and vendor export.
+- Every marketing email uses accurate From, To, Reply-To, routing information, and a subject that accurately describes the message.
+- The message clearly identifies MealDaddy and identifies promotional content as advertising when required.
+- Every marketing email includes MealDaddy's valid physical postal address and a clear, conspicuous unsubscribe link.
+- Unsubscribe takes no more than one simple webpage or reply-email action, requires no login or fee, works for at least 30 days after sending, and stops all MealDaddy marketing email immediately (never later than 10 business days).
+- A member can also unsubscribe from Profile & Account. Unsubscribing does not block essential account, security, billing, or password-reset messages.
+- Suppressed addresses are not sold, transferred, re-imported, or resubscribed except when a member knowingly requests optional updates again. Transfers solely needed for a contracted compliance provider require appropriate controls.
+- Test unsubscribe end to end before every provider or template change. Keep auditable records of disclosure wording, preference changes, campaigns, suppression, bounces, and complaints.
+- Review the email vendor's authentication, complaint, bounce, and suppression behavior. MealDaddy remains responsible for campaigns sent on its behalf.
+- Limit the initial program to United States recipients. Do not send marketing email to other countries until counsel approves country-specific consent and privacy handling.
+- Recheck federal and applicable state requirements with qualified counsel before broad promotion and after material changes to the program.
+
 ## Initial enforced application limits
 
 - Trial: $0.50 total, 30 AI calls per UTC day, one in-flight request.

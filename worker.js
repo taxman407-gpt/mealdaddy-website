@@ -4,6 +4,7 @@ const securityHeaders = {
   "Content-Security-Policy": "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' https://egbieqvbwniaxgqjzqkp.supabase.co wss://egbieqvbwniaxgqjzqkp.supabase.co; script-src 'self'; style-src 'self'; manifest-src 'self'; worker-src 'self' blob:",
   "Permissions-Policy": "camera=(self), microphone=(self), geolocation=(self)",
   "Referrer-Policy": "strict-origin-when-cross-origin",
+  "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
   "X-Content-Type-Options": "nosniff",
   "X-Frame-Options": "DENY"
 };

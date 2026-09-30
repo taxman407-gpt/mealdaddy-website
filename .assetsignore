@@ -34,3 +34,6 @@ dist
 dist/**
 app/sandbox.html
 app/sandbox.js
+app/v1-sandbox.html
+app/v1-sandbox.js
+app/v1-sandbox.css

@@ -1,5 +1,6 @@
-import { supabase, requireSession } from "./supabase-client.js?v=20260813-4";
-import { normalizeUnitSystem, suggestedStartingTargets, weightToKg, weightUnit } from "./health-metrics.js?v=20260813-4";
+import { supabase, requireSession } from "./supabase-client.js?v=20260929-1";
+import { normalizeUnitSystem, suggestedStartingTargets, weightToKg, weightUnit } from "./health-metrics.js?v=20260929-1";
+import { includePrimaryEatingStyle, resolvePrimaryEatingStyle } from "./profile-preferences.js?v=20260929-1";
 
 const session = await requireSession();
 if (!session) throw new Error("Authentication required");
@@ -38,7 +39,8 @@ const steps = [
   ]},
   { title: "Nutrition", intro: "Enter your own targets or use the starting estimates shown beside them. Nothing here requires an AI request.", fields: [
     ["calorie_goal", "Calories per day", "target", "Optional"], ["protein_goal", "Protein goal", "target", "Optional"],
-    ["eating_styles", "Preferred eating style", "multi", choices.eatingStyles],
+    ["primary_eating_style", "Primary eating style shown on your dashboard", "single", choices.eatingStyles, true],
+    ["eating_styles", "Other eating styles Meal Daddy should consider", "multi", choices.eatingStyles],
     ["net_carb_goal", "Daily net-carb ceiling", "target", "Optional"],
     ["fiber_goal", "Daily fiber target", "target", "Optional"], ["water_goal", "Daily hydration target", "target", "Optional"]
   ]},
@@ -72,6 +74,7 @@ const steps = [
 
 let currentStep = 0;
 let answers = JSON.parse(sessionStorage.getItem("mealdaddy-onboarding") || "{}");
+let existingDietStyle = "";
 
 function normalizeAnswers() {
   if (answers.primary_goal && !(answers.primary_goals || []).length) {
@@ -126,12 +129,13 @@ function renderSummary() {
     ["Goals", (answers.primary_goals || []).join(", ")], ["Calories", answers.calorie_goal ? `${answers.calorie_goal}/day` : "Not set"],
     ["Protein", answers.protein_goal ? `${answers.protein_goal}g/day` : "Not set"], ["Net-carb ceiling", answers.net_carb_goal ? `${answers.net_carb_goal}g/day` : "Not set"],
     ["Starting weight", answers.current_weight ? `${answers.current_weight} ${weightUnit(normalizeUnitSystem(answers.unit_system))}` : "Not set"], ["BMI", answers.track_bmi === "Yes" ? "Estimated adult BMI enabled" : "Not displayed"],
-    ["Eating style", (answers.eating_styles || []).join(", ") || "Flexible"],
+    ["Primary eating style", answers.primary_eating_style || "Flexible"],
+    ["Other eating styles", (answers.eating_styles || []).filter((style) => style !== answers.primary_eating_style).join(", ") || "None selected"],
     ["Foods to avoid", answers.foods_to_avoid || "None listed"], ["Restaurants", answers.favorite_restaurants || "None listed"],
     ["Garden", answers.has_garden || "Not specified"], ["Tracking", answers.tracking_detail || "Moderate"],
     ["Coaching", answers.coaching_style || "Friendly"], ["Biggest challenge", answers.biggest_challenge || "Not specified"]
   ];
-  $("#setup-fields").innerHTML = `<div class="setup-summary">${rows.map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("")}</div>`;
+  $("#setup-fields").innerHTML = `<div class="setup-summary">${rows.map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("")}</div><aside class="setup-email-notice"><strong>Stay connected with MealDaddy</strong><p>By finishing setup, your account email will automatically receive occasional MealDaddy product updates, recipes, and service news.</p><p>You can opt out later in Profile &amp; Account or unsubscribe using the link included in every optional email.</p></aside>`;
 }
 
 function render() {
@@ -181,7 +185,9 @@ async function saveStartingWeight() {
 async function saveProfile(completed) {
   $("#setup-status").textContent = completed ? "Saving your profile..." : "Saving...";
   const toneMap = { Friendly: "supportive", Encouraging: "supportive", Direct: "direct", Detailed: "data_focused", "Short & Simple": "direct" };
-  const diet = (answers.eating_styles || [])[0] || "Flexible";
+  const diet = resolvePrimaryEatingStyle({ dietStyle: existingDietStyle, primaryEatingStyle: answers.primary_eating_style, eatingStyles: answers.eating_styles });
+  answers.primary_eating_style = diet;
+  answers.eating_styles = includePrimaryEatingStyle(diet, answers.eating_styles);
   const payload = {
     user_id: user.id,
     diet_style: diet,
@@ -198,6 +204,19 @@ async function saveProfile(completed) {
       await saveStartingWeight();
     } catch (weightError) {
       $("#setup-status").textContent = weightError.message;
+      return false;
+    }
+    const now = new Date().toISOString();
+    const { error: contactError } = await supabase.from("email_contact_preferences").upsert({
+      user_id: user.id,
+      email: String(user.email || "").trim().toLowerCase(),
+      opted_in: true,
+      consent_source: "signup",
+      consent_updated_at: now,
+      updated_at: now
+    }, { onConflict: "user_id", ignoreDuplicates: true });
+    if (contactError) {
+      $("#setup-status").textContent = contactError.message;
       return false;
     }
     sessionStorage.removeItem("mealdaddy-onboarding");
@@ -248,7 +267,16 @@ $("#setup-form").addEventListener("change", (event) => {
   }
 });
 
-const { data: existing } = await supabase.from("profiles").select("onboarding_data").eq("user_id", user.id).maybeSingle();
-if (existing?.onboarding_data && Object.keys(existing.onboarding_data).length) answers = { ...existing.onboarding_data, ...answers };
+const { data: existing } = await supabase.from("profiles").select("diet_style,onboarding_data").eq("user_id", user.id).maybeSingle();
+if (existing?.onboarding_data && Object.keys(existing.onboarding_data).length) {
+  existingDietStyle = existing.diet_style || "";
+  answers = { ...existing.onboarding_data };
+  answers.primary_eating_style = resolvePrimaryEatingStyle({
+    dietStyle: existingDietStyle,
+    primaryEatingStyle: answers.primary_eating_style,
+    eatingStyles: answers.eating_styles
+  });
+  sessionStorage.removeItem("mealdaddy-onboarding");
+}
 normalizeAnswers();
 render();

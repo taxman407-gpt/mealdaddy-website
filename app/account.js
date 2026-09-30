@@ -1,5 +1,5 @@
-import { invokeAuthenticated, supabase, requireSession } from "./supabase-client.js?v=20260813-4";
-import { clearLocalSavedFoods, getDeviceSavedFoods } from "./saved-foods-store.js?v=20260813-4";
+import { invokeAuthenticated, supabase, requireSession } from "./supabase-client.js?v=20260929-1";
+import { clearLocalSavedFoods, getDeviceSavedFoods } from "./saved-foods-store.js?v=20260929-1";
 
 const $ = (selector) => document.querySelector(selector);
 const session = await requireSession();
@@ -7,6 +7,7 @@ if (!session) throw new Error("Authentication required");
 
 const user = session.user;
 let membership = null;
+let contactOptedIn = true;
 document.body.classList.remove("auth-loading");
 $("#account-email").textContent = user.email || "Signed in";
 $("#member-since").textContent = formatDate(user.created_at);
@@ -25,6 +26,91 @@ function formatDate(value) {
 function titleCase(value = "") {
   return value.replaceAll("_", " ").replace(/\b\w/g, (character) => character.toUpperCase());
 }
+
+function listText(value, fallback = "None selected") {
+  return Array.isArray(value) && value.length ? value.join(", ") : fallback;
+}
+
+async function loadProfileSummary() {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("diet_style,coaching_tone,onboarding_data")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (error) throw error;
+  const profile = data?.onboarding_data || {};
+  const primaryStyle = profile.primary_eating_style || data?.diet_style || "Flexible";
+  const otherStyles = (Array.isArray(profile.eating_styles) ? profile.eating_styles : [])
+    .filter((style) => String(style).toLowerCase() !== String(primaryStyle).toLowerCase());
+  const goals = Array.isArray(profile.primary_goals)
+    ? profile.primary_goals
+    : profile.primary_goal ? [profile.primary_goal] : [];
+  const targets = [
+    profile.calorie_goal ? `${profile.calorie_goal} calories` : "",
+    profile.protein_goal ? `${profile.protein_goal}g protein` : "",
+    profile.net_carb_goal ? `${profile.net_carb_goal}g net-carbohydrate ceiling` : "",
+    profile.fiber_goal ? `${profile.fiber_goal}g fiber` : "",
+    profile.water_goal ? `${profile.water_goal} oz hydration` : ""
+  ].filter(Boolean);
+  const favorites = [
+    ...(Array.isArray(profile.favorite_proteins) ? profile.favorite_proteins : []),
+    ...(Array.isArray(profile.favorite_cuisines) ? profile.favorite_cuisines : [])
+  ];
+  $("#profile-primary-style").textContent = primaryStyle;
+  $("#profile-other-styles").textContent = listText(otherStyles);
+  $("#profile-goals").textContent = listText(goals, "No goals selected");
+  $("#profile-targets").textContent = listText(targets, "Using general starting targets");
+  $("#profile-avoid").textContent = profile.foods_to_avoid || "None listed";
+  $("#profile-favorites").textContent = listText(favorites);
+  $("#profile-coaching").textContent = profile.coaching_style || titleCase(data?.coaching_tone || "supportive");
+  $("#profile-reminders").textContent = listText(profile.reminders);
+}
+
+async function loadContactPreference() {
+  const { data, error } = await supabase
+    .from("email_contact_preferences")
+    .select("opted_in,consent_updated_at")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (error) throw error;
+  contactOptedIn = data ? Boolean(data.opted_in) : true;
+  $("#save-contact-preference").textContent = contactOptedIn
+    ? "Unsubscribe from optional updates"
+    : "Receive optional updates again";
+  $("#contact-preference-message").textContent = data
+    ? `${contactOptedIn ? "Optional updates are active." : "Optional updates are stopped."} Preference last updated ${formatDate(data.consent_updated_at)}.`
+    : "Optional updates are active for your account email.";
+}
+
+$("#contact-preference-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const button = $("#save-contact-preference");
+  const message = $("#contact-preference-message");
+  const optedIn = !contactOptedIn;
+  button.disabled = true;
+  message.textContent = "Saving your email preference...";
+  const now = new Date().toISOString();
+  const { error } = await supabase.from("email_contact_preferences").upsert({
+    user_id: user.id,
+    email: String(user.email || "").trim().toLowerCase(),
+    opted_in: optedIn,
+    consent_source: "account",
+    consent_updated_at: now,
+    updated_at: now
+  }, { onConflict: "user_id" });
+  button.disabled = false;
+  if (!error) {
+    contactOptedIn = optedIn;
+    button.textContent = contactOptedIn
+      ? "Unsubscribe from optional updates"
+      : "Receive optional updates again";
+  }
+  message.textContent = error
+    ? error.message
+    : optedIn
+      ? "You’re subscribed to occasional MealDaddy updates."
+      : "You’re unsubscribed from optional MealDaddy updates.";
+});
 
 function downloadBlob(contents, type, filename) {
   const url = URL.createObjectURL(new Blob([contents], { type }));
@@ -178,16 +264,18 @@ async function openBillingPortal(action) {
 }
 
 async function accountExport() {
-  const [profileResult, ledger, weights, savedFoods, deviceSavedFoods, feedback, feedbackHistory] = await Promise.all([
+  const [profileResult, ledger, weights, savedFoods, deviceSavedFoods, feedback, feedbackHistory, contactPreference] = await Promise.all([
     supabase.from("profiles").select("*").eq("user_id", user.id).maybeSingle(),
     fetchAllRows("ledger_entries", "*", "occurred_at"),
     fetchAllRows("weight_entries", "*", "measured_on"),
     fetchAllRows("saved_foods", "*", "updated_at"),
     getDeviceSavedFoods(user.id).catch(() => []),
     fetchAllRows("customer_feedback", "*", "updated_at"),
-    fetchAllRows("customer_feedback_history", "*", "source_updated_at")
+    fetchAllRows("customer_feedback_history", "*", "source_updated_at"),
+    supabase.from("email_contact_preferences").select("email,opted_in,consent_source,consent_updated_at,created_at,updated_at").eq("user_id", user.id).maybeSingle()
   ]);
   if (profileResult.error) throw profileResult.error;
+  if (contactPreference.error) throw contactPreference.error;
 
   return {
     export_format: "Meal Daddy account export v3",
@@ -200,6 +288,7 @@ async function accountExport() {
       user_metadata: user.user_metadata
     },
     profile: profileResult.data,
+    email_contact_preference: contactPreference.data,
     membership: membership ? {
       plan_key: membership.plan_key,
       status: membership.status,
@@ -470,6 +559,18 @@ try {
   $("#membership-status").textContent = "Try again";
   $("#billing-actions").hidden = true;
   $("#billing-message").textContent = error.message || "Please refresh this page.";
+}
+
+try {
+  await loadProfileSummary();
+} catch (error) {
+  $("#profile-message").textContent = error.message || "Your profile could not be loaded. Please refresh this page.";
+}
+
+try {
+  await loadContactPreference();
+} catch (error) {
+  $("#contact-preference-message").textContent = error.message || "Your email preference could not be loaded. Please refresh this page.";
 }
 
 showOwnerToolsIfAuthorized().catch(() => {});

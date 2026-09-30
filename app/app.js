@@ -5,6 +5,7 @@ import { estimatedAdultBmi, formatWeight, formatWeightChange, normalizeUnitSyste
 import { initializeSavedFoods } from "./saved-foods.js?v=20260813-4";
 import { normalizeRestaurantPlan, restaurantChoiceLetters, restaurantFitLabels, restaurantOptionToLedgerEntry, safeRestaurantSourceUrl } from "./restaurant-plan.js?v=20260813-4";
 import { estimateInflammationScore, inflammationBand, inflammationImpact, summarizeInflammationEntries, summarizeInflammationReport, weightedInflammationScore } from "./inflammation-impact.js?v=20260813-4";
+import { resolvePrimaryEatingStyle } from "./profile-preferences.js?v=20260929-1";
 
 document.querySelector("#focus-quick-entry")?.addEventListener("click", () => {
   document.querySelector("#quick-entry")?.focus();
@@ -23,7 +24,7 @@ const entryCategories = [...mealLabels, "Hydration"];
 const query = new URLSearchParams(location.search);
 let pendingPlan = allowedPlans.has(query.get("plan")) ? query.get("plan") : null;
 const checkoutResult = query.get("checkout");
-const state = { diet: "", tone: "supportive", provider: "best_value", entries: [], weightEntries: [], photo: null, coachPhoto: null, restaurantLocation: null, restaurantPlan: null, coachMode: "dinner", membershipPlan: null, membershipStatus: null, membershipAccess: null, calorieGoal: 2050, proteinGoal: 130, netCarbGoal: 0, fiberGoal: 30, waterGoal: 90, unitSystem: "us", heightCm: null, age: null, trackBmi: false, goalWeightKg: null, eatingStyles: [], goals: [], trackingDetail: "Moderate", uses: [], reminders: [], favoriteProteins: [], foodsLoved: "", foodsDisliked: "", foodsToAvoid: "", biggestChallenge: "", suggestedProteinTarget: 40, leftoverEntryId: null, leftoverPhoto: null, leftoverAnalysis: null, leftoverReturnFocus: null, savedFoodsApi: null, pendingQuickLog: null, skipSavedFoodMatch: false, pendingLabelCandidate: null, pendingLabelPhoto: null, estimatingEntryIds: new Set(), estimateFailures: new Map(), currentTotals: { calories: 0, protein: 0, carbs: 0, netCarbs: 0, fat: 0, fiber: 0, water: 0 } };
+const state = { preferredName: "", diet: "", tone: "supportive", provider: "best_value", entries: [], weightEntries: [], photo: null, coachPhoto: null, restaurantLocation: null, restaurantPlan: null, coachMode: "dinner", membershipPlan: null, membershipStatus: null, membershipAccess: null, calorieGoal: 2050, proteinGoal: 130, netCarbGoal: 0, fiberGoal: 30, waterGoal: 90, unitSystem: "us", heightCm: null, age: null, trackBmi: false, goalWeightKg: null, eatingStyles: [], goals: [], trackingDetail: "Moderate", uses: [], reminders: [], favoriteProteins: [], foodsLoved: "", foodsDisliked: "", foodsToAvoid: "", biggestChallenge: "", suggestedProteinTarget: 40, leftoverEntryId: null, leftoverPhoto: null, leftoverAnalysis: null, leftoverReturnFocus: null, savedFoodsApi: null, pendingQuickLog: null, skipSavedFoodMatch: false, pendingLabelCandidate: null, pendingLabelPhoto: null, estimatingEntryIds: new Set(), estimateFailures: new Map(), currentTotals: { calories: 0, protein: 0, carbs: 0, netCarbs: 0, fat: 0, fiber: 0, water: 0 } };
 const installDismissedKey = "mealdaddy-install-tip-dismissed";
 let deferredInstallPrompt = null;
 let latestReport = null;
@@ -347,11 +348,17 @@ async function loadProfile() {
     showOnboarding();
     return;
   }
-  state.diet = data.diet_style;
+  const profile = data.onboarding_data || {};
+  state.diet = resolvePrimaryEatingStyle({ dietStyle: data.diet_style, primaryEatingStyle: profile.primary_eating_style, eatingStyles: profile.eating_styles });
   state.tone = data.coaching_tone;
   state.provider = data.ai_routing_preference || "best_value";
-  const profile = data.onboarding_data || {};
-  if (profile.name) $("#greeting").textContent = `Welcome back, ${profile.name}.`;
+  state.preferredName = String(profile.name || user.user_metadata?.first_name || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .slice(0, 80);
+  $("#greeting").textContent = state.preferredName
+    ? `Welcome back, ${state.preferredName}.`
+    : "Welcome back. Good to see you.";
   const goals = profile.primary_goals || (profile.primary_goal ? [profile.primary_goal] : []);
   state.goals = Array.isArray(goals) ? goals : [];
   state.eatingStyles = Array.isArray(profile.eating_styles) ? profile.eating_styles : [];
@@ -1110,16 +1117,20 @@ function renderCoachFeedback(providedTotals) {
   const personalizeButton = $("#personalize-feedback");
   if (!title || !support || !suggestion || !personalizeButton) return;
   personalizeButton.hidden = true;
+  const personalTitle = (message) => {
+    if (!state.preferredName) return message;
+    return `${state.preferredName}, ${message.charAt(0).toLocaleLowerCase()}${message.slice(1)}`;
+  };
 
   const pending = state.entries.some((entry) => entry.status === "pending_estimate");
   if (!state.entries.length) {
-    title.textContent = "Ready when you are.";
+    title.textContent = personalTitle("Ready when you are.");
     support.textContent = "No pressure to make today perfect. Log your next meal or drink and we’ll take it one choice at a time.";
     suggestion.textContent = "Start with what you actually had—close enough is good enough.";
     return;
   }
   if (pending) {
-    title.textContent = "Nice work logging it.";
+    title.textContent = personalTitle("Nice work logging it.");
     support.textContent = "Your entry is saved. I’m finishing the nutrition estimate so your totals and guidance stay useful.";
     suggestion.textContent = "You can keep logging while the estimate finishes.";
     return;
@@ -1220,7 +1231,7 @@ function renderCoachFeedback(providedTotals) {
   const localDay = Math.floor(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) / 86400000);
   const userOffset = [...user.id].reduce((sum, character) => sum + character.charCodeAt(0), 0);
   const affirmations = affirmationPools[state.tone] || affirmationPools.supportive;
-  title.textContent = affirmations[(localDay + userOffset) % affirmations.length];
+  title.textContent = personalTitle(affirmations[(localDay + userOffset) % affirmations.length]);
   const summaryMetrics = [
     `${Math.round(totals.calories).toLocaleString()} calories`,
     `${Math.round(totals.protein)}g protein`

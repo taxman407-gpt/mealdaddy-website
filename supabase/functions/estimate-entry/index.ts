@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2.54.0";
+import { applyComponentTotals } from "../_shared/nutrition-reconciliation.mjs";
 
 const model = "gpt-5.6-luna";
 const monthlyBudgetMicros = 3_000_000;
@@ -507,6 +508,8 @@ Deno.serve(async (request) => {
     for (const field of ["source", "saved_food_id", "leftover_adjustment"]) {
       if (entry.nutrition_estimate?.[field] !== undefined) estimate[field] = entry.nutrition_estimate[field];
     }
+  } else {
+    applyComponentTotals(estimate);
   }
   if (photoPath) estimate.photo_path = photoPath;
   if (entry.nutrition_estimate?.favorite_origin) {

@@ -6,6 +6,13 @@ const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const outputRoot = join(projectRoot, "dist");
 const publicFiles = ["index.html", "faq.html", "instructions.html", "privacy.html", "terms.html", "health-disclaimer.html", "script.js", "styles.css"];
 const publicDirectories = ["app", "assets"];
+const testOnlyAppFiles = new Set([
+  "sandbox.html",
+  "sandbox.js",
+  "v1-sandbox.html",
+  "v1-sandbox.js",
+  "v1-sandbox.css"
+]);
 
 if (!existsSync(join(projectRoot, "app", "vendor", "supabase-js.js"))) {
   throw new Error("Missing bundled Supabase client. Run npm run build:vendor first.");
@@ -23,7 +30,10 @@ for (const file of publicFiles) {
 for (const directory of publicDirectories) {
   const source = join(projectRoot, directory);
   if (!existsSync(source)) throw new Error(`Missing required public directory: ${directory}`);
-  cpSync(source, join(outputRoot, directory), { recursive: true });
+  cpSync(source, join(outputRoot, directory), {
+    recursive: true,
+    filter: (candidate) => directory !== "app" || !testOnlyAppFiles.has(candidate.slice(source.length + 1).replaceAll("\\", "/"))
+  });
 }
 
 console.log("Prepared the Netlify public bundle in dist/.");

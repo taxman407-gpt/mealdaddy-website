@@ -7,7 +7,7 @@
   <meta name="robots" content="noindex, nofollow" />
   <title>Account & Privacy - MealDaddy</title>
   <link rel="manifest" href="./manifest.webmanifest" />
-  <link rel="stylesheet" href="./styles.css?v=20260813-4" />
+  <link rel="stylesheet" href="./styles.css?v=20260929-3" />
 </head>
 <body class="app-page auth-loading account-page">
   <header class="app-header">
@@ -29,6 +29,35 @@
         <span>Portable records</span>
         <span>Self-service deletion</span>
       </div>
+    </section>
+
+    <section class="account-card contact-card" aria-labelledby="contact-title">
+      <div class="account-card-heading">
+        <div><p class="eyebrow">Stay in touch</p><h2 id="contact-title">MealDaddy email updates</h2><p>Your account email is used automatically for occasional product news, practical recipes, and MealDaddy updates.</p></div>
+      </div>
+      <form id="contact-preference-form">
+        <p>Every optional email includes an unsubscribe link. You may also stop or resume optional updates here at any time.</p>
+        <div class="account-actions-row"><button class="button" id="save-contact-preference" type="submit">Unsubscribe from optional updates</button></div>
+      </form>
+      <p class="account-status" id="contact-preference-message" role="status" aria-live="polite"></p>
+    </section>
+
+    <section class="account-card profile-card" aria-labelledby="profile-title">
+      <div class="account-card-heading">
+        <div><p class="eyebrow">Your personal setup</p><h2 id="profile-title">My Profile &amp; Preferences</h2><p>These are the choices Meal Daddy uses to personalize your targets and guidance.</p></div>
+        <a class="button button-primary" href="./setup.html">Edit setup &amp; preferences</a>
+      </div>
+      <dl class="profile-preference-grid" id="profile-preference-grid">
+        <div><dt>Primary eating style</dt><dd id="profile-primary-style">Loading…</dd></div>
+        <div><dt>Other eating styles</dt><dd id="profile-other-styles">Loading…</dd></div>
+        <div><dt>Primary goals</dt><dd id="profile-goals">Loading…</dd></div>
+        <div><dt>Daily targets</dt><dd id="profile-targets">Loading…</dd></div>
+        <div><dt>Foods to avoid</dt><dd id="profile-avoid">Loading…</dd></div>
+        <div><dt>Favorite foods</dt><dd id="profile-favorites">Loading…</dd></div>
+        <div><dt>Coaching style</dt><dd id="profile-coaching">Loading…</dd></div>
+        <div><dt>Reminders</dt><dd id="profile-reminders">Loading…</dd></div>
+      </dl>
+      <p class="account-status" id="profile-message" role="status" aria-live="polite"></p>
     </section>
 
     <section class="account-card membership-card" aria-labelledby="membership-title">
@@ -136,7 +165,7 @@
   </main>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="./account.js?v=20260813-4"></script>
-  <script src="./register-sw.js?v=20260813-4"></script>
+  <script type="module" src="./account.js?v=20260929-2"></script>
+  <script src="./register-sw.js?v=20260929-2"></script>
 </body>
 </html>
