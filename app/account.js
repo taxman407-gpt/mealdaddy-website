@@ -1,4 +1,4 @@
-import { invokeAuthenticated, supabase, requireSession } from "./supabase-client.js?v=20260930-2";
+import { invokeAuthenticated, supabase, requireSession } from "./supabase-client.js?v=20260930-3";
 import { clearLocalSavedFoods, getDeviceSavedFoods } from "./saved-foods-store.js?v=20260929-1";
 
 const $ = (selector) => document.querySelector(selector);

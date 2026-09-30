@@ -1,4 +1,4 @@
-import { supabase } from "./supabase-client.js?v=20260930-2";
+import { supabase } from "./supabase-client.js?v=20260930-3";
 
 const form = document.querySelector("#auth-form");
 const email = document.querySelector("#email");

@@ -35,13 +35,19 @@ export async function invokeAuthenticated(functionName, options = {}) {
   if (!session?.access_token) {
     return { data: null, error: new Error("Your secure session expired. Sign in again, then retry.") };
   }
-  const result = await supabase.functions.invoke(functionName, {
-    ...options,
-    headers: {
-      ...(options.headers || {}),
-      Authorization: `Bearer ${session.access_token}`
-    }
-  });
+  const invokeWithToken = (accessToken) => supabase.functions.invoke(functionName, {
+      ...options,
+      headers: {
+        ...(options.headers || {}),
+        Authorization: `Bearer ${accessToken}`
+      }
+    });
+  let result = await invokeWithToken(session.access_token);
+  if (result.error?.context instanceof Response && result.error.context.status === 401) {
+    const refreshed = await supabase.auth.refreshSession();
+    const refreshedToken = refreshed.data.session?.access_token;
+    if (!refreshed.error && refreshedToken) result = await invokeWithToken(refreshedToken);
+  }
   if (result.error?.context instanceof Response) {
     const payload = await result.error.context.clone().json().catch(() => null);
     const safeMessage = typeof payload?.error === "string" ? payload.error : "";
