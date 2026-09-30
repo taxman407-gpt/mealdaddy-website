@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.54.0";
 
-const model = "gpt-5.6-luna";
+// Use a public Responses API model. Codex product model names are not API model IDs.
+const model = "gpt-5-mini";
 const monthlyBudgetMicros = 3_000_000;
 const corsHeaders = {
   "access-control-allow-origin": "*",
@@ -322,8 +323,9 @@ Deno.serve(async (request) => {
   const requestBody: Record<string, unknown> = {
       model,
       store: false,
-      reasoning: { effort: "none" },
-      max_output_tokens: mode === "restaurant" ? 1200 : 450,
+      reasoning: { effort: "minimal" },
+      // Restaurant Mode must have enough room to finish all three structured choices.
+      max_output_tokens: mode === "restaurant" ? 2400 : 700,
       input: [
         {
           role: "system",
@@ -383,7 +385,13 @@ Deno.serve(async (request) => {
     requested_user_id: user.id
   });
 
-  let openAiResponse = await callOpenAi(requestBody);
+  let openAiResponse: Response;
+  try {
+    openAiResponse = await callOpenAi(requestBody);
+  } catch {
+    await releaseReservation();
+    return json({ error: "Meal Daddy could not reach its meal-guidance service. Please try again." }, 503);
+  }
   if (mode === "restaurant" && [400, 403].includes(openAiResponse.status)) {
     const fallbackBody = { ...requestBody };
     delete fallbackBody.tools;
@@ -399,7 +407,12 @@ Deno.serve(async (request) => {
       },
       { role: "user", content: [{ type: "input_text", text: userText }] }
     ];
-    openAiResponse = await callOpenAi(fallbackBody);
+    try {
+      openAiResponse = await callOpenAi(fallbackBody);
+    } catch {
+      await releaseReservation();
+      return json({ error: "Meal Daddy could not reach its meal-guidance service. Please try again." }, 503);
+    }
   }
 
   if (!openAiResponse.ok) {

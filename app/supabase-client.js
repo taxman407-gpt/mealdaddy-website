@@ -35,11 +35,17 @@ export async function invokeAuthenticated(functionName, options = {}) {
   if (!session?.access_token) {
     return { data: null, error: new Error("Your secure session expired. Sign in again, then retry.") };
   }
-  return supabase.functions.invoke(functionName, {
+  const result = await supabase.functions.invoke(functionName, {
     ...options,
     headers: {
       ...(options.headers || {}),
       Authorization: `Bearer ${session.access_token}`
     }
   });
+  if (result.error?.context instanceof Response) {
+    const payload = await result.error.context.clone().json().catch(() => null);
+    const safeMessage = typeof payload?.error === "string" ? payload.error : "";
+    if (safeMessage) return { data: payload, error: new Error(safeMessage) };
+  }
+  return result;
 }

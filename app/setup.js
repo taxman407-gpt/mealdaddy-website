@@ -1,4 +1,4 @@
-import { supabase, requireSession } from "./supabase-client.js?v=20260929-1";
+import { supabase, requireSession } from "./supabase-client.js?v=20260930-2";
 import { normalizeUnitSystem, suggestedStartingTargets, weightToKg, weightUnit } from "./health-metrics.js?v=20260929-1";
 import { includePrimaryEatingStyle, resolvePrimaryEatingStyle } from "./profile-preferences.js?v=20260929-1";
 

@@ -1,4 +1,4 @@
-import { invokeAuthenticated, supabase, requireSession } from "./supabase-client.js?v=20260813-4";
+import { invokeAuthenticated, supabase, requireSession } from "./supabase-client.js?v=20260930-2";
 import { buildProteinGuidance } from "./feedback-guidance.js?v=20260813-4";
 import { entryDateDisplayLabel, localDateValue as localEntryDateValue, occurredAtForEntryDate, quickDateOptions } from "./entry-date.js?v=20260813-4";
 import { estimatedAdultBmi, formatWeight, formatWeightChange, normalizeUnitSystem, parseHeightCm, shouldEnableWeightTracking, weightFromKg, weightToKg } from "./health-metrics.js?v=20260813-4";
