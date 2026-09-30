@@ -796,6 +796,21 @@ html:has(.v1-live) { height: auto; min-height: 100%; overflow-y: auto !important
 .v1-live .weight-chart { display: block; width: 100%; height: 82px; }
 .v1-live .weight-chart polyline { stroke: var(--v1-lime); stroke-width: 4; }
 .v1-live .weight-chart circle { fill: var(--v1-lime); stroke: #071711; }
+.v1-plan-choices { display: grid; gap: 12px; margin-top: 18px; }
+.v1-plan-choices > button {
+  display: grid; grid-template-columns: 58px 1fr; gap: 14px; align-items: center;
+  width: 100%; min-height: 82px; border: 1px solid var(--v1-line); border-radius: 18px;
+  padding: 12px 14px; color: white; background: var(--v1-panel); text-align: left;
+}
+.v1-plan-choices > button > span:first-child {
+  display: grid; place-items: center; width: 50px; height: 50px; border-radius: 14px;
+  color: #071711; background: var(--v1-lime); font-weight: 850;
+}
+.v1-plan-choices strong, .v1-plan-choices small { display: block; }
+.v1-plan-choices small { margin-top: 4px; color: var(--v1-muted); }
+.ledger-date-filter { display: grid; gap: 6px; margin: 12px 0; color: var(--v1-muted); font-size: .75rem; font-weight: 750; }
+.ledger-date-filter input { min-height: 44px; border: 1px solid var(--v1-line); border-radius: 11px; padding: 0 11px; color: white; background: var(--v1-bg); }
+.v1-live[data-app-view="today"] .ledger-date-filter { display: none; }
 .v1-live .button-primary,
 .v1-live .log-button,
 .v1-live .coach-buttons button:first-child { background: var(--v1-lime); color: #071711; }

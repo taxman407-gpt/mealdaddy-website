@@ -28,10 +28,16 @@ function showAppView(nextView, options = {}) {
   });
   if (options.focus !== false) document.querySelector("main")?.scrollTo({ top: 0, behavior: "instant" });
   try { sessionStorage.setItem("mealdaddy-active-view", view); } catch {}
+  if (view === "entries" && typeof renderLedger === "function") renderLedger();
 }
 
 document.querySelectorAll("[data-app-nav]").forEach((control) => {
-  control.addEventListener("click", () => showAppView(control.dataset.appNav));
+  control.addEventListener("click", () => {
+    showAppView(control.dataset.appNav);
+    if (control.classList.contains("v1-feedback-link")) {
+      requestAnimationFrame(() => document.querySelector("#feedback-form")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    }
+  });
 });
 
 document.querySelectorAll("[data-more-target]").forEach((control) => {
@@ -52,6 +58,12 @@ document.querySelectorAll("[data-more-target]").forEach((control) => {
 // Opening MealDaddy always favors the fastest path for recording a meal.
 showAppView("log", { focus: false });
 
+document.querySelector("#recreate-favorite")?.addEventListener("click", () => {
+  showAppView("log");
+  document.querySelector("#saved-foods")?.setAttribute("open", "");
+  document.querySelector("#saved-foods")?.scrollIntoView({ behavior: "smooth", block: "start" });
+});
+
 const user = session.user;
 const allowedPlans = new Set(["core"]);
 const mealLabels = new Set(["Breakfast", "Brunch", "Lunch", "Dinner", "Snack"]);
@@ -59,7 +71,20 @@ const entryCategories = [...mealLabels, "Hydration"];
 const query = new URLSearchParams(location.search);
 let pendingPlan = allowedPlans.has(query.get("plan")) ? query.get("plan") : null;
 const checkoutResult = query.get("checkout");
-const state = { preferredName: "", diet: "", tone: "supportive", provider: "best_value", entries: [], weightEntries: [], photo: null, coachPhoto: null, restaurantLocation: null, restaurantPlan: null, coachMode: "dinner", membershipPlan: null, membershipStatus: null, membershipAccess: null, calorieGoal: 2050, proteinGoal: 130, netCarbGoal: 0, fiberGoal: 30, waterGoal: 90, unitSystem: "us", heightCm: null, age: null, trackBmi: false, goalWeightKg: null, eatingStyles: [], goals: [], trackingDetail: "Moderate", uses: [], reminders: [], favoriteProteins: [], foodsLoved: "", foodsDisliked: "", foodsToAvoid: "", biggestChallenge: "", suggestedProteinTarget: 40, leftoverEntryId: null, leftoverPhoto: null, leftoverAnalysis: null, leftoverReturnFocus: null, savedFoodsApi: null, pendingQuickLog: null, skipSavedFoodMatch: false, pendingLabelCandidate: null, pendingLabelPhoto: null, estimatingEntryIds: new Set(), estimateFailures: new Map(), currentTotals: { calories: 0, protein: 0, carbs: 0, netCarbs: 0, fat: 0, fiber: 0, water: 0 } };
+const state = { preferredName: "", diet: "", tone: "supportive", provider: "best_value", entries: [], recentEntries: [], ledgerReviewDate: localEntryDateValue(), weightEntries: [], photo: null, coachPhoto: null, restaurantLocation: null, restaurantPlan: null, coachMode: "dinner", membershipPlan: null, membershipStatus: null, membershipAccess: null, calorieGoal: 2050, proteinGoal: 130, netCarbGoal: 0, fiberGoal: 30, waterGoal: 90, unitSystem: "us", heightCm: null, age: null, trackBmi: false, goalWeightKg: null, eatingStyles: [], goals: [], trackingDetail: "Moderate", uses: [], reminders: [], favoriteProteins: [], foodsLoved: "", foodsDisliked: "", foodsToAvoid: "", biggestChallenge: "", suggestedProteinTarget: 40, leftoverEntryId: null, leftoverPhoto: null, leftoverAnalysis: null, leftoverReturnFocus: null, savedFoodsApi: null, pendingQuickLog: null, skipSavedFoodMatch: false, pendingLabelCandidate: null, pendingLabelPhoto: null, estimatingEntryIds: new Set(), estimateFailures: new Map(), currentTotals: { calories: 0, protein: 0, carbs: 0, netCarbs: 0, fat: 0, fiber: 0, water: 0 } };
+const entryById = (entryId) => state.recentEntries.find((item) => item.id === entryId) || state.entries.find((item) => item.id === entryId);
+const ledgerReviewDate = $("#ledger-review-date");
+if (ledgerReviewDate) {
+  const earliest = new Date();
+  earliest.setDate(earliest.getDate() - 6);
+  ledgerReviewDate.min = localEntryDateValue(earliest);
+  ledgerReviewDate.max = localEntryDateValue();
+  ledgerReviewDate.value = state.ledgerReviewDate;
+  ledgerReviewDate.addEventListener("change", () => {
+    state.ledgerReviewDate = ledgerReviewDate.value || localEntryDateValue();
+    renderLedger();
+  });
+}
 const installDismissedKey = "mealdaddy-install-tip-dismissed";
 let deferredInstallPrompt = null;
 let latestReport = null;
@@ -277,7 +302,7 @@ async function handleEstimateFailure(error, subject, action = "saved", entryId =
 }
 
 async function retryEstimateEntry(entryId, { announceStart = true, announceSuccess = true } = {}) {
-  const entry = state.entries.find((item) => item.id === entryId);
+  const entry = entryById(entryId);
   if (!entry || entry.status !== "pending_estimate" || state.estimatingEntryIds.has(entryId)) return false;
   const subject = entry.kind === "hydration" ? "Drink" : "Meal";
   state.estimatingEntryIds.add(entryId);
@@ -306,7 +331,7 @@ async function retryEstimateEntry(entryId, { announceStart = true, announceSucce
 }
 
 async function addMealImpactDetails(entryId, { announceStart = true, announceSuccess = true } = {}) {
-  const entry = state.entries.find((item) => item.id === entryId);
+  const entry = entryById(entryId);
   if (!entry || entry.kind !== "meal" || entry.status !== "estimated" || state.estimatingEntryIds.has(entryId)) return false;
   if (!hasCurrentCoreMembership()) {
     showEstimateMembershipPrompt("Meal", "saved");
@@ -651,10 +676,13 @@ async function loadMembership() {
 async function loadLedger() {
   const start = new Date();
   start.setHours(0, 0, 0, 0);
+  start.setDate(start.getDate() - 6);
   const { data, error } = await supabase.from("ledger_entries").select("id,kind,occurred_at,description,meal_label,nutrition_estimate,status").gte("occurred_at", start.toISOString()).order("occurred_at", { ascending: false });
   if (error) throw error;
-  state.entries = data || [];
-  const pendingIds = new Set(state.entries.filter((entry) => entry.status === "pending_estimate").map((entry) => entry.id));
+  state.recentEntries = data || [];
+  const today = localEntryDateValue();
+  state.entries = state.recentEntries.filter((entry) => localEntryDateValue(new Date(entry.occurred_at)) === today);
+  const pendingIds = new Set(state.recentEntries.filter((entry) => entry.status === "pending_estimate").map((entry) => entry.id));
   for (const entryId of state.estimateFailures.keys()) {
     if (!pendingIds.has(entryId)) state.estimateFailures.delete(entryId);
   }
@@ -769,11 +797,20 @@ export function estimateTrustDetails(entry) {
 }
 
 function renderLedger() {
-  if (!state.entries.length) {
+  const reviewingHistory = document.body.dataset.appView === "entries";
+  const visibleEntries = reviewingHistory
+    ? state.recentEntries.filter((entry) => localEntryDateValue(new Date(entry.occurred_at)) === state.ledgerReviewDate)
+    : state.entries;
+  if ($("#ledger-date-title")) {
+    $("#ledger-date-title").textContent = state.ledgerReviewDate === localEntryDateValue()
+      ? "Today's entries"
+      : new Intl.DateTimeFormat(undefined, { weekday: "long", month: "short", day: "numeric" }).format(new Date(`${state.ledgerReviewDate}T12:00:00`));
+  }
+  if (!visibleEntries.length) {
     $("#ledger-list").innerHTML = '<li class="ledger-empty">Nothing logged yet. Your first entry takes only a few seconds.</li>';
     return;
   }
-  $("#ledger-list").innerHTML = state.entries.map((entry) => {
+  $("#ledger-list").innerHTML = visibleEntries.map((entry) => {
     const estimate = entry.nutrition_estimate || {};
     const mealHydration = Number(estimate.hydration_ounces || 0);
     const meta = entry.kind === "hydration"
@@ -1986,7 +2023,7 @@ $("#leftover-review-back").addEventListener("click", () => {
 
 $("#leftover-analysis-form").addEventListener("submit", async (event) => {
   event.preventDefault();
-  const entry = state.entries.find((item) => item.id === state.leftoverEntryId);
+  const entry = entryById(state.leftoverEntryId);
   const file = state.leftoverPhoto;
   if (!entry || !file) {
     $("#leftover-analysis-status").textContent = "Take or choose an after-meal photo first.";
@@ -2038,7 +2075,7 @@ $("#leftover-analysis-form").addEventListener("submit", async (event) => {
 
 $("#leftover-review-form").addEventListener("submit", async (event) => {
   event.preventDefault();
-  const entry = state.entries.find((item) => item.id === state.leftoverEntryId);
+  const entry = entryById(state.leftoverEntryId);
   const analysis = state.leftoverAnalysis;
   if (!entry || !analysis) return;
   const overallPercent = clampPercent($("#leftover-overall-percent").value);
@@ -2122,7 +2159,7 @@ $("#ledger-list").addEventListener("click", async (event) => {
     return;
   }
   if (favoriteButton) {
-    const entry = state.entries.find((item) => item.id === favoriteButton.dataset.saveEntryFavorite);
+    const entry = entryById(favoriteButton.dataset.saveEntryFavorite);
     if (!entry || !state.savedFoodsApi) return;
     const estimate = entry.nutrition_estimate || {};
     const favoriteStatus = state.savedFoodsApi.favoriteStatus(entry);
@@ -2163,11 +2200,11 @@ $("#ledger-list").addEventListener("click", async (event) => {
     return;
   }
   if (adjustButton) {
-    const entry = state.entries.find((item) => item.id === adjustButton.dataset.adjustLeftovers);
+    const entry = entryById(adjustButton.dataset.adjustLeftovers);
     if (entry) openLeftoverAdjustment(entry, adjustButton);
   }
   if (undoButton) {
-    const entry = state.entries.find((item) => item.id === undoButton.dataset.undoLeftover);
+    const entry = entryById(undoButton.dataset.undoLeftover);
     const original = entry?.nutrition_estimate?.leftover_adjustment?.original_estimate;
     if (!entry || !original || !window.confirm("Undo the after-meal portion correction and restore the original estimate?")) return;
     undoButton.disabled = true;
@@ -2193,7 +2230,7 @@ $("#ledger-list").addEventListener("click", async (event) => {
     $(`[data-edit-entry="${cancelButton.dataset.cancelEdit}"]`).hidden = false;
   }
   if (deleteButton) {
-    const entry = state.entries.find((item) => item.id === deleteButton.dataset.deleteEntry);
+    const entry = entryById(deleteButton.dataset.deleteEntry);
     if (!entry || !window.confirm(`Delete “${entry.description}”? This removes it from your history and cannot be undone.`)) return;
     deleteButton.disabled = true;
     deleteButton.textContent = "Deleting...";
@@ -2228,7 +2265,7 @@ $("#ledger-list").addEventListener("submit", async (event) => {
   const form = event.target.closest("[data-edit-form]");
   if (!form) return;
   event.preventDefault();
-  const entry = state.entries.find((item) => item.id === form.dataset.editForm);
+  const entry = entryById(form.dataset.editForm);
   if (!entry) return;
   const formData = new FormData(form);
   const description = String(formData.get("description") || "").trim();

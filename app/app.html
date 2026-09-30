@@ -64,8 +64,12 @@
       <p class="estimate-note"><span aria-hidden="true">≈</span> Nutrition totals are estimates. Each entry now explains its source, confidence, and main uncertainty.</p>
     </section>
     <section class="coach-launcher" aria-label="Meal planning tools">
-      <div class="coach-launcher-copy"><p class="eyebrow">2 · What should I do next?</p><h2>Get help with your next choice.</h2></div>
-      <div class="coach-buttons"><button id="plan-dinner" type="button" aria-controls="coach-action-form">Plan Your Next Meal</button><button id="restaurant-mode" type="button" aria-controls="coach-action-form">Restaurant Mode</button></div>
+      <div class="coach-launcher-copy"><p class="eyebrow">Plan</p><h2>What should I eat next?</h2></div>
+      <div class="v1-plan-choices">
+        <button id="restaurant-mode" type="button" aria-controls="coach-action-form"><span>R</span><span><strong>Restaurant Mode</strong><small>Current menu choices, nutrition, and substitutions</small></span></button>
+        <button id="plan-dinner" type="button" aria-controls="coach-action-form"><span>K</span><span><strong>Plan from my kitchen</strong><small>Use what I have and today’s needs</small></span></button>
+        <button id="recreate-favorite" type="button"><span aria-hidden="true">🍎</span><span><strong>Recreate a favorite</strong><small>Make a restaurant-inspired recipe or variation</small></span></button>
+      </div>
       <form id="coach-action-form" class="coach-action-form" hidden>
         <label><strong id="coach-action-title">Plan Your Next Meal</strong><span id="coach-action-prompt">Describe what you have, or add a fridge or pantry photo. Include your available time or what sounds good.</span><textarea id="coach-action-context" maxlength="1000" rows="3"></textarea></label>
         <div id="coach-photo-field" class="coach-photo-field">
@@ -196,7 +200,7 @@
       </article>
     </section>
     <section class="dashboard-grid">
-      <article class="ledger-card"><div class="section-title"><div><p class="eyebrow">Daily ledger</p><h2>Today's entries</h2></div><button class="text-button" id="refresh-ledger" type="button">Refresh</button></div><ul id="ledger-list" class="ledger-list"></ul></article>
+      <article class="ledger-card"><div class="section-title"><div><p class="eyebrow">Entries · Last 7 days</p><h2 id="ledger-date-title">Today's entries</h2></div><button class="text-button" id="refresh-ledger" type="button">Refresh</button></div><label class="ledger-date-filter">Choose a day<input id="ledger-review-date" type="date" /></label><ul id="ledger-list" class="ledger-list"></ul></article>
       <aside class="coach-card" aria-live="polite">
         <span class="coach-label">Meal Daddy feedback</span>
         <h2 id="coach-feedback-title">Ready when you are.</h2>
@@ -217,9 +221,9 @@
       <div class="reports-heading">
         <div><p class="eyebrow">Your patterns over time</p><h2 id="reports-title">Reports</h2><p>Choose a period to calculate nutrition, hydration, and weight changes from your protected records.</p></div>
         <div class="report-periods" role="group" aria-label="Report period">
-          <button type="button" data-report-period="weekly">Weekly</button>
-          <button type="button" data-report-period="monthly">Monthly</button>
-          <button type="button" data-report-period="annual">Annual</button>
+          <button type="button" data-report-period="weekly">7 Days</button>
+          <button type="button" data-report-period="monthly">Month</button>
+          <button type="button" data-report-period="annual">Year</button>
         </div>
       </div>
       <p class="report-privacy">Reports are calculated in this browser without an AI request. Nutrition averages exclude blank days, today, and days with pending estimates; Inflammation Score™ averages include only meals that have been scored. Downloaded or printed copies stay on the device you choose.</p>
