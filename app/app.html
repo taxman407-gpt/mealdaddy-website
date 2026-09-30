@@ -71,6 +71,7 @@
         <button id="recreate-favorite" type="button"><span aria-hidden="true">🍎</span><span><strong>Recreate a favorite</strong><small>Make a restaurant-inspired recipe or variation</small></span></button>
       </div>
       <form id="coach-action-form" class="coach-action-form" hidden>
+        <button class="v1-subview-back" type="button" data-subview-back="plan">← Back to Plan</button>
         <label><strong id="coach-action-title">Plan Your Next Meal</strong><span id="coach-action-prompt">Describe what you have, or add a fridge or pantry photo. Include your available time or what sounds good.</span><textarea id="coach-action-context" maxlength="1000" rows="3"></textarea></label>
         <div id="coach-photo-field" class="coach-photo-field">
           <p><strong>Optional fridge or pantry photo</strong><span>Show Meal Daddy what ingredients are available.</span></p>
@@ -129,6 +130,7 @@
       <p class="privacy-line">Include drinks in the same description as your meal—Meal Daddy will count both their nutrition and hydration. Use Hydration only for standalone drinks. Entries are stored in your protected account.</p>
       <p class="privacy-line">Your selected meal label and date always win. Future dates are not allowed. Meal photos stay private with the entry for after-meal correction and are removed when the entry or account is deleted.</p>
     </section>
+    <button class="v1-subview-back v1-foods-back" type="button" data-subview-back="log">← Back to Log</button>
     <details class="saved-foods-card" id="saved-foods" aria-labelledby="saved-foods-title">
       <summary class="saved-foods-summary">
         <div><p class="eyebrow">Scan once. Log fast.</p><h2 id="saved-foods-title">My Foods</h2><p>Saved labels, Favorite Meals, and restaurant orders.</p></div>
@@ -218,6 +220,7 @@
       </div>
     </section>
     <section class="reports-card" id="reports" aria-labelledby="reports-title">
+      <button class="v1-subview-back" type="button" data-subview-back="more">← Back to More</button>
       <div class="reports-heading">
         <div><p class="eyebrow">Your patterns over time</p><h2 id="reports-title">Reports</h2><p>Choose a period to calculate nutrition, hydration, and weight changes from your protected records.</p></div>
         <div class="report-periods" role="group" aria-label="Report period">
@@ -235,6 +238,7 @@
       <p class="report-status" id="report-status" role="status" aria-live="polite">Loading your weekly report...</p>
     </section>
     <section class="rating-card" aria-labelledby="rating-title">
+      <button class="v1-subview-back" type="button" data-subview-back="more">← Back to More</button>
       <div>
         <p class="eyebrow">Help Meal Daddy improve</p>
         <h2 id="rating-title">How is your experience?</h2>

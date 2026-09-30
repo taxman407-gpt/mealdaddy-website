@@ -6,6 +6,7 @@ import { initializeSavedFoods } from "./saved-foods.js?v=20260813-4";
 import { normalizeRestaurantPlan, restaurantChoiceLetters, restaurantFitLabels, restaurantOptionToLedgerEntry, safeRestaurantSourceUrl } from "./restaurant-plan.js?v=20260813-4";
 import { estimateInflammationScore, inflammationBand, inflammationImpact, summarizeInflammationEntries, summarizeInflammationReport, weightedInflammationScore } from "./inflammation-impact.js?v=20260813-4";
 import { resolvePrimaryEatingStyle } from "./profile-preferences.js?v=20260929-1";
+import { metricProgressSegments } from "./metric-progress.js?v=20260930-1";
 
 document.querySelector("#focus-quick-entry")?.addEventListener("click", () => {
   document.querySelector("#quick-entry")?.focus();
@@ -21,21 +22,28 @@ const appViews = new Set(["today", "log", "entries", "plan", "more"]);
 function showAppView(nextView, options = {}) {
   const view = appViews.has(nextView) ? nextView : "log";
   document.body.dataset.appView = view;
+  document.body.dataset.appSubview = "";
   document.querySelectorAll("[data-app-nav]").forEach((control) => {
     const active = control.dataset.appNav === view;
     control.classList.toggle("is-active", active);
     if (control.matches(".v1-top-tabs button")) control.setAttribute("aria-current", active ? "page" : "false");
   });
-  if (options.focus !== false) document.querySelector("main")?.scrollTo({ top: 0, behavior: "instant" });
+  if (options.focus !== false) window.scrollTo({ top: 0, behavior: "instant" });
   try { sessionStorage.setItem("mealdaddy-active-view", view); } catch {}
   if (view === "entries" && typeof renderLedger === "function") renderLedger();
+}
+
+function showAppSubview(view, subview) {
+  showAppView(view, { focus: false });
+  document.body.dataset.appSubview = subview;
+  window.scrollTo({ top: 0, behavior: "instant" });
 }
 
 document.querySelectorAll("[data-app-nav]").forEach((control) => {
   control.addEventListener("click", () => {
     showAppView(control.dataset.appNav);
     if (control.classList.contains("v1-feedback-link")) {
-      requestAnimationFrame(() => document.querySelector("#feedback-form")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+      showAppSubview("more", "feedback");
     }
   });
 });
@@ -44,11 +52,10 @@ document.querySelectorAll("[data-more-target]").forEach((control) => {
   control.addEventListener("click", () => {
     const target = control.dataset.moreTarget;
     if (target === "foods") {
-      showAppView("log");
+      showAppSubview("log", "foods");
       document.querySelector("#saved-foods")?.setAttribute("open", "");
-      document.querySelector("#saved-foods")?.scrollIntoView({ behavior: "smooth", block: "start" });
     } else if (target === "reports") {
-      document.querySelector("#reports")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      showAppSubview("more", "reports");
     } else if (target === "weight") {
       document.querySelector("#open-weight-panel")?.click();
     }
@@ -59,9 +66,19 @@ document.querySelectorAll("[data-more-target]").forEach((control) => {
 showAppView("log", { focus: false });
 
 document.querySelector("#recreate-favorite")?.addEventListener("click", () => {
-  showAppView("log");
+  showAppSubview("log", "foods");
   document.querySelector("#saved-foods")?.setAttribute("open", "");
-  document.querySelector("#saved-foods")?.scrollIntoView({ behavior: "smooth", block: "start" });
+});
+
+document.querySelectorAll("[data-subview-back]").forEach((button) => {
+  button.addEventListener("click", () => {
+    if (button.dataset.subviewBack === "plan") {
+      document.querySelector("#coach-action-form").hidden = true;
+      clearCoachPhoto();
+      clearRestaurantLocation();
+    }
+    showAppView(button.dataset.subviewBack);
+  });
 });
 
 const user = session.user;
@@ -859,6 +876,26 @@ function renderLedger() {
   }).join("");
 }
 
+function updateMetricBar(progressId, value) {
+  const progress = $(progressId);
+  if (!progress) return;
+  const goal = Math.max(1, Number(progress.max || 1));
+  let track = progress.nextElementSibling;
+  if (!track?.classList.contains("v1-over-track")) {
+    track = document.createElement("span");
+    track.className = "v1-over-track";
+    track.innerHTML = '<i class="v1-goal-fill"></i><i class="v1-excess-fill"></i>';
+    progress.insertAdjacentElement("afterend", track);
+  }
+  const goalFill = track.querySelector(".v1-goal-fill");
+  const excessFill = track.querySelector(".v1-excess-fill");
+  const segments = metricProgressSegments(value, goal);
+  goalFill.style.width = `${segments.goalWidth}%`;
+  excessFill.style.width = `${segments.excessWidth}%`;
+  track.classList.toggle("is-over", segments.over);
+  track.setAttribute("aria-label", segments.over ? `${Math.round(value - goal)} over target` : `${Math.round((value / goal) * 100)} percent of target`);
+}
+
 function renderTotals() {
   const totals = state.entries.reduce((sum, entry) => {
     const n = entry.nutrition_estimate || {};
@@ -887,6 +924,13 @@ function renderTotals() {
   $("#fat-progress").value = totals.fat;
   $("#fiber-progress").value = totals.fiber;
   $("#water-progress").value = totals.water;
+  updateMetricBar("#energy-progress", totals.calories);
+  updateMetricBar("#protein-progress", totals.protein);
+  updateMetricBar("#carbs-progress", totals.carbs);
+  updateMetricBar("#net-carbs-progress", totals.netCarbs);
+  updateMetricBar("#fat-progress", totals.fat);
+  updateMetricBar("#fiber-progress", totals.fiber);
+  updateMetricBar("#water-progress", totals.water);
   renderCoachFeedback(totals);
 }
 
@@ -1751,6 +1795,7 @@ $("#coach-photo-input").addEventListener("change", (event) => {
 });
 
 function openCoachAction(mode) {
+  showAppSubview("plan", "tool");
   state.coachMode = mode;
   state.restaurantPlan = null;
   const restaurantMode = mode === "restaurant";
@@ -1808,13 +1853,13 @@ $("#personalize-feedback").addEventListener("click", () => {
     ? `My saved daily ceiling is ${state.netCarbGoal}g net carbs. I have already logged about ${Math.round(state.currentTotals.netCarbs)}g today, leaving about ${Math.max(0, Math.round(state.netCarbGoal - state.currentTotals.netCarbs))}g. Treat that as a hard limit whenever possible.`
     : "";
   $("#coach-action-context").value = `${carbConstraint} Help me choose a practical next meal or snack with about ${state.suggestedProteinTarget}g protein. Start with my saved favorite proteins, foods I love, foods I dislike, foods I must avoid, eating style, and biggest challenge. Give me two or three concrete choices with portions. Estimate net carbs for each choice and show my projected daily net carbs when I have a saved ceiling. Do not recommend an option that would exceed it when a lower-carb option exists. If my saved profile is not enough, ask me one short question instead of making a generic recommendation.`.trim();
-  $("#coach-action-form").scrollIntoView({ behavior: "smooth", block: "center" });
   $("#coach-action-context").focus();
 });
 $("#close-coach-action").addEventListener("click", () => {
   $("#coach-action-form").hidden = true;
   clearCoachPhoto();
   clearRestaurantLocation();
+  showAppView("plan");
 });
 
 $("#coach-action-result").addEventListener("click", async (event) => {
