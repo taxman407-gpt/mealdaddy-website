@@ -17,6 +17,41 @@ const $$ = (selector) => [...document.querySelectorAll(selector)];
 const session = await requireSession();
 if (!session) throw new Error("Authentication required");
 
+const appViews = new Set(["today", "log", "entries", "plan", "more"]);
+function showAppView(nextView, options = {}) {
+  const view = appViews.has(nextView) ? nextView : "log";
+  document.body.dataset.appView = view;
+  document.querySelectorAll("[data-app-nav]").forEach((control) => {
+    const active = control.dataset.appNav === view;
+    control.classList.toggle("is-active", active);
+    if (control.matches(".v1-top-tabs button")) control.setAttribute("aria-current", active ? "page" : "false");
+  });
+  if (options.focus !== false) document.querySelector("main")?.scrollTo({ top: 0, behavior: "instant" });
+  try { sessionStorage.setItem("mealdaddy-active-view", view); } catch {}
+}
+
+document.querySelectorAll("[data-app-nav]").forEach((control) => {
+  control.addEventListener("click", () => showAppView(control.dataset.appNav));
+});
+
+document.querySelectorAll("[data-more-target]").forEach((control) => {
+  control.addEventListener("click", () => {
+    const target = control.dataset.moreTarget;
+    if (target === "foods") {
+      showAppView("log");
+      document.querySelector("#saved-foods")?.setAttribute("open", "");
+      document.querySelector("#saved-foods")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    } else if (target === "reports") {
+      document.querySelector("#reports")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    } else if (target === "weight") {
+      document.querySelector("#open-weight-panel")?.click();
+    }
+  });
+});
+
+// Opening MealDaddy always favors the fastest path for recording a meal.
+showAppView("log", { focus: false });
+
 const user = session.user;
 const allowedPlans = new Set(["core"]);
 const mealLabels = new Set(["Breakfast", "Brunch", "Lunch", "Dinner", "Snack"]);

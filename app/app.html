@@ -7,13 +7,20 @@
   <meta name="robots" content="noindex" />
   <title>Today - MealDaddy</title>
   <link rel="manifest" href="./manifest.webmanifest" />
-  <link rel="stylesheet" href="./styles.css?v=20260929-3" />
+  <link rel="stylesheet" href="./styles.css?v=20260930-1" />
 </head>
-<body class="app-page auth-loading">
+<body class="app-page auth-loading v1-live" data-app-view="log">
   <header class="app-header">
     <a class="brand" href="./index.html"><span class="brand-mark">M</span><span>MealDaddy</span></a>
     <div class="account-actions"><span id="account-email"></span><button class="text-button" id="sign-out" type="button">Sign out</button><a class="avatar-button" href="./account.html" aria-label="Open Account and Privacy">MD</a></div>
   </header>
+  <nav class="v1-top-tabs" aria-label="Main sections">
+    <button type="button" data-app-nav="today">Today</button>
+    <button type="button" data-app-nav="log" class="is-active">Log</button>
+    <button type="button" data-app-nav="entries">Entries</button>
+    <button type="button" data-app-nav="plan">Plan</button>
+    <button type="button" data-app-nav="more">More</button>
+  </nav>
   <main class="dashboard">
     <section class="today-heading"><div><p class="eyebrow" id="today-date"></p><h1 id="greeting">Welcome back.</h1><p id="goal-summary">Small choices count. Here's where today stands.</p></div><button class="diet-badge" id="profile-diet" type="button" aria-label="Edit diet and coaching preferences">Set diet</button></section>
     <details class="tips-dropdown">
@@ -196,6 +203,15 @@
         <p class="coach-suggestion"><strong>Suggestion</strong><span id="coach-feedback-suggestion">Start with your next meal or drink. Close enough is good enough.</span><button id="personalize-feedback" type="button" hidden>Make this specific</button></p>
       </aside>
     </section>
+    <section class="v1-more-launchers" aria-labelledby="more-tools-title">
+      <div><p class="eyebrow">More</p><h1 id="more-tools-title">Everything else</h1><p>Lower-frequency tools stay easy to reach without crowding meal entry.</p></div>
+      <div class="v1-launcher-list">
+        <button type="button" data-more-target="foods"><span aria-hidden="true">🍎</span><span><strong>My Saved Favorites</strong><small>My foods and restaurant meals</small></span></button>
+        <button type="button" data-more-target="reports"><span aria-hidden="true">R</span><span><strong>Reports</strong><small>7 days, month, and year averages</small></span></button>
+        <button type="button" data-more-target="weight"><span aria-hidden="true">W</span><span><strong>Weight &amp; progress</strong><small>Measurements and trend</small></span></button>
+        <a href="./account.html"><span aria-hidden="true">A</span><span><strong>Profile &amp; account</strong><small>Preferences, privacy, and account choices</small></span></a>
+      </div>
+    </section>
     <section class="reports-card" id="reports" aria-labelledby="reports-title">
       <div class="reports-heading">
         <div><p class="eyebrow">Your patterns over time</p><h2 id="reports-title">Reports</h2><p>Choose a period to calculate nutrition, hydration, and weight changes from your protected records.</p></div>
@@ -237,7 +253,7 @@
         <div class="feedback-actions"><button class="button button-primary" type="submit">Save feedback</button><span id="feedback-status" role="status" aria-live="polite"></span></div>
       </form>
     </section>
-    <nav class="bottom-nav" aria-label="App navigation"><a class="is-current" href="./app.html">Today</a><a href="#plan">Plan</a><button id="focus-quick-entry" type="button">+</button><a href="#reports">Reports</a><a href="./account.html">Account</a></nav>
+    <button class="v1-feedback-link" type="button" data-app-nav="more">Feedback = Improvement<br><span>Please update your rating and comments.</span></button>
   </main>
   <section class="saved-food-editor" id="saved-food-editor" role="dialog" aria-modal="true" aria-labelledby="saved-food-editor-title" hidden>
     <button class="saved-food-editor-backdrop" id="saved-food-editor-backdrop" type="button" aria-label="Close My Foods editor"></button>
@@ -357,7 +373,7 @@
     <div class="onboarding-panel"><div class="step-indicator"><span class="is-active"></span><span></span><span></span></div><p class="eyebrow">A few basics first</p><h1 id="onboarding-title">How do you like to eat?</h1><p>Choose the closest fit. You can adjust individual preferences anytime.</p><div class="choice-grid" id="diet-options"></div><label class="select-field">Coaching tone<select id="tone-options"><option value="supportive">Supportive</option><option value="direct">Direct</option><option value="data_focused">Data-focused</option><option value="playful">Playful</option></select></label><button class="button button-primary full-button" id="continue-onboarding" type="button" disabled>Save my starting plan</button><p class="privacy-line">These preferences are protected by row-level security and can only be accessed by your account.</p></div>
   </section>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="./app.js?v=20260929-2" type="module"></script>
-  <script src="./register-sw.js?v=20260929-2"></script>
+  <script src="./app.js?v=20260930-1" type="module"></script>
+  <script src="./register-sw.js?v=20260930-1"></script>
 </body>
 </html>
