@@ -1973,7 +1973,7 @@ $("#use-restaurant-location").addEventListener("click", () => {
   const button = $("#use-restaurant-location");
   const status = $("#restaurant-location-status");
   if (!navigator.geolocation) {
-    status.textContent = "Location is not supported in this browser. Enter a city or restaurant in the box instead.";
+    status.textContent = "Location is not supported in this browser. Begin the description with your ZIP or ZIP+4, then the restaurant or request, and retry.";
     return;
   }
   button.disabled = true;
@@ -1997,11 +1997,11 @@ $("#use-restaurant-location").addEventListener("click", () => {
     },
     (error) => {
       const messages = {
-        1: "Location was not shared. You can enter a city or restaurant in the box instead.",
-        2: "Your current area could not be determined. Try again or enter a city manually.",
-        3: "Location took too long. Try again or enter a city manually."
+        1: "Location was not shared by the browser. Begin the description with your ZIP or ZIP+4, then the restaurant or request, and retry.",
+        2: "Your current area could not be determined. Begin the description with your ZIP or ZIP+4 and retry.",
+        3: "Location took too long. Begin the description with your ZIP or ZIP+4 and retry."
       };
-      status.textContent = messages[error.code] || "Location could not be used. Enter a city manually.";
+      status.textContent = messages[error.code] || "Location could not be used. Begin the description with your ZIP or ZIP+4 and retry.";
       button.disabled = false;
     },
     { enableHighAccuracy: false, timeout: 10_000, maximumAge: 300_000 }
@@ -2031,10 +2031,10 @@ function openCoachAction(mode) {
   if (restaurantMode) clearCoachPhoto(); else clearRestaurantLocation();
   $("#coach-action-title").textContent = restaurantMode ? "Restaurant Mode" : "Plan Your Next Meal";
   $("#coach-action-prompt").textContent = restaurantMode
-    ? "Enter a restaurant, menu item, or what you are considering ordering."
+    ? "For local results, start with your ZIP or ZIP+4. Then enter a restaurant, menu item, or what you are considering ordering."
     : "Describe what you have, or add a fridge or pantry photo. Include your available time or what sounds good.";
   $("#coach-action-context").placeholder = restaurantMode
-    ? "e.g. Texas Roadhouse — choosing between sirloin and grilled salmon"
+    ? "e.g. 46140-6509 Culver’s — suggest a low-carb order"
     : "e.g. 30 minutes, cooking for two, something low carb";
   $("#coach-photo-field").hidden = restaurantMode;
   $("#restaurant-location-field").hidden = !restaurantMode;
@@ -2187,7 +2187,11 @@ $("#coach-action-form").addEventListener("submit", async (event) => {
       }
     });
     if (error || (!data?.guidance && !data?.restaurantPlan)) {
-      status.textContent = data?.error || error?.message || "Meal Daddy could not generate guidance right now.";
+      const failure = error ? await readFunctionFailure(error) : { message: "" };
+      const baseMessage = data?.error || failure.message || error?.message || "Meal Daddy could not generate guidance right now.";
+      status.textContent = state.coachMode === "restaurant"
+        ? `${baseMessage} Begin the description with your ZIP or ZIP+4, followed by the restaurant or request, and retry.`
+        : baseMessage;
       return;
     }
     status.hidden = true;
@@ -2203,7 +2207,10 @@ $("#coach-action-form").addEventListener("submit", async (event) => {
     clearCoachPhoto();
     clearRestaurantLocation();
   } catch (error) {
-    status.textContent = error?.message || "Meal Daddy could not generate guidance right now.";
+    const baseMessage = error?.message || "Meal Daddy could not generate guidance right now.";
+    status.textContent = state.coachMode === "restaurant"
+      ? `${baseMessage} Begin the description with your ZIP or ZIP+4, followed by the restaurant or request, and retry.`
+      : baseMessage;
   } finally {
     if (photoPath) {
       const { error: removeError } = await supabase.storage.from("meal-photos").remove([photoPath]);

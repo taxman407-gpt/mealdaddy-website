@@ -6,6 +6,15 @@ import {
   restaurantOptionToSavedFood,
   safeRestaurantSourceUrl
 } from "../app/restaurant-plan.js";
+import { readFileSync } from "node:fs";
+
+const appHtml = readFileSync(new URL("../app/app.html", import.meta.url), "utf8");
+const appScript = readFileSync(new URL("../app/app.js", import.meta.url), "utf8");
+const coachFunction = readFileSync(new URL("../supabase/functions/coach-action/index.ts", import.meta.url), "utf8");
+
+assert.match(appHtml, /begin the description with a ZIP or ZIP\+4/i);
+assert.match(appScript, /Begin the description with your ZIP or ZIP\+4/);
+assert.match(coachFunction, /treat it as authoritative location context for proximity, branch selection, addresses, and directions/);
 
 const rawOptions = ["A", "B", "C"].map((label, index) => ({
   restaurant_name: `${label} Example Kitchen`,
