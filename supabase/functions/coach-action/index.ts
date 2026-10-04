@@ -1,7 +1,8 @@
 import { createClient } from "npm:@supabase/supabase-js@2.54.0";
 
-// Use a public Responses API model. Codex product model names are not API model IDs.
-const model = "gpt-5-mini";
+// Restaurant web search uses a model/configuration explicitly supported by the Responses API.
+const mealPlanningModel = "gpt-5-mini";
+const restaurantSearchModel = "gpt-4.1-mini";
 const monthlyBudgetMicros = 3_000_000;
 const corsHeaders = {
   "access-control-allow-origin": "*",
@@ -313,7 +314,7 @@ Deno.serve(async (request) => {
 
   const task = mode === "dinner"
     ? "Create one practical dinner plan. Give a concise menu, portions or protein target when useful, and a short preparation sequence. Prefer the user's ingredients and constraints. Keep it achievable tonight."
-    : "Create exactly three restaurant choices in this order: A is the closest fit to today's goals, B is a balanced choice with more flexibility, and C is a treat option with practical harm-reducing substitutions. For a named restaurant, search the current web before recommending and prioritize the restaurant's official menu or nutrition pages. Use restaurant_published only when a searched source directly supports the nutrition values; otherwise use restaurant_estimate. Every source_url must exactly match a URL returned by web search. Keep order and substitution wording concise and personalized; never copy a restaurant's full marketing description.";
+    : "Create exactly three restaurant choices in this order: A is the closest fit to today's goals, B is a balanced choice with more flexibility, and C is a treat option with practical substitutions. Always search the current web before recommending. If the request asks to find nearby restaurants, each choice must name a real restaurant and a current menu item supported by the search; never substitute generic food categories for restaurant results. Prioritize official restaurant menu or nutrition pages. Use restaurant_published only when a searched source directly supports the nutrition values; otherwise use restaurant_estimate. Every source_url must exactly match a URL returned by web search. Keep order and substitution wording concise and personalized; never copy a restaurant's full marketing description.";
   const nutritionGuardrail = nutritionContext?.netCarbGoal
     ? `The user's saved hard daily net-carb ceiling is ${nutritionContext.netCarbGoal}g. They have logged approximately ${nutritionContext.netCarbs}g today, leaving ${Math.max(0, nutritionContext.netCarbGoal - nutritionContext.netCarbs)}g. Treat the remaining allowance as a hard constraint whenever possible. Estimate net carbs for each recommendation and show projected daily net carbs. Never recommend an option over the ceiling if a lower-carb option can meet the request. If the user is already at or over the ceiling, choose options with as close to zero additional net carbs as practical and say so clearly.`
     : "Treat any explicit numeric nutrition limit in the user's request as a hard constraint unless safety requires otherwise.";
@@ -321,9 +322,8 @@ Deno.serve(async (request) => {
   const systemText = `You are MealDaddy AI, an automated nutrition and meal-planning assistant. You are not a human professional and have no professional licenses or certifications. Never claim or imply that you are a registered dietitian, certified nutritionist, physician, or other credentialed human expert, or that a human expert reviewed these suggestions. Internal AI development and testing roles are not people advising the user. ${task} ${nutritionGuardrail} Respect listed allergies, restrictions, preferences, budget, and household needs. Do not diagnose, prescribe, or replace medical advice. Use a supportive, direct tone.${mode === "dinner" ? " Return plain text under 220 words." : " Nutrition numbers must reflect the customized order after substitutions. If exact numbers are unavailable, provide conservative estimates and lower confidence."}`;
   const userText = `Saved profile:\n${JSON.stringify(profileContext(profile))}\n\nToday's nutrition context:\n${JSON.stringify(nutritionContext)}\n\nApproximate area shared for this request:\n${JSON.stringify(location)}\n\nUser request:\n${context}`;
   const requestBody: Record<string, unknown> = {
-      model,
+      model: mode === "restaurant" ? restaurantSearchModel : mealPlanningModel,
       store: false,
-      reasoning: { effort: "minimal" },
       // Restaurant Mode must have enough room to finish all three structured choices.
       max_output_tokens: mode === "restaurant" ? 2400 : 700,
       input: [
@@ -346,9 +346,10 @@ Deno.serve(async (request) => {
         ? { verbosity: "low", format: restaurantPlanFormat }
         : { verbosity: "low" }
   };
+  if (mode === "dinner") requestBody.reasoning = { effort: "minimal" };
   if (mode === "restaurant") {
     requestBody.tools = [{ type: "web_search" }];
-    requestBody.tool_choice = "auto";
+    requestBody.tool_choice = "required";
     requestBody.include = ["web_search_call.action.sources"];
   }
 
@@ -393,6 +394,19 @@ Deno.serve(async (request) => {
     return json({ error: "Meal Daddy could not reach its meal-guidance service. Please try again." }, 503);
   }
   if (mode === "restaurant" && [400, 403].includes(openAiResponse.status)) {
+    const compatibilityBody = {
+      ...requestBody,
+      tools: [{ type: "web_search_preview" }],
+      tool_choice: "required"
+    };
+    try {
+      openAiResponse = await callOpenAi(compatibilityBody);
+    } catch {
+      await releaseReservation();
+      return json({ error: "Meal Daddy could not reach its restaurant search service. Please try again." }, 503);
+    }
+  }
+  if (mode === "restaurant" && [400, 403].includes(openAiResponse.status)) {
     const fallbackBody = { ...requestBody };
     delete fallbackBody.tools;
     delete fallbackBody.tool_choice;
@@ -402,7 +416,7 @@ Deno.serve(async (request) => {
         role: "system",
         content: [{
           type: "input_text",
-          text: `${systemText} Current web search is unavailable for this request. Do not invent sources. Use restaurant_estimate, an empty source_url, and low or medium confidence.`
+          text: `${systemText} Current web search is unavailable for this request. Do not invent restaurant names, nearby results, sources, or prices. Use restaurant_estimate, an empty source_url, and low or medium confidence. Explain in friendly consumer language that these are general meal styles to look for, not restaurants found nearby. Never mention internal field names, tool configuration, or API limitations.`
         }]
       },
       { role: "user", content: [{ type: "input_text", text: userText }] }
@@ -442,7 +456,7 @@ Deno.serve(async (request) => {
     requested_reservation_id: reservationId,
     requested_user_id: user.id,
     requested_provider: "openai",
-    requested_model: model,
+    requested_model: mode === "restaurant" ? restaurantSearchModel : mealPlanningModel,
     requested_input_tokens: inputTokens,
     requested_output_tokens: outputTokens,
     requested_actual_cost_micros: estimatedCostMicros
