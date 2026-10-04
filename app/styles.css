@@ -776,6 +776,7 @@ h2 { font-size: clamp(1.65rem, 3vw, 2.6rem); line-height: 1.06; letter-spacing: 
 .setup-choice span { display: inline-flex; min-height: 43px; align-items: center; border: 1px solid var(--line); border-radius: 13px; padding: 8px 13px; color: var(--ink); background: white; font-size: .86rem; font-weight: 720; }
 .setup-choice input:checked + span { border-color: var(--forest); color: white; background: var(--forest); }
 .setup-actions { display: flex; justify-content: space-between; gap: 10px; margin-top: 32px; }
+.setup-actions-forward { display: flex; justify-content: flex-end; gap: 10px; }
 .setup-actions .button { min-width: 120px; }
 .setup-actions button:disabled { visibility: hidden; }
 .setup-summary { display: grid; gap: 0; border: 1px solid var(--line); border-radius: 18px; overflow: hidden; }
@@ -791,6 +792,9 @@ h2 { font-size: clamp(1.65rem, 3vw, 2.6rem); line-height: 1.06; letter-spacing: 
   .setup-choice span { width: 100%; justify-content: center; text-align: center; }
   .setup-summary > div { grid-template-columns: 1fr; gap: 4px; }
   .setup-target-card { grid-template-columns: 1fr; }
+  .setup-actions { align-items: flex-end; }
+  .setup-actions-forward { flex-direction: column-reverse; width: min(52%, 190px); }
+  .setup-actions-forward .button { width: 100%; min-width: 0; }
 }
 /* Version 1 mobile navigation over the connected, authenticated application. */
 .v1-live {

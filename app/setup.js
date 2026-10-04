@@ -257,7 +257,12 @@ $("#setup-next").addEventListener("click", async () => {
 });
 
 $("#setup-back").addEventListener("click", () => { if (currentStep > 0) { if (currentStep < steps.length) collectVisibleAnswers(); currentStep -= 1; render(); } });
-$("#save-exit").addEventListener("click", async () => { if (currentStep < steps.length) collectVisibleAnswers(); if (await saveProfile(false)) location.replace("./app.html"); });
+async function saveAndExit() {
+  if (currentStep < steps.length) collectVisibleAnswers();
+  if (await saveProfile(false)) location.replace("./app.html");
+}
+$("#save-exit").addEventListener("click", saveAndExit);
+$("#save-exit-bottom").addEventListener("click", saveAndExit);
 
 $("#setup-form").addEventListener("click", (event) => {
   const button = event.target.closest("[data-use-target]");
