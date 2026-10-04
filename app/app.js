@@ -554,14 +554,16 @@ function renderWeightChart(entries) {
   const trend = $("#weight-trend");
   const chart = $("#weight-chart");
   const line = $("#weight-chart-line");
+  const pointsRoot = $("#weight-chart-points");
   const point = $("#weight-chart-point");
-  if (!trend || !chart || !line || !point || entries.length === 0) {
+  if (!trend || !chart || !line || !pointsRoot || !point || entries.length === 0) {
     if (trend) trend.hidden = true;
     return;
   }
   trend.hidden = false;
   if (entries.length === 1) {
     line.setAttribute("points", "");
+    pointsRoot.replaceChildren();
     point.setAttribute("cx", "300");
     point.setAttribute("cy", "60");
     point.hidden = false;
@@ -578,6 +580,12 @@ function renderWeightChart(entries) {
     return `${x.toFixed(1)},${y.toFixed(1)}`;
   }).join(" ");
   line.setAttribute("points", points);
+  pointsRoot.innerHTML = points.split(" ").map((coordinates, index) => {
+    const [cx, cy] = coordinates.split(",");
+    const displayWeight = Math.round(weightFromKg(entries[index].weight_kg, state.unitSystem) * 10) / 10;
+    const unit = state.unitSystem === "metric" ? "kg" : "lb";
+    return `<circle cx="${cx}" cy="${cy}" r="4"><title>${escapeHtml(`${entries[index].measured_on}: ${displayWeight} ${unit}`)}</title></circle>`;
+  }).join("");
   const [latestX, latestY] = points.split(" ").at(-1).split(",");
   point.setAttribute("cx", latestX);
   point.setAttribute("cy", latestY);
@@ -1488,7 +1496,8 @@ function summarizeReport(entries) {
     entriesByDay.get(key).push(entry);
   });
   const pendingDays = [...entriesByDay.values()].filter((dayEntries) => dayEntries.some((entry) => entry.status === "pending_estimate"));
-  const includedDays = [...entriesByDay.values()].filter((dayEntries) => !dayEntries.some((entry) => entry.status === "pending_estimate"));
+  const includedDayRecords = [...entriesByDay.entries()].filter(([, dayEntries]) => !dayEntries.some((entry) => entry.status === "pending_estimate"));
+  const includedDays = includedDayRecords.map(([, dayEntries]) => dayEntries);
   const includedEntries = includedDays.flat();
   const inflammation = summarizeInflammationReport(includedEntries, reportDateKey);
   const totals = includedEntries.reduce((sum, entry) => {
@@ -1506,14 +1515,87 @@ function summarizeReport(entries) {
     if (entry.kind === "hydration") sum.hydrationEntries += 1;
     return sum;
   }, { calories: 0, protein: 0, carbs: 0, netCarbs: 0, fat: 0, fiber: 0, water: 0, meals: 0, hydrationEntries: 0 });
+  const dailySeries = includedDayRecords.map(([date, dayEntries]) => {
+    const values = dayEntries.reduce((sum, entry) => {
+      const nutrition = entry.nutrition_estimate || {};
+      sum.calories += Number(nutrition.calories || 0);
+      sum.protein += Number(nutrition.protein_g || 0);
+      sum.carbs += Number(nutrition.carbs_g || 0);
+      sum.netCarbs += typeof nutrition.net_carbs_g === "number"
+        ? Number(nutrition.net_carbs_g)
+        : Math.max(0, Number(nutrition.carbs_g || 0) - Number(nutrition.fiber_g || 0));
+      sum.fat += Number(nutrition.fat_g || 0);
+      sum.fiber += Number(nutrition.fiber_g || 0);
+      sum.water += entry.kind === "hydration" ? Number(nutrition.ounces || 0) : Number(nutrition.hydration_ounces || 0);
+      return sum;
+    }, { calories: 0, protein: 0, carbs: 0, netCarbs: 0, fat: 0, fiber: 0, water: 0 });
+    return { date, ...values };
+  });
   return {
     totals,
     includedEntries,
+    dailySeries,
     averagedDays: includedDays.length,
     totalLoggedDays: entriesByDay.size,
     pendingDays: pendingDays.length,
     inflammation
   };
+}
+
+const reportChartDefinitions = [
+  { key: "calories", label: "Calories", unit: "", goal: () => state.calorieGoal },
+  { key: "protein", label: "Protein", unit: "g", goal: () => state.proteinGoal },
+  { key: "carbs", label: "Total carbs", unit: "g", goal: () => null },
+  { key: "netCarbs", label: "Net carbs", unit: "g", goal: () => state.netCarbGoal || null },
+  { key: "fat", label: "Fat", unit: "g", goal: () => null },
+  { key: "fiber", label: "Fiber", unit: "g", goal: () => state.fiberGoal },
+  { key: "water", label: "Water", unit: "oz", goal: () => state.waterGoal }
+];
+
+function reportLineChart(definition, dailySeries) {
+  if (!dailySeries.length) return "";
+  const width = 360;
+  const height = 128;
+  const left = 10;
+  const right = 10;
+  const top = 12;
+  const bottom = 18;
+  const values = dailySeries.map((day) => Math.max(0, Number(day[definition.key] || 0)));
+  const goal = Number(definition.goal());
+  const hasGoal = Number.isFinite(goal) && goal > 0;
+  const maximum = Math.max(...values, hasGoal ? goal : 0, 1) * 1.08;
+  const x = (index) => dailySeries.length === 1
+    ? width / 2
+    : left + (index / (dailySeries.length - 1)) * (width - left - right);
+  const y = (value) => height - bottom - (Math.max(0, value) / maximum) * (height - top - bottom);
+  const points = values.map((value, index) => `${x(index).toFixed(1)},${y(value).toFixed(1)}`).join(" ");
+  const targetLine = hasGoal
+    ? `<line class="report-goal-line" x1="${left}" y1="${y(goal).toFixed(1)}" x2="${width - right}" y2="${y(goal).toFixed(1)}"><title>Daily goal ${Math.round(goal)}${definition.unit}</title></line>`
+    : "";
+  const lastIndex = values.length - 1;
+  const average = values.reduce((sum, value) => sum + value, 0) / values.length;
+  const dateFormat = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
+  const firstDate = dateFormat.format(new Date(`${dailySeries[0].date}T12:00:00`));
+  const lastDate = dateFormat.format(new Date(`${dailySeries.at(-1).date}T12:00:00`));
+  const spokenValues = values.map((value, index) => `${dailySeries[index].date}: ${Math.round(value)}${definition.unit}`).join(", ");
+  return `<article class="report-chart-card">
+    <div><strong>${definition.label}</strong><span>Avg ${Math.round(average).toLocaleString()}${definition.unit}${hasGoal ? ` · Goal ${Math.round(goal).toLocaleString()}${definition.unit}` : ""}</span></div>
+    <svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" role="img" aria-label="${escapeHtml(`${definition.label} by logged day. ${spokenValues}`)}">
+      <line class="report-chart-baseline" x1="${left}" y1="${height - bottom}" x2="${width - right}" y2="${height - bottom}"></line>
+      ${targetLine}
+      <polyline class="report-chart-line" points="${points}"></polyline>
+      <circle class="report-chart-point" cx="${x(lastIndex).toFixed(1)}" cy="${y(values[lastIndex]).toFixed(1)}" r="4"></circle>
+    </svg>
+    <small><span>${escapeHtml(firstDate)}</span><span>${escapeHtml(lastDate)}</span></small>
+  </article>`;
+}
+
+function renderReportCharts(dailySeries) {
+  const root = $("#report-charts");
+  if (!root) return;
+  root.innerHTML = dailySeries.length
+    ? reportChartDefinitions.map((definition) => reportLineChart(definition, dailySeries)).join("")
+    : '<p class="report-chart-empty">Log at least one complete day to see progression lines.</p>';
 }
 
 function weightReportMetrics(range, weightEntries) {
@@ -1544,7 +1626,7 @@ function weightReportMetrics(range, weightEntries) {
 }
 
 function renderReport(period, range, entries, weightEntries = state.weightEntries) {
-  const { totals, includedEntries, averagedDays, totalLoggedDays, pendingDays, inflammation } = summarizeReport(entries);
+  const { totals, includedEntries, dailySeries, averagedDays, totalLoggedDays, pendingDays, inflammation } = summarizeReport(entries);
   const divisor = Math.max(1, averagedDays);
   const averageLabel = " average/included day";
   const averageValue = (value, suffix = "") => averagedDays ? `${Math.round(value / divisor).toLocaleString()}${suffix}` : "No data";
@@ -1574,6 +1656,7 @@ function renderReport(period, range, entries, weightEntries = state.weightEntrie
   const completeness = `Average based on ${averagedDays} included ${averagedDays === 1 ? "day" : "days"}. ${totalLoggedDays} of ${range.days} completed calendar days contained entries.${pendingDays ? ` ${pendingDays} ${pendingDays === 1 ? "day was" : "days were"} excluded because a nutrition estimate is still pending.` : ""}${inflammationCoverage} Some logged days may be incomplete; entering every meal and drink provides more accurate averages and long-term trends.`;
   $("#report-range").textContent = rangeLabel;
   $("#report-period-title").textContent = `${range.label} report`;
+  renderReportCharts(dailySeries);
   $("#report-metrics").innerHTML = metrics.map(([label, value]) => `<article><span>${label}</span><strong>${value}</strong></article>`).join("");
   $("#report-output").hidden = false;
   $("#report-completeness").textContent = completeness;

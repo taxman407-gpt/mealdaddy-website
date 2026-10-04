@@ -187,7 +187,7 @@
         </div>
         <div class="weight-trend" id="weight-trend" hidden>
           <div><strong>Weight trend</strong><span id="weight-trend-copy">Starting point saved</span></div>
-          <svg class="weight-chart" id="weight-chart" role="img" aria-label="Weight trend" viewBox="0 0 600 120" preserveAspectRatio="none"><polyline id="weight-chart-line" points="" /><circle id="weight-chart-point" cx="300" cy="60" r="6" hidden /></svg>
+          <svg class="weight-chart" id="weight-chart" role="img" aria-label="Weight trend" viewBox="0 0 600 120" preserveAspectRatio="none"><polyline id="weight-chart-line" points="" /><g id="weight-chart-points"></g><circle id="weight-chart-point" cx="300" cy="60" r="6" hidden /></svg>
         </div>
         <form class="weight-form" id="weight-form">
           <label><span>Date</span><input id="weight-date" type="date" required /></label>
@@ -233,6 +233,7 @@
       <p class="report-privacy">Reports are calculated in this browser without an AI request. Nutrition averages exclude blank days, today, and days with pending estimates; Inflammation Score™ averages include only meals that have been scored. Downloaded or printed copies stay on the device you choose.</p>
       <div class="report-output" id="report-output" hidden>
         <div class="report-output-heading"><div><p class="eyebrow" id="report-range"></p><h3 id="report-period-title"></h3></div><div class="report-actions"><button type="button" id="download-report">Download summary</button><button type="button" id="print-report">Print / Save PDF</button></div></div>
+        <div class="report-charts" id="report-charts" aria-label="Daily progress charts"></div>
         <div class="report-metrics" id="report-metrics"></div>
         <p class="report-completeness" id="report-completeness"></p>
       </div>
@@ -290,6 +291,7 @@
         <form id="saved-food-review-form">
           <input type="hidden" name="item_type" value="packaged_product" />
           <div class="saved-food-form-grid">
+            <label class="saved-food-wide"><span>Favorite nickname <small>(optional)</small></span><input name="nickname" maxlength="80" placeholder="Examples: Scrambled egg breakfast, PB&amp;J" /></label>
             <label class="saved-food-wide"><span>Name</span><input name="name" maxlength="160" required /></label>
             <label><span>Brand or restaurant</span><input name="brand_or_restaurant" maxlength="160" /></label>
             <label><span>Serving description</span><input name="serving_description" maxlength="160" required /></label>

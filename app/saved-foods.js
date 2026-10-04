@@ -90,6 +90,7 @@ function normalizedFood(food) {
   const normalized = {
     ...food,
     item_type: itemTypeLabels[food.item_type] ? food.item_type : "packaged_product",
+    nickname: String(food.nickname || "").trim().slice(0, 80),
     name: String(food.name || "Saved food").slice(0, 160),
     brand_or_restaurant: String(food.brand_or_restaurant || "").slice(0, 160),
     serving_description: String(food.serving_description || "1 serving").slice(0, 160),
@@ -114,12 +115,14 @@ export function findSavedFoodMatch(foods, description) {
   }
   const ranked = foods.map((food) => {
     const name = normalizedSearchText(food.name);
+    const nickname = normalizedSearchText(food.nickname);
     const brand = normalizedSearchText(food.brand_or_restaurant);
-    const candidate = [brand, name].filter(Boolean).join(" ");
+    const candidate = [nickname, brand, name].filter(Boolean).join(" ");
     const candidateTokens = searchTokens(candidate);
     let score = 0;
     queryTokens.forEach((token) => { if (candidateTokens.has(token)) score += 4; });
     if (name && (query.includes(name) || name.includes(query))) score += 14;
+    if (nickname && (query === nickname || query.includes(nickname) || nickname.includes(query))) score += 20;
     if (brand && query.includes(brand)) score += 9;
     if (candidate && query.includes(candidate)) score += 18;
     return { food, score };
@@ -233,7 +236,7 @@ export async function initializeSavedFoods({
   }
 
   function foodSubtitle(food) {
-    return [food.brand_or_restaurant, food.serving_description].filter(Boolean).join(" · ");
+    return [food.nickname ? food.name : "", food.brand_or_restaurant, food.serving_description].filter(Boolean).join(" · ");
   }
 
   function foodNutritionLine(food) {
@@ -320,7 +323,7 @@ export async function initializeSavedFoods({
       ${photo}
       <div class="saved-food-main">
         <div class="saved-food-badges"><span>${escapeHtml(itemTypeLabels[food.item_type])}</span><span class="evidence-${escapeHtml(food.evidence_type)}">${escapeHtml(evidenceLabels[food.evidence_type])}</span><span>${food.storage_scope === "device" ? "This device only" : "Private sync"}</span></div>
-        <h3>${escapeHtml(food.name)}</h3>
+        <h3>${escapeHtml(food.nickname || food.name)}</h3>
         <p>${escapeHtml(foodSubtitle(food))}</p>
         <strong>${escapeHtml(foodNutritionLine(food))}</strong>
         ${componentEvidenceDetails(food)}
@@ -469,6 +472,7 @@ export async function initializeSavedFoods({
     state.editingFood = editingFood;
     state.reviewComponents = normalized.components;
     setReviewField("item_type", normalized.item_type);
+    setReviewField("nickname", normalized.nickname);
     setReviewField("name", normalized.name);
     setReviewField("brand_or_restaurant", normalized.brand_or_restaurant);
     setReviewField("serving_description", normalized.serving_description);
@@ -506,6 +510,7 @@ export async function initializeSavedFoods({
     const formData = new FormData($("#saved-food-review-form"));
     const food = {
       item_type: String(formData.get("item_type") || "packaged_product"),
+      nickname: String(formData.get("nickname") || "").trim(),
       name: String(formData.get("name") || "").trim(),
       brand_or_restaurant: String(formData.get("brand_or_restaurant") || "").trim(),
       serving_description: String(formData.get("serving_description") || "1 serving").trim(),
@@ -582,7 +587,8 @@ export async function initializeSavedFoods({
     const totals = {};
     numericFields.forEach((field) => { totals[field] = Math.round(numberValue(food[field]) * multiplier * 10) / 10; });
     const servingText = multiplier === 1 ? food.serving_description : `${formatNumber(multiplier)} × ${food.serving_description}`;
-    const description = [food.name, food.brand_or_restaurant ? `(${food.brand_or_restaurant})` : "", `— ${servingText}`].filter(Boolean).join(" ");
+    const displayName = food.nickname || food.name;
+    const description = [displayName, food.nickname ? `(${food.name})` : "", food.brand_or_restaurant ? `(${food.brand_or_restaurant})` : "", `— ${servingText}`].filter(Boolean).join(" ");
     const componentSource = food.components?.length ? food.components : [{
       name: food.name,
       calories: food.calories,
@@ -627,7 +633,7 @@ export async function initializeSavedFoods({
         key: `${food.storage_scope}:${food.id}`,
         id: food.id,
         storage_scope: food.storage_scope,
-        name: food.name,
+        name: displayName,
         brand_or_restaurant: food.brand_or_restaurant || "",
         description,
         calories: totals.calories,
@@ -674,7 +680,7 @@ export async function initializeSavedFoods({
     }
     await onLedgerChange();
     await loadFoods();
-    toast(`${food.name} logged for ${occurredLabel} from My Foods—no new AI request needed.`);
+    toast(`${displayName} logged for ${occurredLabel} from My Foods—no new AI request needed.`);
   }
 
   $("#add-saved-food").addEventListener("click", showCaptureStep);
@@ -781,7 +787,7 @@ export async function initializeSavedFoods({
       await loadFoods();
       await onLedgerChange();
       closeEditor();
-      toast(`${food.name} saved to My Foods.`);
+      toast(`${food.nickname || food.name} saved to My Foods.`);
     } catch (error) {
       status.textContent = error.message || "The saved food could not be stored.";
     } finally {

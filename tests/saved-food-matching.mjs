@@ -13,4 +13,12 @@ assert.equal(findSavedFoodMatch([natureBread], "2 slices Natures Own bread")?.se
 assert.equal(findSavedFoodMatch([natureBread], "bread with eggs"), null);
 assert.equal(findSavedFoodMatch([natureBread, { id: "other", name: "Low Carb Bread", brand_or_restaurant: "Other" }], "bread"), null);
 
+const nicknamedMeal = {
+  id: "egg-breakfast",
+  nickname: "Scrambled egg breakfast",
+  name: "Two scrambled eggs with low-carb toast",
+  brand_or_restaurant: ""
+};
+assert.equal(findSavedFoodMatch([nicknamedMeal], "scrambled egg breakfast")?.food.id, "egg-breakfast");
+
 console.log("Saved-food matching regression checks passed.");
