@@ -70,6 +70,12 @@ document.querySelector("#recreate-favorite")?.addEventListener("click", () => {
   document.querySelector("#saved-foods")?.setAttribute("open", "");
 });
 
+document.querySelector("#choose-favorite")?.addEventListener("click", () => {
+  showAppSubview("log", "foods");
+  document.querySelector("#saved-foods")?.setAttribute("open", "");
+  document.querySelector(".saved-foods-summary")?.focus({ preventScroll: true });
+});
+
 document.querySelectorAll("[data-subview-back]").forEach((button) => {
   button.addEventListener("click", () => {
     if (button.dataset.subviewBack === "plan") {
