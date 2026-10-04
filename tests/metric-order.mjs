@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { defaultMetricOrder, moveMetric, normalizeMetricOrder } from "../app/metric-order.js";
+import { defaultMetricOrder, moveMetric, moveMetricToPosition, normalizeMetricOrder } from "../app/metric-order.js";
 
 const defaultOrder = normalizeMetricOrder([]);
 assert.equal(defaultOrder.length, 8);
@@ -17,5 +17,7 @@ assert.equal(custom.length, 8);
 
 assert.deepEqual(moveMetric(defaultOrder, "protein", -1).slice(0, 2), ["protein", "calories"]);
 assert.deepEqual(moveMetric(defaultOrder, "calories", -1), defaultOrder);
+assert.deepEqual(moveMetricToPosition(defaultOrder, "water", 1).slice(0, 2), ["water", "calories"]);
+assert.deepEqual(moveMetricToPosition(defaultOrder, "calories", 8).slice(-1), ["calories"]);
 
 console.log("Today metric-order checks passed.");

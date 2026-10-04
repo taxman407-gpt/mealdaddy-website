@@ -46,3 +46,13 @@ export function moveMetric(order, key, direction) {
   [normalized[index], normalized[nextIndex]] = [normalized[nextIndex], normalized[index]];
   return normalized;
 }
+
+export function moveMetricToPosition(order, key, position) {
+  const normalized = normalizeMetricOrder(order);
+  const currentIndex = normalized.indexOf(key);
+  const nextIndex = Math.min(normalized.length - 1, Math.max(0, Number(position) - 1));
+  if (currentIndex < 0 || !Number.isFinite(nextIndex) || currentIndex === nextIndex) return normalized;
+  normalized.splice(currentIndex, 1);
+  normalized.splice(nextIndex, 0, key);
+  return normalized;
+}

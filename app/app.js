@@ -7,7 +7,7 @@ import { normalizeRestaurantPlan, restaurantChoiceLetters, restaurantFitLabels, 
 import { estimateInflammationScore, inflammationBand, inflammationImpact, summarizeInflammationEntries, summarizeInflammationReport, weightedInflammationScore } from "./inflammation-impact.js?v=20260813-4";
 import { resolvePrimaryEatingStyle } from "./profile-preferences.js?v=20260929-1";
 import { metricProgressSegments } from "./metric-progress.js?v=20260930-1";
-import { normalizeMetricOrder } from "./metric-order.js?v=20261004-1";
+import { normalizeMetricOrder } from "./metric-order.js?v=20261004-2";
 
 document.querySelector("#focus-quick-entry")?.addEventListener("click", () => {
   document.querySelector("#quick-entry")?.focus();

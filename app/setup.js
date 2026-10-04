@@ -1,7 +1,7 @@
 import { supabase, requireSession } from "./supabase-client.js?v=20260930-3";
 import { normalizeUnitSystem, suggestedStartingTargets, weightToKg, weightUnit } from "./health-metrics.js?v=20260929-1";
 import { includePrimaryEatingStyle, resolvePrimaryEatingStyle } from "./profile-preferences.js?v=20260929-1";
-import { metricLabel, moveMetric, normalizeMetricOrder } from "./metric-order.js?v=20261004-1";
+import { metricLabel, moveMetricToPosition, normalizeMetricOrder } from "./metric-order.js?v=20261004-2";
 
 const session = await requireSession();
 if (!session) throw new Error("Authentication required");
@@ -99,6 +99,15 @@ function escapeHtml(value = "") {
   return String(value).replace(/[&<>\"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '\"': "&quot;" })[character]);
 }
 
+function metricOrderListHtml(order) {
+  return order.map((key, index) => `<li><label><span class="sr-only">Position for ${escapeHtml(metricLabel(key))}</span><select data-metric-position data-metric-key="${escapeHtml(key)}" aria-label="Position for ${escapeHtml(metricLabel(key))}">${order.map((_, optionIndex) => `<option value="${optionIndex + 1}" ${optionIndex === index ? "selected" : ""}>${optionIndex + 1}</option>`).join("")}</select><strong>${escapeHtml(metricLabel(key))}</strong></label></li>`).join("");
+}
+
+function updateMetricOrderList() {
+  const list = $(".metric-order-list");
+  if (list) list.innerHTML = metricOrderListHtml(answers.today_metric_order);
+}
+
 function fieldHtml([name, label, type, options, required]) {
   const value = answers[name] ?? (type === "multi" ? [] : "");
   const requiredMark = required ? '<span class="required-mark">Required</span>' : '<span class="optional-mark">Optional</span>';
@@ -109,7 +118,7 @@ function fieldHtml([name, label, type, options, required]) {
   if (type === "metric_order") {
     const order = normalizeMetricOrder(answers[name], answers);
     answers[name] = order;
-    return `<fieldset class="setup-field metric-order-field"><legend>${escapeHtml(label)}</legend><p>Put what matters most to you first. You can change this later.</p><ol class="metric-order-list">${order.map((key, index) => `<li><span><b>${index + 1}</b>${escapeHtml(metricLabel(key))}</span><span class="metric-order-actions"><button type="button" data-metric-move="-1" data-metric-key="${escapeHtml(key)}" ${index === 0 ? "disabled" : ""} aria-label="Move ${escapeHtml(metricLabel(key))} up">↑</button><button type="button" data-metric-move="1" data-metric-key="${escapeHtml(key)}" ${index === order.length - 1 ? "disabled" : ""} aria-label="Move ${escapeHtml(metricLabel(key))} down">↓</button></span></li>`).join("")}</ol></fieldset>`;
+    return `<fieldset class="setup-field metric-order-field"><legend>${escapeHtml(label)}</legend><p>Choose a position number. The other metrics renumber automatically.</p><ol class="metric-order-list">${metricOrderListHtml(order)}</ol><p class="metric-order-status sr-only" aria-live="polite"></p></fieldset>`;
   }
   if (type === "single" || type === "multi") {
     return `<fieldset class="setup-field"><legend>${escapeHtml(label)} ${required ? requiredMark : ""}</legend><div class="setup-choices">${options.map((option) => {
@@ -244,13 +253,6 @@ $("#setup-back").addEventListener("click", () => { if (currentStep > 0) { if (cu
 $("#save-exit").addEventListener("click", async () => { if (currentStep < steps.length) collectVisibleAnswers(); if (await saveProfile(false)) location.replace("./app.html"); });
 
 $("#setup-form").addEventListener("click", (event) => {
-  const moveButton = event.target.closest("[data-metric-move]");
-  if (moveButton) {
-    answers.today_metric_order = moveMetric(answers.today_metric_order, moveButton.dataset.metricKey, Number(moveButton.dataset.metricMove));
-    sessionStorage.setItem("mealdaddy-onboarding", JSON.stringify(answers));
-    render();
-    return;
-  }
   const button = event.target.closest("[data-use-target]");
   if (!button) return;
   const field = $("#setup-form").elements.namedItem(button.dataset.useTarget);
@@ -262,6 +264,15 @@ $("#setup-form").addEventListener("click", (event) => {
 });
 
 $("#setup-form").addEventListener("change", (event) => {
+  if (event.target.matches("[data-metric-position]")) {
+    const key = event.target.dataset.metricKey;
+    answers.today_metric_order = moveMetricToPosition(answers.today_metric_order, key, event.target.value);
+    sessionStorage.setItem("mealdaddy-onboarding", JSON.stringify(answers));
+    updateMetricOrderList();
+    const status = $(".metric-order-status");
+    if (status) status.textContent = `${metricLabel(key)} moved to position ${answers.today_metric_order.indexOf(key) + 1}.`;
+    return;
+  }
   if (event.target.name === "unit_system") {
     collectVisibleAnswers();
     render();
