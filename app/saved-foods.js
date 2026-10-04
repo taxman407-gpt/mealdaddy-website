@@ -327,25 +327,30 @@ export async function initializeSavedFoods({
       ? `<div class="saved-food-photo"><span>${escapeHtml(food.name).charAt(0).toUpperCase()}</span><img data-saved-food-photo="${escapeHtml(food.storage_scope)}:${escapeHtml(food.id)}" alt="Saved reference for ${escapeHtml(food.name)}" hidden /></div>`
       : `<div class="saved-food-photo saved-food-photo-placeholder" aria-hidden="true"><span>${escapeHtml(food.name).charAt(0).toUpperCase()}</span></div>`;
     const defaultLabel = defaultMealLabel();
+    const logFormId = `saved-food-log-${String(food.storage_scope)}-${String(food.id)}`.replace(/[^a-zA-Z0-9_-]/g, "-");
     return `<article class="saved-food-item" data-saved-food="${escapeHtml(food.storage_scope)}:${escapeHtml(food.id)}">
-      ${photo}
-      <div class="saved-food-main">
-        <div class="saved-food-badges"><span>${escapeHtml(itemTypeLabels[food.item_type])}</span><span class="evidence-${escapeHtml(food.evidence_type)}">${escapeHtml(evidenceLabels[food.evidence_type])}</span><span>${food.storage_scope === "device" ? "This device only" : "Private sync"}</span></div>
-        <h3>${escapeHtml(food.nickname || food.name)}</h3>
-        <p>${escapeHtml(foodSubtitle(food))}</p>
-        <strong>${escapeHtml(foodNutritionLine(food))}</strong>
-        ${componentEvidenceDetails(food)}
-        ${food.evidence_type === "mixed_estimate" ? `<small>Readable label values were used where available; the remaining items are estimates.</small>` : ""}
-        ${food.evidence_type === "photo_estimate" ? `<small>Estimated from a photo; review portions when they change.</small>` : ""}
-        ${food.evidence_type === "description_estimate" ? `<small>Estimated from your description; review portions when they change.</small>` : ""}
-        ${food.evidence_type === "restaurant_estimate" ? `<small>Restaurant meal estimate; published values were not confirmed.</small>` : ""}
-      </div>
-      <form class="saved-food-log-form" data-log-saved-food="${escapeHtml(food.storage_scope)}:${escapeHtml(food.id)}">
-        <label><span>Servings</span><input name="servings" type="number" min="0.1" max="50" step="0.1" value="1" inputmode="decimal" required /></label>
-        <label><span>Log as</span><select name="meal_label">${["Breakfast", "Brunch", "Lunch", "Dinner", "Snack"].map((label) => `<option${label === defaultLabel ? " selected" : ""}>${label}</option>`).join("")}</select></label>
-        <button class="button button-primary" type="submit">Log</button>
-      </form>
-      <div class="saved-food-item-actions"><button type="button" data-edit-saved-food="${escapeHtml(food.storage_scope)}:${escapeHtml(food.id)}">Edit</button><button type="button" data-delete-saved-food="${escapeHtml(food.storage_scope)}:${escapeHtml(food.id)}">Delete</button></div>
+      <button class="saved-food-quick-log" type="submit" form="${escapeHtml(logFormId)}">Log</button>
+      <details class="saved-food-details">
+        <summary><span><strong>${escapeHtml(food.nickname || food.name)}</strong><small>${escapeHtml(foodSubtitle(food))}</small></span></summary>
+        <div class="saved-food-expanded">
+          ${photo}
+          <div class="saved-food-main">
+            <div class="saved-food-badges"><span>${escapeHtml(itemTypeLabels[food.item_type])}</span><span class="evidence-${escapeHtml(food.evidence_type)}">${escapeHtml(evidenceLabels[food.evidence_type])}</span><span>${food.storage_scope === "device" ? "This device only" : "Private sync"}</span></div>
+            <strong>${escapeHtml(foodNutritionLine(food))}</strong>
+            ${componentEvidenceDetails(food)}
+            ${food.evidence_type === "mixed_estimate" ? `<small>Readable label values were used where available; the remaining items are estimates.</small>` : ""}
+            ${food.evidence_type === "photo_estimate" ? `<small>Estimated from a photo; review portions when they change.</small>` : ""}
+            ${food.evidence_type === "description_estimate" ? `<small>Estimated from your description; review portions when they change.</small>` : ""}
+            ${food.evidence_type === "restaurant_estimate" ? `<small>Restaurant meal estimate; published values were not confirmed.</small>` : ""}
+          </div>
+          <form class="saved-food-log-form" id="${escapeHtml(logFormId)}" data-log-saved-food="${escapeHtml(food.storage_scope)}:${escapeHtml(food.id)}">
+            <label><span>Servings</span><input name="servings" type="number" min="0.1" max="50" step="0.1" value="1" inputmode="decimal" required /></label>
+            <label><span>Log as</span><select name="meal_label">${["Breakfast", "Brunch", "Lunch", "Dinner", "Snack"].map((label) => `<option${label === defaultLabel ? " selected" : ""}>${label}</option>`).join("")}</select></label>
+            <button class="button button-primary" type="submit">Log with these choices</button>
+          </form>
+          <div class="saved-food-item-actions"><button type="button" data-edit-saved-food="${escapeHtml(food.storage_scope)}:${escapeHtml(food.id)}">Edit</button><button type="button" data-delete-saved-food="${escapeHtml(food.storage_scope)}:${escapeHtml(food.id)}">Delete</button></div>
+        </div>
+      </details>
     </article>`;
   }
 

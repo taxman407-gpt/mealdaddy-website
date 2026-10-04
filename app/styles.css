@@ -182,6 +182,45 @@ h2 { font-size: clamp(1.65rem, 3vw, 2.6rem); line-height: 1.06; letter-spacing: 
 .saved-food-item-actions { grid-column: 2 / -1; display: flex; justify-content: flex-end; gap: 12px; }
 .saved-food-item-actions button { border: 0; padding: 2px; color: var(--forest-2); background: transparent; font-size: .67rem; font-weight: 800; }
 .saved-food-item-actions button:last-child { color: #a43f2b; }
+.saved-foods-list .saved-food-item {
+  display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 10px; align-items: start;
+  border: 1px solid var(--line); border-radius: 15px; padding: 9px; background: white;
+}
+.saved-food-quick-log {
+  display: grid; place-items: center; width: 52px; height: 50px; border: 0; border-radius: 12px;
+  color: #071711; background: var(--lime); font: inherit; font-size: .75rem; font-weight: 850; cursor: pointer;
+}
+.saved-food-details { min-width: 0; }
+.saved-food-details > summary {
+  display: grid; grid-template-columns: minmax(0, 1fr); gap: 1px; align-items: center;
+  width: 100%; min-height: 50px; border-radius: 11px; padding: 5px 8px 2px;
+  list-style: none; cursor: pointer;
+}
+.saved-food-details > summary:hover { background: var(--soft); }
+.saved-food-details > summary:focus-visible { outline: 3px solid rgba(221,246,93,.45); outline-offset: 1px; }
+.saved-food-details > summary::-webkit-details-marker { display: none; }
+.saved-food-details > summary::after { content: "⌄"; justify-self: center; color: var(--forest); font-size: .9rem; line-height: .75; font-weight: 900; transition: transform .15s ease; }
+.saved-food-details[open] > summary::after { transform: rotate(180deg); }
+.saved-food-details > summary > span { display: flex; min-width: 0; align-items: baseline; gap: 7px; }
+.saved-food-details > summary strong,
+.saved-food-details > summary small { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.saved-food-details > summary strong { max-width: 58%; flex: 0 1 auto; color: var(--ink); font-size: .86rem; }
+.saved-food-details > summary small { min-width: 0; flex: 1 1 auto; color: var(--muted); font-size: .66rem; }
+.saved-food-details > summary small::before { content: "· "; }
+.saved-food-expanded { display: grid; grid-template-columns: 62px minmax(0, 1fr); gap: 12px; padding: 12px 0 3px; border-top: 1px solid var(--line); }
+.saved-food-expanded .saved-food-photo { width: 62px; height: 62px; }
+.saved-food-expanded .saved-food-main > strong { margin-top: 6px; }
+.saved-food-expanded .saved-food-log-form,
+.saved-food-expanded .saved-food-item-actions { grid-column: 1 / -1; }
+@media (max-width: 560px) {
+  .saved-foods-list .saved-food-item { grid-template-columns: 50px minmax(0, 1fr); padding: 8px; }
+  .saved-food-quick-log { width: 50px; height: 48px; }
+  .saved-food-details > summary { min-height: 48px; }
+  .saved-food-expanded { grid-template-columns: 52px minmax(0, 1fr); }
+  .saved-food-expanded .saved-food-photo { width: 52px; height: 52px; }
+  .saved-food-expanded .saved-food-log-form { grid-template-columns: 78px 1fr; }
+  .saved-food-expanded .saved-food-log-form .button { grid-column: 1 / -1; width: 100%; }
+}
 .saved-food-editor { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 20px; }
 .saved-food-editor-backdrop { position: absolute; inset: 0; border: 0; background: rgba(8,28,23,.68); cursor: default; }
 .saved-food-editor-panel { position: relative; width: min(760px, 100%); max-height: min(92vh, 900px); overflow-y: auto; border-radius: 26px; padding: 26px; background: var(--paper); box-shadow: 0 30px 90px rgba(8,28,23,.34); }
