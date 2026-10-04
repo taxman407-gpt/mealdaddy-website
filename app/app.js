@@ -739,6 +739,7 @@ async function loadLedger() {
   }
   renderLedger();
   renderTotals();
+  if (metricBreakdownCurrentMetric) renderMetricBreakdown(metricBreakdownCurrentMetric);
 }
 
 function normalizedMealImpactComponents(estimate = {}) {
@@ -1056,6 +1057,27 @@ function contributionEntryLabel(entry) {
   return mealLabels.has(entry.meal_label) ? entry.meal_label : "Meal";
 }
 
+function contributionEvidenceSource(contribution) {
+  const componentEvidence = {
+    nutrition_label: "Nutrition label values",
+    photo_estimate: "Estimated from the meal photo",
+    description_estimate: "Estimated from your written description",
+    restaurant_published: "Restaurant-published nutrition",
+    restaurant_estimate: "Restaurant guidance estimate",
+    manual: "Values you reviewed or entered"
+  };
+  if (contribution.component?.evidence_type && componentEvidence[contribution.component.evidence_type]) {
+    return componentEvidence[contribution.component.evidence_type];
+  }
+  const nutrition = contribution.entry.nutrition_estimate || {};
+  if (nutrition.favorite_origin?.name || nutrition.saved_food_id) return "Your saved favorite values";
+  if (nutrition.restaurant_name || nutrition.restaurant_address || nutrition.source_url) return "Restaurant guidance or published menu data";
+  if (nutrition.label_detected) return "Nutrition label and the meal details you supplied";
+  if (nutrition.photo_description || contribution.entry.photo_path) return "Estimated from the meal photo and your clarifying notes";
+  if (contribution.entry.kind === "hydration") return "Your logged drink description";
+  return "Estimated from your logged meal description";
+}
+
 function observationEntryName(entry) {
   const label = contributionEntryLabel(entry);
   const description = String(entry.description || "entry").replace(/\s+/g, " ").trim();
@@ -1274,15 +1296,17 @@ function renderMetricBreakdown(metric) {
       : `${formatMetricContribution(metric, totals)} estimated daily total. Ingredient sources are itemized below.${detailStatus ? ` ${detailStatus}` : ""}`
     : `No estimated ${definition.title.toLowerCase()} sources are available yet.${detailStatus ? ` ${detailStatus}` : ""}`;
   $("#metric-contribution-list").innerHTML = contributions.length
-    ? contributions.map(({ displayName, sourceLabel, values }) => {
+    ? contributions.map(({ entry, component, displayName, sourceLabel, values }) => {
       const share = metric === "inflammation"
         ? Math.round((values.primary / 10) * 100)
         : totals.primary > 0 ? Math.min(100, Math.round((values.primary / totals.primary) * 100)) : 0;
       const shareLabel = metric === "inflammation" ? inflammationBand(values.primary).label : `${share}% of this total`;
+      const evidenceSource = contributionEvidenceSource({ entry, component });
       return `<li>
         <span class="metric-contribution-main"><strong>${escapeHtml(displayName)}</strong><small>${escapeHtml(sourceLabel)} · ${escapeHtml(shareLabel)}</small></span>
         <span class="metric-contribution-value">${escapeHtml(formatMetricContribution(metric, values))}</span>
         <span class="metric-contribution-bar" aria-hidden="true"><span style="width:${share}%"></span></span>
+        <small class="metric-contribution-source"><b>Source:</b> ${escapeHtml(evidenceSource)}</small>
       </li>`;
     }).join("")
     : `<li class="metric-contribution-empty">${unitemizedCount ? "Adding ingredient details…" : "Nothing to break down yet."}</li>`;
@@ -1304,6 +1328,7 @@ function closeMetricBreakdown() {
   if ($("#metric-breakdown").hidden) return;
   $("#metric-breakdown").hidden = true;
   document.body.classList.remove("modal-open");
+  showAppView("today", { focus: false });
   metricBreakdownReturnFocus?.focus();
   metricBreakdownReturnFocus = null;
   metricBreakdownCurrentMetric = null;
@@ -2818,7 +2843,10 @@ async function itemizeCurrentEntries() {
 
 document.querySelectorAll("[data-plan]").forEach((button) => button.addEventListener("click", () => startCheckout(button.dataset.plan)));
 
-document.querySelectorAll("[data-metric]").forEach((button) => button.addEventListener("click", () => openMetricBreakdown(button.dataset.metric, button)));
+$("#today-metrics").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-metric]");
+  if (button) openMetricBreakdown(button.dataset.metric, button);
+});
 document.querySelectorAll("[data-close-metric-breakdown]").forEach((button) => button.addEventListener("click", closeMetricBreakdown));
 $("#open-weight-panel").addEventListener("click", (event) => openWeightPanel(event.currentTarget));
 document.querySelectorAll("[data-close-weight-panel]").forEach((button) => button.addEventListener("click", closeWeightPanel));

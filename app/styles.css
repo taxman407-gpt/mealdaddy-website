@@ -314,7 +314,7 @@ h2 { font-size: clamp(1.65rem, 3vw, 2.6rem); line-height: 1.06; letter-spacing: 
 .metric-breakdown-handle { display: none; }
 .metric-breakdown-panel header { display: flex; align-items: start; justify-content: space-between; gap: 18px; }
 .metric-breakdown-panel h2 { margin-top: 2px; font-size: clamp(1.65rem, 5vw, 2.25rem); }
-.metric-breakdown-close { display: grid; flex: 0 0 auto; width: 42px; height: 42px; place-items: center; border: 1px solid var(--line); border-radius: 50%; color: var(--forest); background: var(--soft); font-size: 1.65rem; line-height: 1; cursor: pointer; }
+.metric-breakdown-close { display: inline-flex; flex: 0 0 auto; min-height: 42px; align-items: center; justify-content: center; border: 1px solid var(--line); border-radius: 12px; padding: 0 13px; color: var(--forest); background: var(--soft); font-size: .76rem; font-weight: 820; cursor: pointer; }
 .metric-breakdown-summary { margin: 12px 0 18px; color: var(--muted); line-height: 1.5; }
 .metric-contribution-list { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
 .metric-contribution-list li { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 7px 14px; border: 1px solid var(--line); border-radius: 16px; padding: 14px; background: white; }
@@ -324,11 +324,14 @@ h2 { font-size: clamp(1.65rem, 3vw, 2.6rem); line-height: 1.06; letter-spacing: 
 .metric-contribution-value { color: var(--forest); font-size: 1rem; font-weight: 850; white-space: nowrap; }
 .metric-contribution-bar { grid-column: 1 / -1; height: 6px; overflow: hidden; border-radius: 999px; background: var(--soft); }
 .metric-contribution-bar span { display: block; height: 100%; border-radius: inherit; background: var(--orange); }
+.metric-contribution-source { grid-column: 1 / -1; color: var(--muted); line-height: 1.4; }
+.metric-contribution-source b { color: var(--forest); }
 .metric-contribution-empty { color: var(--muted); text-align: center; }
 .metric-standout { margin-top: 16px; border-radius: 16px; padding: 15px; color: var(--forest); background: #f8fbdc; }
 .metric-standout strong { font-size: .76rem; letter-spacing: .04em; text-transform: uppercase; }
 .metric-standout p { margin: 5px 0 0; line-height: 1.5; }
 .metric-breakdown-note { margin: 14px 0 0; color: var(--muted); font-size: .72rem; line-height: 1.45; }
+.metric-breakdown-back { width: 100%; margin-top: 16px; }
 .rating-card { display: grid; grid-template-columns: .8fr 1.2fr; gap: 28px; margin-top: 18px; border: 1px solid var(--line); border-radius: 24px; padding: 24px; background: var(--paper); }
 .rating-card h2 { margin-bottom: 10px; font-size: 1.55rem; }.rating-card > div > p:last-child { margin: 0; color: var(--muted); font-size: .8rem; line-height: 1.5; }
 .rating-card form { display: grid; gap: 15px; }
@@ -830,6 +833,8 @@ html:has(.v1-live) { height: auto; min-height: 100%; overflow-y: auto !important
 .v1-live .dashboard > section,
 .v1-live .dashboard > details,
 .v1-live .dashboard > .weight-launcher { display: none; }
+.v1-live .dashboard > .metric-breakdown:not([hidden]),
+.v1-live .dashboard > .weight-panel:not([hidden]) { display: grid; }
 .v1-live[data-app-view="today"] .today-heading,
 .v1-live[data-app-view="today"] .today-status,
 .v1-live[data-app-view="today"] .dashboard-grid,
