@@ -3,7 +3,7 @@ import { buildProteinGuidance } from "./feedback-guidance.js?v=20261004-1";
 import { entryDateDisplayLabel, localDateValue as localEntryDateValue, occurredAtForEntryDate, quickDateOptions } from "./entry-date.js?v=20260813-4";
 import { estimatedAdultBmi, formatWeight, formatWeightChange, normalizeUnitSystem, parseHeightCm, shouldEnableWeightTracking, weightFromKg, weightToKg } from "./health-metrics.js?v=20260813-4";
 import { initializeSavedFoods } from "./saved-foods.js?v=20260813-4";
-import { normalizeRestaurantPlan, restaurantChoiceLetters, restaurantFitLabels, restaurantOptionToLedgerEntry, safeRestaurantSourceUrl } from "./restaurant-plan.js?v=20260813-4";
+import { normalizeRestaurantPlan, restaurantChoiceLetters, restaurantFitLabels, restaurantMapUrl, restaurantOptionToLedgerEntry, safeRestaurantSourceUrl } from "./restaurant-plan.js?v=20260813-4";
 import { estimateInflammationScore, inflammationBand, inflammationImpact, summarizeInflammationEntries, summarizeInflammationReport, weightedInflammationScore } from "./inflammation-impact.js?v=20260813-4";
 import { resolvePrimaryEatingStyle } from "./profile-preferences.js?v=20260929-1";
 import { metricProgressSegments } from "./metric-progress.js?v=20260930-1";
@@ -1912,10 +1912,14 @@ function renderRestaurantPlan(rawPlan) {
         ? option.substitutions.map((item) => String(item).trim()).filter(Boolean).slice(0, 6)
         : [];
       const sourceUrl = safeRestaurantSourceUrl(option.source_url);
+      const restaurantName = String(option.restaurant_name || plan.restaurant || "Restaurant").trim();
+      const address = String(option.address || "").trim();
+      const mapUrl = restaurantMapUrl(restaurantName, address);
       const published = option.evidence_type === "restaurant_published" && sourceUrl;
       return `<article class="restaurant-choice">
         <span class="restaurant-choice-letter" aria-hidden="true">${restaurantChoiceLetters[index]}</span>
-        <div class="restaurant-choice-main"><span>${escapeHtml(restaurantFitLabels[index])}</span><h3>${escapeHtml(String(option.title || `Option ${restaurantChoiceLetters[index]}`))}</h3><p>${escapeHtml(String(option.order || ""))}</p></div>
+        <div class="restaurant-choice-main"><span>${escapeHtml(restaurantFitLabels[index])}</span><h3>${escapeHtml(restaurantName)}</h3><h4>${escapeHtml(String(option.title || `Option ${restaurantChoiceLetters[index]}`))}</h4><p>${escapeHtml(String(option.order || ""))}</p></div>
+        ${address ? `<div class="restaurant-address"><span>${escapeHtml(address)}</span><div><button type="button" data-copy-restaurant-address="${escapeHtml(address)}">Copy address</button>${mapUrl ? `<a href="${escapeHtml(mapUrl)}" target="_blank" rel="noopener noreferrer">Open in Maps</a>` : ""}</div></div>` : ""}
         ${substitutions.length ? `<ul class="restaurant-substitutions" aria-label="Accepted substitutions">${substitutions.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : ""}
         <div class="restaurant-choice-metrics"><span><strong>${formatEstimateNumber(option.calories)} cal</strong>Energy</span><span><strong>${formatEstimateNumber(option.protein_g)}g</strong>Protein</span><span><strong>${formatEstimateNumber(option.net_carbs_g)}g</strong>Net carbs</span><span><strong>${formatEstimateNumber(option.fiber_g)}g</strong>Fiber</span></div>
         <p class="restaurant-choice-why">${escapeHtml(String(option.why || ""))}</p>
@@ -1946,6 +1950,16 @@ $("#close-coach-action").addEventListener("click", () => {
 });
 
 $("#coach-action-result").addEventListener("click", async (event) => {
+  const copyAddressButton = event.target.closest("[data-copy-restaurant-address]");
+  if (copyAddressButton) {
+    try {
+      await navigator.clipboard.writeText(copyAddressButton.dataset.copyRestaurantAddress);
+      toast("Restaurant address copied.");
+    } catch {
+      toast("The address could not be copied automatically. Press and hold the address to copy it.");
+    }
+    return;
+  }
   const button = event.target.closest("[data-log-restaurant-option]");
   if (!button || !state.restaurantPlan) return;
   const option = state.restaurantPlan.options[Number(button.dataset.logRestaurantOption)];

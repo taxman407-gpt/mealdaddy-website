@@ -71,6 +71,8 @@ const restaurantPlanFormat = {
         items: {
           type: "object",
           properties: {
+            restaurant_name: { type: "string" },
+            address: { type: "string" },
             title: { type: "string" },
             order: { type: "string" },
             substitutions: { type: "array", items: { type: "string" }, maxItems: 6 },
@@ -86,7 +88,7 @@ const restaurantPlanFormat = {
             source_url: { type: "string" }
           },
           required: [
-            "title", "order", "substitutions", "why", "calories", "protein_g", "carbs_g",
+            "restaurant_name", "address", "title", "order", "substitutions", "why", "calories", "protein_g", "carbs_g",
             "net_carbs_g", "fat_g", "fiber_g", "confidence", "evidence_type", "source_url"
           ],
           additionalProperties: false
@@ -123,6 +125,8 @@ function normalizedRestaurantPlan(
       const sourceUrl = allowedUrls.has(String(option.source_url || "")) ? String(option.source_url) : "";
       const published = option.evidence_type === "restaurant_published" && Boolean(sourceUrl);
       return {
+        restaurant_name: String(option.restaurant_name || parsed.restaurant || "Restaurant").slice(0, 160),
+        address: String(option.address || "").slice(0, 240),
         title: String(option.title || "Customized restaurant meal").slice(0, 160),
         order: String(option.order || "").slice(0, 500),
         substitutions: Array.isArray(option.substitutions)
@@ -317,7 +321,7 @@ Deno.serve(async (request) => {
 
   const task = mode === "dinner"
     ? "Create one practical dinner plan. Give a concise menu, portions or protein target when useful, and a short preparation sequence. Prefer the user's ingredients and constraints. Keep it achievable tonight."
-    : "Create exactly three restaurant choices in this order: A is the closest fit to today's goals, B is a balanced choice with more flexibility, and C is a treat option with practical substitutions. Always search the current web before recommending. If the request asks to find nearby restaurants, each choice must name a real restaurant and a current menu item supported by the search; never substitute generic food categories for restaurant results. Prioritize official restaurant menu or nutrition pages. Use restaurant_published only when a searched source directly supports the nutrition values; otherwise use restaurant_estimate. Every source_url must exactly match a URL returned by web search. Keep order and substitution wording concise and personalized; never copy a restaurant's full marketing description.";
+    : "Create exactly three restaurant choices in this order: A is the closest fit to today's goals, B is a balanced choice with more flexibility, and C is a treat option with practical substitutions. Always search the current web before recommending. If the request asks to find nearby restaurants, each choice must name a real restaurant, a current menu item, and its street address when the search verifies it; never substitute generic food categories for restaurant results. Use an empty address rather than guessing. Prioritize official restaurant menu, location, or nutrition pages. Use restaurant_published only when a searched source directly supports the nutrition values; otherwise use restaurant_estimate. Every source_url must exactly match a URL returned by web search. Keep order and substitution wording concise and personalized; never copy a restaurant's full marketing description.";
   const nutritionGuardrail = nutritionContext?.netCarbGoal
     ? `The user's saved hard daily net-carb ceiling is ${nutritionContext.netCarbGoal}g. They have logged approximately ${nutritionContext.netCarbs}g today, leaving ${Math.max(0, nutritionContext.netCarbGoal - nutritionContext.netCarbs)}g. Treat the remaining allowance as a hard constraint whenever possible. Estimate net carbs for each recommendation and show projected daily net carbs. Never recommend an option over the ceiling if a lower-carb option can meet the request. If the user is already at or over the ceiling, choose options with as close to zero additional net carbs as practical and say so clearly.`
     : "Treat any explicit numeric nutrition limit in the user's request as a hard constraint unless safety requires otherwise.";

@@ -10,6 +10,11 @@ export function safeRestaurantSourceUrl(value) {
   }
 }
 
+export function restaurantMapUrl(restaurantName, address) {
+  const query = [restaurantName, address].map((value) => String(value || "").trim()).filter(Boolean).join(", ");
+  return query ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}` : "";
+}
+
 export function normalizeRestaurantPlan(rawPlan, today = new Date().toISOString().slice(0, 10)) {
   const options = Array.isArray(rawPlan?.options) ? rawPlan.options.slice(0, 3) : [];
   if (options.length !== 3) return null;
@@ -30,7 +35,10 @@ export function restaurantOptionToSavedFood(plan, option) {
     ? option.substitutions.map((item) => String(item).trim()).filter(Boolean).slice(0, 6)
     : [];
   const sourceUrl = safeRestaurantSourceUrl(option.source_url);
+  const restaurantName = String(option.restaurant_name || plan.restaurant || "Restaurant").trim();
+  const address = String(option.address || "").trim();
   const notes = [
+    address ? `Address: ${address}` : "",
     `Customized order: ${String(option.order || "").trim()}`,
     substitutions.length ? `Substitutions: ${substitutions.join("; ")}` : "",
     String(option.why || "").trim(),
@@ -39,7 +47,7 @@ export function restaurantOptionToSavedFood(plan, option) {
   return {
     item_type: "restaurant_item",
     name: String(option.title || `${plan.restaurant} customized meal`).slice(0, 160),
-    brand_or_restaurant: plan.restaurant,
+    brand_or_restaurant: restaurantName,
     serving_description: "1 customized order",
     calories: Number(option.calories || 0),
     protein_g: Number(option.protein_g || 0),
@@ -61,13 +69,15 @@ export function restaurantOptionToLedgerEntry(plan, option) {
     ? option.substitutions.map((item) => String(item).trim()).filter(Boolean).slice(0, 6)
     : [];
   const sourceUrl = safeRestaurantSourceUrl(option.source_url);
+  const restaurantName = String(option.restaurant_name || plan.restaurant || "Restaurant").trim();
+  const address = String(option.address || "").trim();
   const order = String(option.order || option.title || "Customized restaurant order").replace(/\s+/g, " ").trim();
   const evidenceType = option.evidence_type === "restaurant_published" && sourceUrl
     ? "restaurant_published"
     : "restaurant_estimate";
   return {
     description: [
-      `${plan.restaurant}: ${order}`,
+      `${restaurantName}: ${order}`,
       substitutions.length ? `Substitutions: ${substitutions.join("; ")}` : ""
     ].filter(Boolean).join(". ").slice(0, 1200),
     nutrition_estimate: {
@@ -81,7 +91,8 @@ export function restaurantOptionToLedgerEntry(plan, option) {
       confidence: ["low", "medium", "high"].includes(option.confidence) ? option.confidence : "medium",
       note: String(option.why || "Restaurant nutrition varies by location, preparation, and portion.").slice(0, 300),
       source: evidenceType,
-      restaurant: plan.restaurant,
+      restaurant: restaurantName,
+      restaurant_address: address,
       restaurant_order: order,
       substitutions,
       source_url: sourceUrl,
