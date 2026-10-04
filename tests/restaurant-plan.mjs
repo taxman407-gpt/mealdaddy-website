@@ -13,6 +13,8 @@ const appScript = readFileSync(new URL("../app/app.js", import.meta.url), "utf8"
 const coachFunction = readFileSync(new URL("../supabase/functions/coach-action/index.ts", import.meta.url), "utf8");
 
 assert.match(appHtml, /begin the description with a ZIP or ZIP\+4/i);
+assert.doesNotMatch(appHtml, /Culver/i, "Restaurant Mode examples should not promote a specific restaurant");
+assert.match(appHtml, /Restaurant Name or meal description/);
 assert.match(appScript, /Begin the description with your ZIP or ZIP\+4/);
 assert.match(coachFunction, /treat it as authoritative location context for proximity, branch selection, addresses, and directions/);
 

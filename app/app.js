@@ -2034,7 +2034,7 @@ function openCoachAction(mode) {
     ? "For local results, start with your ZIP or ZIP+4. Then enter a restaurant, menu item, or what you are considering ordering."
     : "Describe what you have, or add a fridge or pantry photo. Include your available time or what sounds good.";
   $("#coach-action-context").placeholder = restaurantMode
-    ? "e.g. 46140-6509 Culver’s — suggest a low-carb order"
+    ? "e.g. 46140-6509 Restaurant Name or meal description"
     : "e.g. 30 minutes, cooking for two, something low carb";
   $("#coach-photo-field").hidden = restaurantMode;
   $("#restaurant-location-field").hidden = !restaurantMode;
