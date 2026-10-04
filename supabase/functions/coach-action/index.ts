@@ -2,7 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.54.0";
 
 // Restaurant web search uses a model/configuration explicitly supported by the Responses API.
 const mealPlanningModel = "gpt-5-mini";
-const restaurantSearchModel = "gpt-4.1-mini";
+const restaurantSearchModel = "gpt-5-mini";
 const monthlyBudgetMicros = 3_000_000;
 const corsHeaders = {
   "access-control-allow-origin": "*",
@@ -98,7 +98,10 @@ const restaurantPlanFormat = {
   }
 };
 
-function normalizedRestaurantPlan(response: Record<string, unknown>) {
+function normalizedRestaurantPlan(
+  response: Record<string, unknown>,
+  suppliedSources: Array<{ title: string; url: string }> | null = null
+) {
   const text = outputText(response).trim();
   if (!text) return null;
   let parsed: Record<string, any>;
@@ -108,7 +111,7 @@ function normalizedRestaurantPlan(response: Record<string, unknown>) {
     return null;
   }
   if (!Array.isArray(parsed.options) || parsed.options.length !== 3) return null;
-  const sources = webSearchSources(response);
+  const sources = suppliedSources ?? webSearchSources(response);
   const allowedUrls = new Set(sources.map((source) => source.url));
   const today = new Date().toISOString().slice(0, 10);
   return {
@@ -324,8 +327,7 @@ Deno.serve(async (request) => {
   const requestBody: Record<string, unknown> = {
       model: mode === "restaurant" ? restaurantSearchModel : mealPlanningModel,
       store: false,
-      // Restaurant Mode must have enough room to finish all three structured choices.
-      max_output_tokens: mode === "restaurant" ? 2400 : 700,
+      max_output_tokens: mode === "restaurant" ? 1800 : 700,
       input: [
         {
           role: "system",
@@ -342,11 +344,9 @@ Deno.serve(async (request) => {
           }]
         }
       ],
-      text: mode === "restaurant"
-        ? { verbosity: "low", format: restaurantPlanFormat }
-        : { verbosity: "low" }
+      text: { verbosity: "low" }
   };
-  if (mode === "dinner") requestBody.reasoning = { effort: "minimal" };
+  requestBody.reasoning = { effort: mode === "restaurant" ? "low" : "minimal" };
   if (mode === "restaurant") {
     requestBody.tools = [{ type: "web_search" }];
     requestBody.tool_choice = "required";
@@ -406,51 +406,76 @@ Deno.serve(async (request) => {
       return json({ error: "Meal Daddy could not reach its restaurant search service. Please try again." }, 503);
     }
   }
-  if (mode === "restaurant" && [400, 403].includes(openAiResponse.status)) {
-    const fallbackBody = { ...requestBody };
-    delete fallbackBody.tools;
-    delete fallbackBody.tool_choice;
-    delete fallbackBody.include;
-    fallbackBody.input = [
-      {
-        role: "system",
-        content: [{
-          type: "input_text",
-          text: `${systemText} Current web search is unavailable for this request. Do not invent restaurant names, nearby results, sources, or prices. Use restaurant_estimate, an empty source_url, and low or medium confidence. Explain in friendly consumer language that these are general meal styles to look for, not restaurants found nearby. Never mention internal field names, tool configuration, or API limitations.`
-        }]
-      },
-      { role: "user", content: [{ type: "input_text", text: userText }] }
-    ];
-    try {
-      openAiResponse = await callOpenAi(fallbackBody);
-    } catch {
-      await releaseReservation();
-      return json({ error: "Meal Daddy could not reach its meal-guidance service. Please try again." }, 503);
-    }
-  }
-
   if (!openAiResponse.ok) {
     await releaseReservation();
     const errorBody = await openAiResponse.json().catch(() => ({}));
     return json({
-      error: "Meal Daddy could not generate guidance right now.",
+      error: mode === "restaurant"
+        ? "Meal Daddy could not complete a live restaurant search right now. Please try again shortly."
+        : "Meal Daddy could not generate guidance right now.",
       code: errorBody?.error?.code ?? errorBody?.error?.type ?? ""
     }, 502);
   }
 
-  const response = await openAiResponse.json();
-  const restaurantPlan = mode === "restaurant" ? normalizedRestaurantPlan(response) : null;
+  let response = await openAiResponse.json();
+  const providerResponses = [response];
+  let restaurantSources: Array<{ title: string; url: string }> | null = null;
+  if (mode === "restaurant") {
+    restaurantSources = webSearchSources(response);
+    const researchText = outputText(response).trim();
+    if (!researchText || !restaurantSources.length) {
+      await releaseReservation();
+      return json({ error: "Meal Daddy could not verify current restaurant results for this area. Please try again shortly." }, 502);
+    }
+    const formattingBody: Record<string, unknown> = {
+      model: mealPlanningModel,
+      store: false,
+      reasoning: { effort: "minimal" },
+      max_output_tokens: 3200,
+      input: [
+        {
+          role: "system",
+          content: [{
+            type: "input_text",
+            text: `${systemText} Format the supplied live-search research into the required restaurant plan. Use only restaurants and menu facts present in that research. A source_url must exactly match one URL in the supplied source list. Do not mention internal field names or the formatting process.`
+          }]
+        },
+        {
+          role: "user",
+          content: [{
+            type: "input_text",
+            text: `${userText}\n\nLive-search research:\n${researchText}\n\nAllowed sources:\n${JSON.stringify(restaurantSources)}`
+          }]
+        }
+      ],
+      text: { verbosity: "low", format: restaurantPlanFormat }
+    };
+    let formattingResponse: Response;
+    try {
+      formattingResponse = await callOpenAi(formattingBody);
+    } catch {
+      await releaseReservation();
+      return json({ error: "Meal Daddy found restaurant information but could not prepare the recommendations. Please try again." }, 503);
+    }
+    if (!formattingResponse.ok) {
+      await releaseReservation();
+      return json({ error: "Meal Daddy found restaurant information but could not prepare the recommendations. Please try again." }, 502);
+    }
+    response = await formattingResponse.json();
+    providerResponses.push(response);
+  }
+  const restaurantPlan = mode === "restaurant" ? normalizedRestaurantPlan(response, restaurantSources) : null;
   const guidance = mode === "restaurant" ? restaurantPlan?.overview ?? "" : outputText(response).trim();
   if (!guidance || (mode === "restaurant" && !restaurantPlan)) {
     await releaseReservation();
     return json({ error: "Meal Daddy returned an incomplete response. Please try again." }, 502);
   }
 
-  const inputTokens = Number(response.usage?.input_tokens || 0);
-  const outputTokens = Number(response.usage?.output_tokens || 0);
-  const webSearchCalls = Array.isArray(response.output)
-    ? response.output.filter((item: Record<string, unknown>) => item.type === "web_search_call").length
-    : 0;
+  const inputTokens = providerResponses.reduce((sum, item) => sum + Number(item.usage?.input_tokens || 0), 0);
+  const outputTokens = providerResponses.reduce((sum, item) => sum + Number(item.usage?.output_tokens || 0), 0);
+  const webSearchCalls = providerResponses.reduce((sum, item) => sum + (Array.isArray(item.output)
+    ? item.output.filter((outputItem: Record<string, unknown>) => outputItem.type === "web_search_call").length
+    : 0), 0);
   const estimatedCostMicros = inputTokens * 1 + outputTokens * 6 + webSearchCalls * 10_000;
   const { error: settleError } = await admin.rpc("settle_ai_usage", {
     requested_reservation_id: reservationId,
