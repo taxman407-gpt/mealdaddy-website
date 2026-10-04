@@ -73,6 +73,18 @@ function formatNumber(value) {
   return Number.isInteger(rounded) ? rounded.toLocaleString() : rounded.toFixed(1);
 }
 
+function nutritionChangeSummary(before, after) {
+  const changes = [
+    ["calories", "cal"],
+    ["carbs_g", "g carbs"],
+    ["net_carbs_g", "g net carbs"],
+    ["protein_g", "g protein"],
+    ["fat_g", "g fat"]
+  ].filter(([field]) => Math.abs(numberValue(before?.[field]) - numberValue(after?.[field])) >= 0.1)
+    .map(([field, unit]) => `${formatNumber(before?.[field])}→${formatNumber(after?.[field])}${unit}`);
+  return changes.slice(0, 3).join(", ");
+}
+
 function normalizedSearchText(value) {
   return String(value || "")
     .toLowerCase()
@@ -908,7 +920,7 @@ export async function initializeSavedFoods({
     event.preventDefault();
     const status = $("#saved-food-review-status");
     const button = $("#save-saved-food");
-    const food = reviewFormFood();
+    let food = reviewFormFood();
     if (!food.name || !food.serving_description) {
       status.textContent = "Add a name and serving description before saving.";
       return;
@@ -917,20 +929,44 @@ export async function initializeSavedFoods({
     const recipeDescriptionChanged = previousFood && ["name", "brand_or_restaurant", "serving_description", "notes"].some((field) =>
       String(food[field] || "").trim() !== String(previousFood[field] || "").trim()
     );
-    const nutritionStayedIdentical = previousFood && numericFields.every((field) =>
-      Math.abs(numberValue(food[field]) - numberValue(previousFood[field])) < 0.01
-    );
-    if (recipeDescriptionChanged && nutritionStayedIdentical && !window.confirm("The recipe description changed, but every nutrition value stayed the same. Save only if you reviewed those values and they are still correct. Continue?")) {
-      status.textContent = "Review the nutrition values so they match the updated recipe.";
-      return;
-    }
+    let recalculationSummary = "";
     const mode = previousFood
       ? previousFood.storage_scope === "device" ? "device_only" : "sync_cache"
       : selectedStorageMode();
     const keepPhoto = $("#saved-food-keep-photo").checked;
     button.disabled = true;
-    status.textContent = mode === "one_time" ? "Logging the reviewed values..." : "Saving your reviewed food...";
+    status.textContent = recipeDescriptionChanged
+      ? "Recipe details changed. Recalculating nutrition..."
+      : mode === "one_time" ? "Logging the reviewed values..." : "Saving your reviewed food...";
     try {
+      if (recipeDescriptionChanged) {
+        if (!hasCurrentCoreMembership()) {
+          showMembershipPrompt("Favorite", "updated");
+          throw new Error("An active Meal Daddy Core membership is required to recalculate this favorite.");
+        }
+        const context = [
+          food.name,
+          food.brand_or_restaurant,
+          food.serving_description,
+          food.notes
+        ].filter(Boolean).join(". ");
+        const { data, error } = await invokeAuthenticated("analyze-saved-food", {
+          body: { itemType: food.item_type, context, textOnly: true }
+        });
+        if (error || !data?.food) throw new Error(await functionErrorMessage(error, "Meal Daddy could not recalculate this favorite."));
+        const recalculated = normalizedFood(data.food);
+        recalculationSummary = nutritionChangeSummary(previousFood, recalculated);
+        food = normalizedFood({
+          ...food,
+          ...recalculated,
+          item_type: food.item_type,
+          nickname: food.nickname,
+          name: food.name,
+          brand_or_restaurant: food.brand_or_restaurant,
+          serving_description: food.serving_description,
+          notes: [food.notes, recalculated.notes].filter(Boolean).join(" ").slice(0, 1000)
+        });
+      }
       if (mode === "one_time") {
         await logFood({ ...food, storage_scope: "one_time" }, 1, defaultMealLabel());
         closeEditor();
@@ -961,9 +997,10 @@ export async function initializeSavedFoods({
       await loadFoods();
       await onLedgerChange();
       closeEditor();
+      const recalculationNotice = recalculationSummary ? ` Nutrition updated: ${recalculationSummary}.` : recipeDescriptionChanged ? " Nutrition was recalculated; the reviewed totals did not materially change." : "";
       toast(updatedTodayCount
-        ? `${food.nickname || food.name} saved. ${updatedTodayCount} linked ${updatedTodayCount === 1 ? "entry" : "entries"} updated automatically.`
-        : `${food.nickname || food.name} saved to My Foods.`);
+        ? `${food.nickname || food.name} saved. ${updatedTodayCount} linked ${updatedTodayCount === 1 ? "entry" : "entries"} updated automatically.${recalculationNotice}`
+        : `${food.nickname || food.name} saved to My Foods.${recalculationNotice}`);
     } catch (error) {
       status.textContent = error.message || "The saved food could not be stored.";
     } finally {

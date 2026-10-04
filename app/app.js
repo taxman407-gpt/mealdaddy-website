@@ -2,7 +2,7 @@ import { invokeAuthenticated, supabase, requireSession } from "./supabase-client
 import { buildProteinGuidance } from "./feedback-guidance.js?v=20261004-1";
 import { entryDateDisplayLabel, localDateValue as localEntryDateValue, occurredAtForEntryDate, quickDateOptions } from "./entry-date.js?v=20260813-4";
 import { estimatedAdultBmi, formatWeight, formatWeightChange, normalizeUnitSystem, parseHeightCm, shouldEnableWeightTracking, weightFromKg, weightToKg } from "./health-metrics.js?v=20260813-4";
-import { initializeSavedFoods } from "./saved-foods.js?v=20261004-8";
+import { initializeSavedFoods } from "./saved-foods.js?v=20261004-9";
 import { normalizeRestaurantPlan, restaurantChoiceLetters, restaurantFitLabels, restaurantMapUrl, restaurantOptionToLedgerEntry, safeRestaurantSourceUrl } from "./restaurant-plan.js?v=20260813-4";
 import { estimateInflammationScore, inflammationBand, inflammationImpact, inflammationProgressBackgroundSize, summarizeInflammationEntries, summarizeInflammationReport, weightedInflammationScore } from "./inflammation-impact.js?v=20261004-4";
 import { resolvePrimaryEatingStyle } from "./profile-preferences.js?v=20260929-1";
