@@ -14,16 +14,10 @@ export function inflammationBand(value) {
   return { label: "Higher impact", tone: "higher" };
 }
 
-export function inflammationProgressColor(value) {
+export function inflammationProgressBackgroundSize(value) {
   const score = inflammationScore(value);
-  if (score === null || score <= 4) return "#ddf65d";
-  const transitionStops = [0, 35, 50, 65, 82, 100];
-  const lowerScore = Math.min(8, Math.floor(score));
-  const lowerShare = transitionStops[lowerScore - 4];
-  const upperShare = transitionStops[lowerScore - 3];
-  const blueShare = Math.min(100, Math.round(lowerShare + ((score - lowerScore) * (upperShare - lowerShare))));
-  if (blueShare >= 100) return "#258cff";
-  return `color-mix(in srgb, #ddf65d ${100 - blueShare}%, #258cff)`;
+  if (score === null) return "100% 100%";
+  return `${Math.round((1000 / score) * 10) / 10}% 100%`;
 }
 
 export function inflammationImpact(value) {

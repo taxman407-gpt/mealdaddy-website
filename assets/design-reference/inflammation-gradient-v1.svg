@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="390" viewBox="0 0 900 390" role="img" aria-labelledby="title desc">
+  <title id="title">Approved MealDaddy inflammation gradient</title>
+  <desc id="desc">Solid lime from zero through one, a gradual lime through teal to blue transition from one through nine, and solid blue from nine through ten.</desc>
+  <defs>
+    <linearGradient id="fullGradient" x1="0" x2="1">
+      <stop offset="0%" stop-color="#ddf65d"/><stop offset="10%" stop-color="#ddf65d"/><stop offset="55%" stop-color="#49c9b0"/><stop offset="90%" stop-color="#258cff"/><stop offset="100%" stop-color="#258cff"/>
+    </linearGradient>
+    <linearGradient id="currentGradient" x1="0" x2="1">
+      <stop offset="0%" stop-color="#ddf65d"/><stop offset="20.4%" stop-color="#ddf65d"/><stop offset="100%" stop-color="#49c9b0"/>
+    </linearGradient>
+  </defs>
+  <rect width="900" height="390" rx="28" fill="#0d211a"/>
+  <text x="55" y="60" fill="#ef8050" font-family="Arial, sans-serif" font-size="18" font-weight="700" letter-spacing="2">INFLAMMATION SCALE</text>
+  <text x="55" y="105" fill="#ffffff" font-family="Arial, sans-serif" font-size="34" font-weight="700">Full 0–10 color progression</text>
+  <rect x="55" y="145" width="790" height="22" rx="11" fill="url(#fullGradient)"/>
+  <g fill="#bed0c8" font-family="Arial, sans-serif" font-size="18"><text x="55" y="200">0</text><text x="130" y="200">1</text><text x="445" y="200" text-anchor="middle">5</text><text x="766" y="200" text-anchor="middle">9</text><text x="845" y="200" text-anchor="end">10</text></g>
+  <text x="55" y="255" fill="#bed0c8" font-family="Arial, sans-serif" font-size="20">How 4.9 would appear</text>
+  <text x="845" y="255" fill="#ffffff" font-family="Arial, sans-serif" font-size="20" font-weight="700" text-anchor="end">4.9 / 10</text>
+  <rect x="55" y="278" width="790" height="14" rx="7" fill="#315b4d"/><rect x="55" y="278" width="387" height="14" rx="7" fill="url(#currentGradient)"/>
+  <text x="55" y="344" fill="#bed0c8" font-family="Arial, sans-serif" font-size="18">Solid lime through 1 • gradual transition from 1–9 • solid blue from 9–10</text>
+</svg>

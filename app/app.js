@@ -4,7 +4,7 @@ import { entryDateDisplayLabel, localDateValue as localEntryDateValue, occurredA
 import { estimatedAdultBmi, formatWeight, formatWeightChange, normalizeUnitSystem, parseHeightCm, shouldEnableWeightTracking, weightFromKg, weightToKg } from "./health-metrics.js?v=20260813-4";
 import { initializeSavedFoods } from "./saved-foods.js?v=20261004-5";
 import { normalizeRestaurantPlan, restaurantChoiceLetters, restaurantFitLabels, restaurantMapUrl, restaurantOptionToLedgerEntry, safeRestaurantSourceUrl } from "./restaurant-plan.js?v=20260813-4";
-import { estimateInflammationScore, inflammationBand, inflammationImpact, inflammationProgressColor, summarizeInflammationEntries, summarizeInflammationReport, weightedInflammationScore } from "./inflammation-impact.js?v=20261004-3";
+import { estimateInflammationScore, inflammationBand, inflammationImpact, inflammationProgressBackgroundSize, summarizeInflammationEntries, summarizeInflammationReport, weightedInflammationScore } from "./inflammation-impact.js?v=20261004-4";
 import { resolvePrimaryEatingStyle } from "./profile-preferences.js?v=20260929-1";
 import { metricProgressSegments } from "./metric-progress.js?v=20260930-1";
 import { normalizeMetricOrder, normalizeOptionalMetrics } from "./metric-order.js?v=20261004-3";
@@ -935,9 +935,9 @@ function updateInflammationBar(score) {
   const track = $("#inflammation-progress").nextElementSibling;
   const fill = track.querySelector(".v1-goal-fill");
   track.classList.add("is-inflammation");
-  fill.style.background = score === null
-    ? "var(--v1-lime)"
-    : `linear-gradient(90deg, var(--v1-lime), ${inflammationProgressColor(score)})`;
+  fill.style.background = "linear-gradient(90deg, var(--v1-lime) 0%, var(--v1-lime) 10%, #49c9b0 55%, #258cff 90%, #258cff 100%)";
+  fill.style.backgroundSize = inflammationProgressBackgroundSize(score);
+  fill.style.backgroundRepeat = "no-repeat";
   track.setAttribute("aria-label", score === null
     ? "Not scored yet"
     : `Inflammation impact ${formatEstimateNumber(score)} out of 10; lower is the goal`);
