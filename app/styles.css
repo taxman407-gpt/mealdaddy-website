@@ -183,13 +183,27 @@ h2 { font-size: clamp(1.65rem, 3vw, 2.6rem); line-height: 1.06; letter-spacing: 
 .saved-food-item-actions button { border: 0; padding: 2px; color: var(--forest-2); background: transparent; font-size: .67rem; font-weight: 800; }
 .saved-food-item-actions button:last-child { color: #a43f2b; }
 .saved-foods-list .saved-food-item {
-  display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 10px; align-items: start;
+  display: grid; grid-template-columns: minmax(0, 1fr) 40px; gap: 6px; align-items: start;
   border: 1px solid var(--line); border-radius: 15px; padding: 9px; background: white;
 }
 .saved-food-quick-log {
-  display: grid; place-items: center; width: 52px; height: 50px; border: 0; border-radius: 12px;
-  color: #071711; background: var(--lime); font: inherit; font-size: .75rem; font-weight: 850; cursor: pointer;
+  display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 10px; align-items: center;
+  width: 100%; min-width: 0; height: 50px; border: 0; border-radius: 12px; padding: 0;
+  color: var(--ink); background: transparent; font: inherit; text-align: left; cursor: pointer;
 }
+.saved-food-quick-log:hover { background: var(--soft); }
+.saved-food-quick-log:focus-visible { outline: 3px solid rgba(221,246,93,.45); outline-offset: 1px; }
+.saved-food-quick-log > strong { display: grid; place-items: center; align-self: stretch; border-radius: 12px; color: #071711; background: var(--lime); font-size: .75rem; }
+.saved-food-quick-log > span { display: flex; min-width: 0; align-items: baseline; gap: 7px; }
+.saved-food-quick-log b,
+.saved-food-quick-log small { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.saved-food-quick-log b { max-width: 58%; flex: 0 1 auto; font-size: .86rem; }
+.saved-food-quick-log small { min-width: 0; flex: 1 1 auto; color: var(--muted); font-size: .66rem; }
+.saved-food-quick-log small::before { content: "· "; }
+.saved-food-expand { display: grid; place-items: center; width: 40px; height: 50px; border: 0; border-radius: 11px; color: var(--forest); background: transparent; font: inherit; cursor: pointer; }
+.saved-food-expand:hover { background: var(--soft); }
+.saved-food-expand > span:last-child { font-size: 1rem; font-weight: 900; transition: transform .15s ease; }
+.saved-food-expand[aria-expanded="true"] > span:last-child { transform: rotate(180deg); }
 .saved-food-details { min-width: 0; }
 .saved-food-details > summary {
   display: grid; grid-template-columns: minmax(0, 1fr); gap: 1px; align-items: center;
@@ -207,15 +221,16 @@ h2 { font-size: clamp(1.65rem, 3vw, 2.6rem); line-height: 1.06; letter-spacing: 
 .saved-food-details > summary strong { max-width: 58%; flex: 0 1 auto; color: var(--ink); font-size: .86rem; }
 .saved-food-details > summary small { min-width: 0; flex: 1 1 auto; color: var(--muted); font-size: .66rem; }
 .saved-food-details > summary small::before { content: "· "; }
-.saved-food-expanded { display: grid; grid-template-columns: 62px minmax(0, 1fr); gap: 12px; padding: 12px 0 3px; border-top: 1px solid var(--line); }
+.saved-food-expanded { grid-column: 1 / -1; display: grid; grid-template-columns: 62px minmax(0, 1fr); gap: 12px; padding: 12px 0 3px; border-top: 1px solid var(--line); }
+.saved-food-expanded[hidden] { display: none; }
 .saved-food-expanded .saved-food-photo { width: 62px; height: 62px; }
 .saved-food-expanded .saved-food-main > strong { margin-top: 6px; }
 .saved-food-expanded .saved-food-log-form,
 .saved-food-expanded .saved-food-item-actions { grid-column: 1 / -1; }
 @media (max-width: 560px) {
-  .saved-foods-list .saved-food-item { grid-template-columns: 50px minmax(0, 1fr); padding: 8px; }
-  .saved-food-quick-log { width: 50px; height: 48px; }
-  .saved-food-details > summary { min-height: 48px; }
+  .saved-foods-list .saved-food-item { grid-template-columns: minmax(0, 1fr) 38px; padding: 8px; }
+  .saved-food-quick-log { grid-template-columns: 50px minmax(0, 1fr); height: 48px; }
+  .saved-food-expand { width: 38px; height: 48px; }
   .saved-food-expanded { grid-template-columns: 52px minmax(0, 1fr); }
   .saved-food-expanded .saved-food-photo { width: 52px; height: 52px; }
   .saved-food-expanded .saved-food-log-form { grid-template-columns: 78px 1fr; }

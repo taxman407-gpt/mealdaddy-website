@@ -328,11 +328,11 @@ export async function initializeSavedFoods({
       : `<div class="saved-food-photo saved-food-photo-placeholder" aria-hidden="true"><span>${escapeHtml(food.name).charAt(0).toUpperCase()}</span></div>`;
     const defaultLabel = defaultMealLabel();
     const logFormId = `saved-food-log-${String(food.storage_scope)}-${String(food.id)}`.replace(/[^a-zA-Z0-9_-]/g, "-");
+    const detailsId = `${logFormId}-details`;
     return `<article class="saved-food-item" data-saved-food="${escapeHtml(food.storage_scope)}:${escapeHtml(food.id)}">
-      <button class="saved-food-quick-log" type="submit" form="${escapeHtml(logFormId)}">Log</button>
-      <details class="saved-food-details">
-        <summary><span><strong>${escapeHtml(food.nickname || food.name)}</strong><small>${escapeHtml(foodSubtitle(food))}</small></span></summary>
-        <div class="saved-food-expanded">
+      <button class="saved-food-quick-log" type="submit" form="${escapeHtml(logFormId)}"><strong>Log</strong><span><b>${escapeHtml(food.nickname || food.name)}</b><small>${escapeHtml(foodSubtitle(food))}</small></span></button>
+      <button class="saved-food-expand" type="button" data-expand-saved-food aria-expanded="false" aria-controls="${escapeHtml(detailsId)}"><span class="sr-only">Show details for ${escapeHtml(food.nickname || food.name)}</span><span aria-hidden="true">⌄</span></button>
+      <div class="saved-food-expanded" id="${escapeHtml(detailsId)}" hidden>
           ${photo}
           <div class="saved-food-main">
             <div class="saved-food-badges"><span>${escapeHtml(itemTypeLabels[food.item_type])}</span><span class="evidence-${escapeHtml(food.evidence_type)}">${escapeHtml(evidenceLabels[food.evidence_type])}</span><span>${food.storage_scope === "device" ? "This device only" : "Private sync"}</span></div>
@@ -349,8 +349,7 @@ export async function initializeSavedFoods({
             <button class="button button-primary" type="submit">Log with these choices</button>
           </form>
           <div class="saved-food-item-actions"><button type="button" data-edit-saved-food="${escapeHtml(food.storage_scope)}:${escapeHtml(food.id)}">Edit</button><button type="button" data-delete-saved-food="${escapeHtml(food.storage_scope)}:${escapeHtml(food.id)}">Delete</button></div>
-        </div>
-      </details>
+      </div>
     </article>`;
   }
 
@@ -405,6 +404,7 @@ export async function initializeSavedFoods({
         .from("saved_foods")
         .select("*")
         .eq("user_id", user.id)
+        .order("use_count", { ascending: false })
         .order("last_used_at", { ascending: false, nullsFirst: false })
         .order("updated_at", { ascending: false });
       if (error) throw error;
@@ -420,6 +420,8 @@ export async function initializeSavedFoods({
     const deviceFoods = (await getDeviceSavedFoods(user.id).catch(() => []))
       .map((food) => normalizedFood({ ...food, storage_scope: "device" }));
     state.foods = [...syncedFoods, ...deviceFoods].sort((a, b) => {
+      const useDifference = Number(b.use_count || 0) - Number(a.use_count || 0);
+      if (useDifference) return useDifference;
       const aDate = new Date(a.last_used_at || a.updated_at || a.created_at || 0).valueOf();
       const bDate = new Date(b.last_used_at || b.updated_at || b.created_at || 0).valueOf();
       return bDate - aDate;
@@ -830,7 +832,7 @@ export async function initializeSavedFoods({
     event.preventDefault();
     const food = foodByKey(form.dataset.logSavedFood);
     if (!food) return;
-    const button = form.querySelector('button[type="submit"]');
+    const button = event.submitter || form.querySelector('button[type="submit"]');
     button.disabled = true;
     try {
       const formData = new FormData(form);
@@ -842,8 +844,18 @@ export async function initializeSavedFoods({
   });
 
   $("#saved-foods-list").addEventListener("click", async (event) => {
+    const expandButton = event.target.closest("[data-expand-saved-food]");
     const editButton = event.target.closest("[data-edit-saved-food]");
     const deleteButton = event.target.closest("[data-delete-saved-food]");
+    if (expandButton) {
+      const details = document.getElementById(expandButton.getAttribute("aria-controls"));
+      if (details) {
+        const willOpen = details.hidden;
+        details.hidden = !willOpen;
+        expandButton.setAttribute("aria-expanded", String(willOpen));
+      }
+      return;
+    }
     if (editButton) {
       const food = foodByKey(editButton.dataset.editSavedFood);
       if (!food) return;
