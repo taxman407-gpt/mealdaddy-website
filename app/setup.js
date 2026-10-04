@@ -1,6 +1,7 @@
 import { supabase, requireSession } from "./supabase-client.js?v=20260930-3";
 import { normalizeUnitSystem, suggestedStartingTargets, weightToKg, weightUnit } from "./health-metrics.js?v=20260929-1";
 import { includePrimaryEatingStyle, resolvePrimaryEatingStyle } from "./profile-preferences.js?v=20260929-1";
+import { metricLabel, moveMetric, normalizeMetricOrder } from "./metric-order.js?v=20261004-1";
 
 const session = await requireSession();
 if (!session) throw new Error("Authentication required");
@@ -61,7 +62,8 @@ const steps = [
     ["appliances", "Which appliances do you have?", "multi", choices.appliances], ["has_garden", "Vegetable or herb garden?", "single", choices.yesNo]
   ]},
   { title: "Tracking", intro: "Choose only what would genuinely help.", fields: [
-    ["mealdaddy_uses", "How would you like to use Meal Daddy?", "multi", choices.uses], ["tracking_detail", "How detailed should tracking be?", "single", choices.detail]
+    ["mealdaddy_uses", "How would you like to use Meal Daddy?", "multi", choices.uses], ["tracking_detail", "How detailed should tracking be?", "single", choices.detail],
+    ["today_metric_order", "Prioritize your Today metrics", "metric_order"]
   ]},
   { title: "Restaurant intelligence", intro: "Get useful guidance before you order.", fields: [
     ["restaurant_help", "Help before ordering at restaurants?", "single", choices.yesNo], ["favorite_restaurants", "Favorite restaurants", "textarea", "Chains and local restaurants"]
@@ -104,6 +106,11 @@ function fieldHtml([name, label, type, options, required]) {
     const suggestion = suggestedStartingTargets(answers)[name];
     return `<div class="setup-target-card"><label class="setup-field"><span>${escapeHtml(label)} ${requiredMark}</span><input name="${name}" type="number" value="${escapeHtml(value)}" placeholder="Enter your own" inputmode="decimal"></label><aside><span>Meal Daddy ${escapeHtml(suggestion.basis)}</span><strong>${escapeHtml(suggestion.value)} ${escapeHtml(suggestion.unit)}</strong><button type="button" data-use-target="${name}" data-target-value="${escapeHtml(suggestion.value)}">Use ${escapeHtml(suggestion.value)} as my starting point</button></aside></div>`;
   }
+  if (type === "metric_order") {
+    const order = normalizeMetricOrder(answers[name], answers);
+    answers[name] = order;
+    return `<fieldset class="setup-field metric-order-field"><legend>${escapeHtml(label)}</legend><p>Put what matters most to you first. You can change this later.</p><ol class="metric-order-list">${order.map((key, index) => `<li><span><b>${index + 1}</b>${escapeHtml(metricLabel(key))}</span><span class="metric-order-actions"><button type="button" data-metric-move="-1" data-metric-key="${escapeHtml(key)}" ${index === 0 ? "disabled" : ""} aria-label="Move ${escapeHtml(metricLabel(key))} up">↑</button><button type="button" data-metric-move="1" data-metric-key="${escapeHtml(key)}" ${index === order.length - 1 ? "disabled" : ""} aria-label="Move ${escapeHtml(metricLabel(key))} down">↓</button></span></li>`).join("")}</ol></fieldset>`;
+  }
   if (type === "single" || type === "multi") {
     return `<fieldset class="setup-field"><legend>${escapeHtml(label)} ${required ? requiredMark : ""}</legend><div class="setup-choices">${options.map((option) => {
       const checked = type === "multi" ? value.includes(option) : value === option;
@@ -119,7 +126,8 @@ function collectVisibleAnswers() {
   const form = new FormData($("#setup-form"));
   for (const field of steps[currentStep]?.fields || []) {
     const [name, , type] = field;
-    answers[name] = type === "multi" ? form.getAll(name) : (form.get(name) || "").toString().trim();
+    if (type === "metric_order") answers[name] = normalizeMetricOrder(answers[name], answers);
+    else answers[name] = type === "multi" ? form.getAll(name) : (form.get(name) || "").toString().trim();
   }
   sessionStorage.setItem("mealdaddy-onboarding", JSON.stringify(answers));
 }
@@ -133,7 +141,7 @@ function renderSummary() {
     ["Other eating styles", (answers.eating_styles || []).filter((style) => style !== answers.primary_eating_style).join(", ") || "None selected"],
     ["Foods to avoid", answers.foods_to_avoid || "None listed"], ["Restaurants", answers.favorite_restaurants || "None listed"],
     ["Garden", answers.has_garden || "Not specified"], ["Tracking", answers.tracking_detail || "Moderate"],
-    ["Coaching", answers.coaching_style || "Friendly"], ["Biggest challenge", answers.biggest_challenge || "Not specified"]
+    ["Coaching", answers.coaching_style || "Friendly"], ["Today priorities", normalizeMetricOrder(answers.today_metric_order, answers).map(metricLabel).join(" → ")], ["Biggest challenge", answers.biggest_challenge || "Not specified"]
   ];
   $("#setup-fields").innerHTML = `<div class="setup-summary">${rows.map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("")}</div><aside class="setup-email-notice"><strong>Stay connected with MealDaddy</strong><p>By finishing setup, your account email will automatically receive occasional MealDaddy product updates, recipes, and service news.</p><p>You can opt out later in Profile &amp; Account or unsubscribe using the link included in every optional email.</p></aside>`;
 }
@@ -236,6 +244,13 @@ $("#setup-back").addEventListener("click", () => { if (currentStep > 0) { if (cu
 $("#save-exit").addEventListener("click", async () => { if (currentStep < steps.length) collectVisibleAnswers(); if (await saveProfile(false)) location.replace("./app.html"); });
 
 $("#setup-form").addEventListener("click", (event) => {
+  const moveButton = event.target.closest("[data-metric-move]");
+  if (moveButton) {
+    answers.today_metric_order = moveMetric(answers.today_metric_order, moveButton.dataset.metricKey, Number(moveButton.dataset.metricMove));
+    sessionStorage.setItem("mealdaddy-onboarding", JSON.stringify(answers));
+    render();
+    return;
+  }
   const button = event.target.closest("[data-use-target]");
   if (!button) return;
   const field = $("#setup-form").elements.namedItem(button.dataset.useTarget);

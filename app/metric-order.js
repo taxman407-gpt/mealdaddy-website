@@ -1,0 +1,48 @@
+export const TODAY_METRICS = [
+  { key: "calories", label: "Calories" },
+  { key: "protein", label: "Protein" },
+  { key: "totalCarbs", label: "Total carbs" },
+  { key: "netCarbs", label: "Net carbs" },
+  { key: "fat", label: "Fat" },
+  { key: "fiber", label: "Fiber" },
+  { key: "water", label: "Water" },
+  { key: "inflammation", label: "Inflammation" }
+];
+
+const validKeys = new Set(TODAY_METRICS.map(({ key }) => key));
+
+export function defaultMetricOrder(profile = {}) {
+  const goals = Array.isArray(profile.primary_goals) ? profile.primary_goals : [];
+  const styles = Array.isArray(profile.eating_styles) ? profile.eating_styles : [];
+  const context = [profile.primary_eating_style, ...goals, ...styles]
+    .map((value) => String(value || "").toLowerCase())
+    .join(" ");
+  const prioritized = [];
+  const add = (...keys) => keys.forEach((key) => { if (!prioritized.includes(key)) prioritized.push(key); });
+
+  if (/inflamm/.test(context)) add("inflammation", "fiber");
+  if (/low carb|keto|blood sugar|diabet/.test(context)) add("netCarbs", "totalCarbs", "protein");
+  if (/gain muscle|high protein/.test(context)) add("protein", "calories");
+  if (/lose weight|maintain weight/.test(context)) add("calories", "protein");
+  if (/heart|mediterranean|dash/.test(context)) add("fiber", "fat", "inflammation");
+  add("calories", "protein", "totalCarbs", "netCarbs", "fat", "fiber", "water", "inflammation");
+  return prioritized;
+}
+
+export function normalizeMetricOrder(value, profile = {}) {
+  const supplied = Array.isArray(value) ? value.filter((key, index) => validKeys.has(key) && value.indexOf(key) === index) : [];
+  return [...supplied, ...defaultMetricOrder(profile).filter((key) => !supplied.includes(key))];
+}
+
+export function metricLabel(key) {
+  return TODAY_METRICS.find((metric) => metric.key === key)?.label || key;
+}
+
+export function moveMetric(order, key, direction) {
+  const normalized = normalizeMetricOrder(order);
+  const index = normalized.indexOf(key);
+  const nextIndex = index + direction;
+  if (index < 0 || nextIndex < 0 || nextIndex >= normalized.length) return normalized;
+  [normalized[index], normalized[nextIndex]] = [normalized[nextIndex], normalized[index]];
+  return normalized;
+}

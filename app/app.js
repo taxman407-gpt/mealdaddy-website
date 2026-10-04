@@ -7,6 +7,7 @@ import { normalizeRestaurantPlan, restaurantChoiceLetters, restaurantFitLabels, 
 import { estimateInflammationScore, inflammationBand, inflammationImpact, summarizeInflammationEntries, summarizeInflammationReport, weightedInflammationScore } from "./inflammation-impact.js?v=20260813-4";
 import { resolvePrimaryEatingStyle } from "./profile-preferences.js?v=20260929-1";
 import { metricProgressSegments } from "./metric-progress.js?v=20260930-1";
+import { normalizeMetricOrder } from "./metric-order.js?v=20261004-1";
 
 document.querySelector("#focus-quick-entry")?.addEventListener("click", () => {
   document.querySelector("#quick-entry")?.focus();
@@ -94,7 +95,7 @@ const entryCategories = [...mealLabels, "Hydration"];
 const query = new URLSearchParams(location.search);
 let pendingPlan = allowedPlans.has(query.get("plan")) ? query.get("plan") : null;
 const checkoutResult = query.get("checkout");
-const state = { preferredName: "", diet: "", tone: "supportive", provider: "best_value", entries: [], recentEntries: [], ledgerReviewDate: localEntryDateValue(), weightEntries: [], photo: null, coachPhoto: null, restaurantLocation: null, restaurantPlan: null, coachMode: "dinner", membershipPlan: null, membershipStatus: null, membershipAccess: null, calorieGoal: 2050, proteinGoal: 130, netCarbGoal: 0, fiberGoal: 30, waterGoal: 90, unitSystem: "us", heightCm: null, age: null, trackBmi: false, goalWeightKg: null, eatingStyles: [], goals: [], trackingDetail: "Moderate", uses: [], reminders: [], favoriteProteins: [], foodsLoved: "", foodsDisliked: "", foodsToAvoid: "", biggestChallenge: "", suggestedProteinTarget: 40, leftoverEntryId: null, leftoverPhoto: null, leftoverAnalysis: null, leftoverReturnFocus: null, savedFoodsApi: null, pendingQuickLog: null, skipSavedFoodMatch: false, pendingLabelCandidate: null, pendingLabelPhoto: null, estimatingEntryIds: new Set(), estimateFailures: new Map(), currentTotals: { calories: 0, protein: 0, carbs: 0, netCarbs: 0, fat: 0, fiber: 0, water: 0 } };
+const state = { preferredName: "", diet: "", tone: "supportive", provider: "best_value", entries: [], recentEntries: [], ledgerReviewDate: localEntryDateValue(), weightEntries: [], photo: null, coachPhoto: null, restaurantLocation: null, restaurantPlan: null, coachMode: "dinner", membershipPlan: null, membershipStatus: null, membershipAccess: null, calorieGoal: 2050, proteinGoal: 130, netCarbGoal: 0, fiberGoal: 30, waterGoal: 90, unitSystem: "us", heightCm: null, age: null, trackBmi: false, goalWeightKg: null, eatingStyles: [], goals: [], trackingDetail: "Moderate", uses: [], reminders: [], favoriteProteins: [], foodsLoved: "", foodsDisliked: "", foodsToAvoid: "", biggestChallenge: "", metricOrder: normalizeMetricOrder([]), suggestedProteinTarget: 40, leftoverEntryId: null, leftoverPhoto: null, leftoverAnalysis: null, leftoverReturnFocus: null, savedFoodsApi: null, pendingQuickLog: null, skipSavedFoodMatch: false, pendingLabelCandidate: null, pendingLabelPhoto: null, estimatingEntryIds: new Set(), estimateFailures: new Map(), currentTotals: { calories: 0, protein: 0, carbs: 0, netCarbs: 0, fat: 0, fiber: 0, water: 0 } };
 const entryById = (entryId) => state.recentEntries.find((item) => item.id === entryId) || state.entries.find((item) => item.id === entryId);
 const ledgerReviewDate = $("#ledger-review-date");
 if (ledgerReviewDate) {
@@ -445,6 +446,12 @@ async function loadProfile() {
   const goals = profile.primary_goals || (profile.primary_goal ? [profile.primary_goal] : []);
   state.goals = Array.isArray(goals) ? goals : [];
   state.eatingStyles = Array.isArray(profile.eating_styles) ? profile.eating_styles : [];
+  state.metricOrder = normalizeMetricOrder(profile.today_metric_order, profile);
+  const metricGrid = $("#today-metrics");
+  state.metricOrder.forEach((key) => {
+    const metric = metricGrid?.querySelector(`[data-metric-order="${key}"]`);
+    if (metric) metricGrid.append(metric);
+  });
   state.trackingDetail = profile.tracking_detail || "Moderate";
   state.uses = Array.isArray(profile.mealdaddy_uses) ? profile.mealdaddy_uses : [];
   syncWeightLauncher();

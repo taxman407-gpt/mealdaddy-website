@@ -1,5 +1,6 @@
 import { invokeAuthenticated, supabase, requireSession } from "./supabase-client.js?v=20260930-3";
 import { clearLocalSavedFoods, getDeviceSavedFoods } from "./saved-foods-store.js?v=20260929-1";
+import { metricLabel, normalizeMetricOrder } from "./metric-order.js?v=20261004-1";
 
 const $ = (selector) => document.querySelector(selector);
 const session = await requireSession();
@@ -64,6 +65,7 @@ async function loadProfileSummary() {
   $("#profile-favorites").textContent = listText(favorites);
   $("#profile-coaching").textContent = profile.coaching_style || titleCase(data?.coaching_tone || "supportive");
   $("#profile-reminders").textContent = listText(profile.reminders);
+  $("#profile-metric-order").textContent = normalizeMetricOrder(profile.today_metric_order, profile).map(metricLabel).join(" → ");
 }
 
 async function loadContactPreference() {

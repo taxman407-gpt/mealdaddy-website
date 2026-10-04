@@ -707,6 +707,14 @@ h2 { font-size: clamp(1.65rem, 3vw, 2.6rem); line-height: 1.06; letter-spacing: 
 .setup-field input:focus,
 .setup-field textarea:focus { outline: 3px solid rgba(232,115,69,.18); border-color: var(--orange); }
 .setup-target-card { display: grid; grid-template-columns: minmax(0, 1fr) minmax(230px, .85fr); gap: 12px; align-items: stretch; }.setup-target-card aside { display: grid; gap: 5px; align-content: center; border: 1px solid rgba(23,63,53,.2); border-radius: 14px; padding: 12px 14px; background: var(--soft); }.setup-target-card aside span { color: var(--muted); font-size: .68rem; line-height: 1.35; }.setup-target-card aside strong { color: var(--forest); font-size: .9rem; }.setup-target-card aside button { justify-self: start; border: 0; padding: 0; color: var(--orange); background: transparent; font-size: .7rem; font-weight: 800; text-align: left; cursor: pointer; }
+.metric-order-field > p { margin: 0; color: var(--muted); font-size: .82rem; font-weight: 500; }
+.metric-order-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.metric-order-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; background: var(--paper); }
+.metric-order-list li > span:first-child { display: flex; align-items: center; gap: 10px; }
+.metric-order-list li b { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 9px; color: #071711; background: var(--lime); }
+.metric-order-actions { display: flex; gap: 6px; }
+.metric-order-actions button { width: 40px; height: 36px; border: 1px solid var(--line); border-radius: 10px; color: var(--forest); background: white; font: inherit; font-size: 1.05rem; font-weight: 850; cursor: pointer; }
+.metric-order-actions button:disabled { opacity: .3; cursor: default; }
 .optional-mark, .required-mark { margin-left: 6px; color: var(--muted); font-size: .68rem; font-weight: 650; }
 .required-mark { color: var(--orange); }
 .setup-choices { display: flex; flex-wrap: wrap; gap: 8px; }
