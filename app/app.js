@@ -4,7 +4,7 @@ import { entryDateDisplayLabel, localDateValue as localEntryDateValue, occurredA
 import { estimatedAdultBmi, formatWeight, formatWeightChange, normalizeUnitSystem, parseHeightCm, shouldEnableWeightTracking, weightFromKg, weightToKg } from "./health-metrics.js?v=20260813-4";
 import { initializeSavedFoods } from "./saved-foods.js?v=20261004-5";
 import { normalizeRestaurantPlan, restaurantChoiceLetters, restaurantFitLabels, restaurantMapUrl, restaurantOptionToLedgerEntry, safeRestaurantSourceUrl } from "./restaurant-plan.js?v=20260813-4";
-import { estimateInflammationScore, inflammationBand, inflammationImpact, inflammationProgressColor, summarizeInflammationEntries, summarizeInflammationReport, weightedInflammationScore } from "./inflammation-impact.js?v=20261004-2";
+import { estimateInflammationScore, inflammationBand, inflammationImpact, inflammationProgressColor, summarizeInflammationEntries, summarizeInflammationReport, weightedInflammationScore } from "./inflammation-impact.js?v=20261004-3";
 import { resolvePrimaryEatingStyle } from "./profile-preferences.js?v=20260929-1";
 import { metricProgressSegments } from "./metric-progress.js?v=20260930-1";
 import { normalizeMetricOrder, normalizeOptionalMetrics } from "./metric-order.js?v=20261004-3";

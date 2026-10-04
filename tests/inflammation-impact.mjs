@@ -20,6 +20,7 @@ assert.equal(inflammationBand(2).tone, "lower");
 assert.equal(inflammationBand(5).tone, "moderate");
 assert.equal(inflammationBand(8).tone, "higher");
 assert.equal(inflammationProgressColor(4), "#ddf65d");
+assert.match(inflammationProgressColor(5), /#ddf65d 65%/);
 assert.match(inflammationProgressColor(7), /color-mix/);
 assert.equal(inflammationProgressColor(9), "#258cff");
 assert.equal(inflammationProgressColor(10), "#258cff");
