@@ -5,6 +5,9 @@ const nutritionTotalFields = [
   "net_carbs_g",
   "fat_g",
   "fiber_g",
+  "sodium_mg",
+  "added_sugar_g",
+  "saturated_fat_g",
   "hydration_ounces"
 ];
 

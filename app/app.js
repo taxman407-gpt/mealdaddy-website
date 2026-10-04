@@ -2,12 +2,12 @@ import { invokeAuthenticated, supabase, requireSession } from "./supabase-client
 import { buildProteinGuidance } from "./feedback-guidance.js?v=20261004-1";
 import { entryDateDisplayLabel, localDateValue as localEntryDateValue, occurredAtForEntryDate, quickDateOptions } from "./entry-date.js?v=20260813-4";
 import { estimatedAdultBmi, formatWeight, formatWeightChange, normalizeUnitSystem, parseHeightCm, shouldEnableWeightTracking, weightFromKg, weightToKg } from "./health-metrics.js?v=20260813-4";
-import { initializeSavedFoods } from "./saved-foods.js?v=20260813-4";
+import { initializeSavedFoods } from "./saved-foods.js?v=20261004-1";
 import { normalizeRestaurantPlan, restaurantChoiceLetters, restaurantFitLabels, restaurantMapUrl, restaurantOptionToLedgerEntry, safeRestaurantSourceUrl } from "./restaurant-plan.js?v=20260813-4";
 import { estimateInflammationScore, inflammationBand, inflammationImpact, summarizeInflammationEntries, summarizeInflammationReport, weightedInflammationScore } from "./inflammation-impact.js?v=20260813-4";
 import { resolvePrimaryEatingStyle } from "./profile-preferences.js?v=20260929-1";
 import { metricProgressSegments } from "./metric-progress.js?v=20260930-1";
-import { normalizeMetricOrder } from "./metric-order.js?v=20261004-2";
+import { normalizeMetricOrder, normalizeOptionalMetrics } from "./metric-order.js?v=20261004-3";
 
 document.querySelector("#focus-quick-entry")?.addEventListener("click", () => {
   document.querySelector("#quick-entry")?.focus();
@@ -95,7 +95,7 @@ const entryCategories = [...mealLabels, "Hydration"];
 const query = new URLSearchParams(location.search);
 let pendingPlan = allowedPlans.has(query.get("plan")) ? query.get("plan") : null;
 const checkoutResult = query.get("checkout");
-const state = { preferredName: "", diet: "", tone: "supportive", provider: "best_value", entries: [], recentEntries: [], ledgerReviewDate: localEntryDateValue(), weightEntries: [], photo: null, coachPhoto: null, restaurantLocation: null, restaurantPlan: null, coachMode: "dinner", membershipPlan: null, membershipStatus: null, membershipAccess: null, calorieGoal: 2050, proteinGoal: 130, netCarbGoal: 0, fiberGoal: 30, waterGoal: 90, unitSystem: "us", heightCm: null, age: null, trackBmi: false, goalWeightKg: null, eatingStyles: [], goals: [], trackingDetail: "Moderate", uses: [], reminders: [], favoriteProteins: [], foodsLoved: "", foodsDisliked: "", foodsToAvoid: "", biggestChallenge: "", metricOrder: normalizeMetricOrder([]), suggestedProteinTarget: 40, leftoverEntryId: null, leftoverPhoto: null, leftoverAnalysis: null, leftoverReturnFocus: null, savedFoodsApi: null, pendingQuickLog: null, skipSavedFoodMatch: false, pendingLabelCandidate: null, pendingLabelPhoto: null, estimatingEntryIds: new Set(), estimateFailures: new Map(), currentTotals: { calories: 0, protein: 0, carbs: 0, netCarbs: 0, fat: 0, fiber: 0, water: 0 } };
+const state = { preferredName: "", diet: "", tone: "supportive", provider: "best_value", entries: [], recentEntries: [], ledgerReviewDate: localEntryDateValue(), weightEntries: [], photo: null, coachPhoto: null, restaurantLocation: null, restaurantPlan: null, coachMode: "dinner", membershipPlan: null, membershipStatus: null, membershipAccess: null, calorieGoal: 2050, proteinGoal: 130, netCarbGoal: 0, fiberGoal: 30, waterGoal: 90, sodiumGoal: 2300, addedSugarGoal: 50, saturatedFatGoal: 20, unitSystem: "us", heightCm: null, age: null, trackBmi: false, goalWeightKg: null, eatingStyles: [], goals: [], trackingDetail: "Moderate", uses: [], reminders: [], favoriteProteins: [], foodsLoved: "", foodsDisliked: "", foodsToAvoid: "", biggestChallenge: "", optionalMetrics: [], metricOrder: normalizeMetricOrder([]), suggestedProteinTarget: 40, leftoverEntryId: null, leftoverPhoto: null, leftoverAnalysis: null, leftoverReturnFocus: null, savedFoodsApi: null, pendingQuickLog: null, skipSavedFoodMatch: false, pendingLabelCandidate: null, pendingLabelPhoto: null, estimatingEntryIds: new Set(), estimateFailures: new Map(), currentTotals: { calories: 0, protein: 0, carbs: 0, netCarbs: 0, fat: 0, fiber: 0, water: 0, sodium: null, addedSugar: null, saturatedFat: null } };
 const entryById = (entryId) => state.recentEntries.find((item) => item.id === entryId) || state.entries.find((item) => item.id === entryId);
 const ledgerReviewDate = $("#ledger-review-date");
 if (ledgerReviewDate) {
@@ -446,8 +446,12 @@ async function loadProfile() {
   const goals = profile.primary_goals || (profile.primary_goal ? [profile.primary_goal] : []);
   state.goals = Array.isArray(goals) ? goals : [];
   state.eatingStyles = Array.isArray(profile.eating_styles) ? profile.eating_styles : [];
+  state.optionalMetrics = normalizeOptionalMetrics(profile.today_optional_metrics);
   state.metricOrder = normalizeMetricOrder(profile.today_metric_order, profile);
   const metricGrid = $("#today-metrics");
+  metricGrid?.querySelectorAll(".optional-metric").forEach((metric) => {
+    metric.hidden = !state.optionalMetrics.includes(metric.dataset.metricOrder);
+  });
   state.metricOrder.forEach((key) => {
     const metric = metricGrid?.querySelector(`[data-metric-order="${key}"]`);
     if (metric) metricGrid.append(metric);
@@ -484,6 +488,9 @@ async function loadProfile() {
   state.proteinGoal = proteinGoal;
   state.fiberGoal = fiberGoal;
   state.waterGoal = waterGoal;
+  state.sodiumGoal = Math.max(1, Number(profile.sodium_goal_mg || 2300));
+  state.addedSugarGoal = Math.max(1, Number(profile.added_sugar_goal_g || Math.round(calorieGoal * 0.1 / 4)));
+  state.saturatedFatGoal = Math.max(1, Number(profile.saturated_fat_goal_g || Math.round(calorieGoal * 0.1 / 9)));
   const totalCarbGoal = state.netCarbGoal ? state.netCarbGoal + fiberGoal : Math.round(calorieGoal * 0.45 / 4);
   const fatGoal = Math.max(30, Math.round((calorieGoal - proteinGoal * 4 - totalCarbGoal * 4) / 9));
   $("#energy-progress").max = calorieGoal;
@@ -493,6 +500,9 @@ async function loadProfile() {
   $("#fat-progress").max = fatGoal;
   $("#fiber-progress").max = fiberGoal;
   $("#water-progress").max = waterGoal;
+  $("#sodium-progress").max = state.sodiumGoal;
+  $("#added-sugar-progress").max = state.addedSugarGoal;
+  $("#saturated-fat-progress").max = state.saturatedFatGoal;
   $("#energy-goal-label").textContent = calorieGoal.toLocaleString();
   $("#protein-goal-label").textContent = `${proteinGoal}g`;
   $("#carbs-goal-label").textContent = `${totalCarbGoal}g`;
@@ -500,6 +510,9 @@ async function loadProfile() {
   $("#fat-goal-label").textContent = `${fatGoal}g`;
   $("#fiber-goal-label").textContent = `${fiberGoal}g`;
   $("#water-goal-label").textContent = `${waterGoal}oz`;
+  $("#sodium-goal-label").textContent = `${state.sodiumGoal.toLocaleString()}mg`;
+  $("#added-sugar-goal-label").textContent = `${state.addedSugarGoal}g`;
+  $("#saturated-fat-goal-label").textContent = `${state.saturatedFatGoal}g`;
   $("#profile-diet").textContent = state.diet;
   $("#weight-unit").value = state.unitSystem;
   $("#tone-options").value = state.tone;
@@ -929,8 +942,11 @@ function renderTotals() {
     sum.fat += Number(n.fat_g || 0);
     sum.fiber += Number(n.fiber_g || 0);
     sum.water += entry.kind === "hydration" ? Number(n.ounces || 0) : Number(n.hydration_ounces || 0);
+    if (typeof n.sodium_mg === "number") sum.sodium = Number(sum.sodium || 0) + n.sodium_mg;
+    if (typeof n.added_sugar_g === "number") sum.addedSugar = Number(sum.addedSugar || 0) + n.added_sugar_g;
+    if (typeof n.saturated_fat_g === "number") sum.saturatedFat = Number(sum.saturatedFat || 0) + n.saturated_fat_g;
     return sum;
-  }, { calories: 0, protein: 0, carbs: 0, netCarbs: 0, fat: 0, fiber: 0, water: 0 });
+  }, { calories: 0, protein: 0, carbs: 0, netCarbs: 0, fat: 0, fiber: 0, water: 0, sodium: null, addedSugar: null, saturatedFat: null });
   const inflammation = summarizeInflammationEntries(state.entries);
   $("#energy-total").textContent = Math.round(totals.calories).toLocaleString();
   $("#protein-total").textContent = `${Math.round(totals.protein)}g`;
@@ -940,6 +956,9 @@ function renderTotals() {
   $("#fiber-total").textContent = `${Math.round(totals.fiber)}g`;
   $("#water-total").textContent = `${Math.round(totals.water)}oz`;
   $("#inflammation-total").textContent = inflammation.score === null ? "—" : formatEstimateNumber(inflammation.score);
+  $("#sodium-total").textContent = totals.sodium === null ? "—" : `${Math.round(totals.sodium).toLocaleString()}mg`;
+  $("#added-sugar-total").textContent = totals.addedSugar === null ? "—" : `${formatEstimateNumber(totals.addedSugar)}g`;
+  $("#saturated-fat-total").textContent = totals.saturatedFat === null ? "—" : `${formatEstimateNumber(totals.saturatedFat)}g`;
   $("#energy-progress").value = totals.calories;
   $("#protein-progress").value = totals.protein;
   $("#carbs-progress").value = totals.carbs;
@@ -948,6 +967,9 @@ function renderTotals() {
   $("#fiber-progress").value = totals.fiber;
   $("#water-progress").value = totals.water;
   $("#inflammation-progress").value = inflammation.score ?? 0;
+  $("#sodium-progress").value = totals.sodium ?? 0;
+  $("#added-sugar-progress").value = totals.addedSugar ?? 0;
+  $("#saturated-fat-progress").value = totals.saturatedFat ?? 0;
   updateMetricBar("#energy-progress", totals.calories);
   updateMetricBar("#protein-progress", totals.protein);
   updateMetricBar("#carbs-progress", totals.carbs);
@@ -956,8 +978,14 @@ function renderTotals() {
   updateMetricBar("#fiber-progress", totals.fiber);
   updateMetricBar("#water-progress", totals.water);
   updateMetricBar("#inflammation-progress", inflammation.score ?? 0);
+  updateMetricBar("#sodium-progress", totals.sodium ?? 0);
+  updateMetricBar("#added-sugar-progress", totals.addedSugar ?? 0);
+  updateMetricBar("#saturated-fat-progress", totals.saturatedFat ?? 0);
   const inflammationTrack = $("#inflammation-progress").nextElementSibling;
   if (inflammation.score === null) inflammationTrack.setAttribute("aria-label", "Not scored yet");
+  [["#sodium-progress", totals.sodium], ["#added-sugar-progress", totals.addedSugar], ["#saturated-fat-progress", totals.saturatedFat]].forEach(([selector, value]) => {
+    if (value === null) $(selector).nextElementSibling.setAttribute("aria-label", "Not estimated yet");
+  });
   renderCoachFeedback(totals);
 }
 
@@ -968,11 +996,17 @@ const metricBreakdownDefinitions = {
   fat: { title: "Fat", unit: "g" },
   fiber: { title: "Fiber", unit: "g" },
   water: { title: "Hydration", unit: "oz" },
-  inflammation: { title: "Inflammation Score™", unit: "/10" }
+  inflammation: { title: "Inflammation Score™", unit: "/10" },
+  sodium: { title: "Sodium", unit: "mg" },
+  addedSugar: { title: "Added sugar", unit: "g" },
+  saturatedFat: { title: "Saturated fat", unit: "g" }
 };
 
 function nutritionMetricValues(nutrition, metric, hydrationOunces = 0) {
   if (metric === "inflammation") return { primary: estimateInflammationScore(nutrition) ?? 0 };
+  if (metric === "sodium") return { primary: Number(nutrition.sodium_mg || 0) };
+  if (metric === "addedSugar") return { primary: Number(nutrition.added_sugar_g || 0) };
+  if (metric === "saturatedFat") return { primary: Number(nutrition.saturated_fat_g || 0) };
   if (metric === "calories") return { primary: Number(nutrition.calories || 0) };
   if (metric === "protein") return { primary: Number(nutrition.protein_g || 0) };
   if (metric === "carbs") {
@@ -1195,6 +1229,9 @@ function metricStandoutObservation(metric, contributions, totals) {
   if (metric === "fiber") return `${largestName} was your strongest fiber contributor at about ${Math.round(largest.values.primary)}g.`;
   if (metric === "water") return `${largestName} contributed the most logged hydration at about ${Math.round(largest.values.primary)} oz.`;
   if (metric === "fat") return `${largestName} contributed the most fat at about ${Math.round(largest.values.primary)}g. Fat quality depends on the ingredients and preparation, so the total alone does not label it a good or bad choice.`;
+  if (metric === "sodium") return `${largestName} contributed the most estimated sodium at about ${Math.round(largest.values.primary).toLocaleString()}mg. Restaurant meals and sauces can vary substantially, so label or published values are strongest.`;
+  if (metric === "addedSugar") return `${largestName} contributed the most estimated added sugar at about ${formatEstimateNumber(largest.values.primary)}g.`;
+  if (metric === "saturatedFat") return `${largestName} contributed the most estimated saturated fat at about ${formatEstimateNumber(largest.values.primary)}g.`;
   return `${largestName} contributed the most energy at about ${Math.round(largest.values.primary).toLocaleString()} calories. Calories show quantity of energy—not nutrition quality by themselves.`;
 }
 
@@ -1288,6 +1325,9 @@ function renderCoachFeedback(providedTotals) {
     sum.fat += Number(nutrition.fat_g || 0);
     sum.fiber += Number(nutrition.fiber_g || 0);
     sum.water += entry.kind === "hydration" ? Number(nutrition.ounces || 0) : Number(nutrition.hydration_ounces || 0);
+    if (typeof nutrition.sodium_mg === "number") sum.sodium = Number(sum.sodium || 0) + nutrition.sodium_mg;
+    if (typeof nutrition.added_sugar_g === "number") sum.addedSugar = Number(sum.addedSugar || 0) + nutrition.added_sugar_g;
+    if (typeof nutrition.saturated_fat_g === "number") sum.saturatedFat = Number(sum.saturatedFat || 0) + nutrition.saturated_fat_g;
     return sum;
   }, { calories: 0, protein: 0, carbs: 0, netCarbs: 0, fat: 0, fiber: 0, water: 0 });
   state.currentTotals = totals;
@@ -1558,7 +1598,7 @@ function summarizeReport(entries) {
     if (entry.kind === "meal") sum.meals += 1;
     if (entry.kind === "hydration") sum.hydrationEntries += 1;
     return sum;
-  }, { calories: 0, protein: 0, carbs: 0, netCarbs: 0, fat: 0, fiber: 0, water: 0, meals: 0, hydrationEntries: 0 });
+  }, { calories: 0, protein: 0, carbs: 0, netCarbs: 0, fat: 0, fiber: 0, water: 0, sodium: null, addedSugar: null, saturatedFat: null, meals: 0, hydrationEntries: 0 });
   const dailySeries = includedDayRecords.map(([date, dayEntries]) => {
     const values = dayEntries.reduce((sum, entry) => {
       const nutrition = entry.nutrition_estimate || {};
@@ -1571,8 +1611,11 @@ function summarizeReport(entries) {
       sum.fat += Number(nutrition.fat_g || 0);
       sum.fiber += Number(nutrition.fiber_g || 0);
       sum.water += entry.kind === "hydration" ? Number(nutrition.ounces || 0) : Number(nutrition.hydration_ounces || 0);
+      if (typeof nutrition.sodium_mg === "number") sum.sodium = Number(sum.sodium || 0) + nutrition.sodium_mg;
+      if (typeof nutrition.added_sugar_g === "number") sum.addedSugar = Number(sum.addedSugar || 0) + nutrition.added_sugar_g;
+      if (typeof nutrition.saturated_fat_g === "number") sum.saturatedFat = Number(sum.saturatedFat || 0) + nutrition.saturated_fat_g;
       return sum;
-    }, { calories: 0, protein: 0, carbs: 0, netCarbs: 0, fat: 0, fiber: 0, water: 0 });
+    }, { calories: 0, protein: 0, carbs: 0, netCarbs: 0, fat: 0, fiber: 0, water: 0, sodium: null, addedSugar: null, saturatedFat: null });
     return { date, ...values };
   });
   return {
@@ -1593,7 +1636,10 @@ const reportChartDefinitions = [
   { key: "netCarbs", label: "Net carbs", unit: "g", goal: () => state.netCarbGoal || null },
   { key: "fat", label: "Fat", unit: "g", goal: () => null },
   { key: "fiber", label: "Fiber", unit: "g", goal: () => state.fiberGoal },
-  { key: "water", label: "Water", unit: "oz", goal: () => state.waterGoal }
+  { key: "water", label: "Hydration", unit: "oz", goal: () => state.waterGoal }
+  ,{ key: "sodium", label: "Sodium", unit: "mg", goal: () => state.sodiumGoal, optional: true }
+  ,{ key: "addedSugar", label: "Added sugar", unit: "g", goal: () => state.addedSugarGoal, optional: true }
+  ,{ key: "saturatedFat", label: "Saturated fat", unit: "g", goal: () => state.saturatedFatGoal, optional: true }
 ];
 
 function reportLineChart(definition, dailySeries) {
@@ -1638,7 +1684,9 @@ function renderReportCharts(dailySeries) {
   const root = $("#report-charts");
   if (!root) return;
   root.innerHTML = dailySeries.length
-    ? reportChartDefinitions.map((definition) => reportLineChart(definition, dailySeries)).join("")
+    ? reportChartDefinitions
+      .filter((definition) => !definition.optional || (state.optionalMetrics.includes(definition.key) && dailySeries.some((day) => day[definition.key] !== null)))
+      .map((definition) => reportLineChart(definition, dailySeries)).join("")
     : '<p class="report-chart-empty">Log at least one complete day to see progression lines.</p>';
 }
 
@@ -1682,6 +1730,11 @@ function renderReport(period, range, entries, weightEntries = state.weightEntrie
   const inflammationValue = inflammation.score === null
     ? "No scored meals"
     : `${inflammation.score.toFixed(1)}/10 · ${inflammationBand(inflammation.score).label}`;
+  const optionalReportMetrics = [
+    state.optionalMetrics.includes("sodium") ? [`Sodium${averageLabel}`, totals.sodium === null ? "Not estimated" : averageValue(totals.sodium, "mg")] : null,
+    state.optionalMetrics.includes("addedSugar") ? [`Added sugar${averageLabel}`, totals.addedSugar === null ? "Not estimated" : averageValue(totals.addedSugar, "g")] : null,
+    state.optionalMetrics.includes("saturatedFat") ? [`Saturated fat${averageLabel}`, totals.saturatedFat === null ? "Not estimated" : averageValue(totals.saturatedFat, "g")] : null
+  ].filter(Boolean);
   const metrics = [
     ["Entries included", includedEntries.length.toLocaleString()],
     ["Days averaged", averagedDays.toLocaleString()],
@@ -1692,6 +1745,7 @@ function renderReport(period, range, entries, weightEntries = state.weightEntrie
     [`Fiber${averageLabel}`, averageValue(totals.fiber, "g")],
     [`Hydration${averageLabel}`, averageValue(totals.water, "oz")],
     ["Inflammation Score™ average/scored day", inflammationValue],
+    ...optionalReportMetrics,
     ...weightSummary.metrics
   ];
   const inflammationCoverage = inflammation.scoredMeals
@@ -2111,7 +2165,7 @@ $("#coach-action-form").addEventListener("submit", async (event) => {
   }
 });
 
-const leftoverNutritionFields = ["calories", "protein_g", "carbs_g", "net_carbs_g", "fat_g", "fiber_g", "hydration_ounces"];
+const leftoverNutritionFields = ["calories", "protein_g", "carbs_g", "net_carbs_g", "fat_g", "fiber_g", "sodium_mg", "added_sugar_g", "saturated_fat_g", "hydration_ounces"];
 
 function clampPercent(value, fallback = 100) {
   const number = Number(value);

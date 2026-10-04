@@ -774,6 +774,7 @@ html:has(.v1-live) { height: auto; min-height: 100%; overflow-y: auto !important
 .v1-live[data-app-view="today"] .today-heading,
 .v1-live[data-app-view="today"] .today-status,
 .v1-live[data-app-view="today"] .dashboard-grid,
+.v1-live[data-app-view="today"] .today-order-action,
 .v1-live[data-app-view="log"] .quick-log-card,
 .v1-live[data-app-view="log"][data-app-subview="foods"] #saved-foods,
 .v1-live[data-app-view="entries"] .dashboard-grid,
@@ -790,6 +791,8 @@ html:has(.v1-live) { height: auto; min-height: 100%; overflow-y: auto !important
 .v1-live[data-app-view="today"] .dashboard-grid .ledger-card { display: none; }
 .v1-live[data-app-view="entries"] .dashboard-grid .coach-card { display: none; }
 .v1-live[data-app-view="entries"] .dashboard-grid { grid-template-columns: 1fr; }
+.today-order-action { margin-top: 14px; }
+.today-order-action .button { color: #071711; background: var(--v1-lime); text-align: center; }
 .v1-live .quick-log-card,
 .v1-live .today-status,
 .v1-live .coach-launcher,

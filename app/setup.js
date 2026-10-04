@@ -1,7 +1,7 @@
 import { supabase, requireSession } from "./supabase-client.js?v=20260930-3";
 import { normalizeUnitSystem, suggestedStartingTargets, weightToKg, weightUnit } from "./health-metrics.js?v=20260929-1";
 import { includePrimaryEatingStyle, resolvePrimaryEatingStyle } from "./profile-preferences.js?v=20260929-1";
-import { metricLabel, moveMetricToPosition, normalizeMetricOrder } from "./metric-order.js?v=20261004-2";
+import { metricLabel, moveMetricToPosition, normalizeMetricOrder, normalizeOptionalMetrics, OPTIONAL_METRICS } from "./metric-order.js?v=20261004-3";
 
 const session = await requireSession();
 if (!session) throw new Error("Authentication required");
@@ -63,6 +63,7 @@ const steps = [
   ]},
   { title: "Tracking", intro: "Choose only what would genuinely help.", fields: [
     ["mealdaddy_uses", "How would you like to use Meal Daddy?", "multi", choices.uses], ["tracking_detail", "How detailed should tracking be?", "single", choices.detail],
+    ["today_optional_metrics", "Optional metrics to show", "optional_metrics"],
     ["today_metric_order", "Prioritize your Today metrics", "metric_order"]
   ]},
   { title: "Restaurant intelligence", intro: "Get useful guidance before you order.", fields: [
@@ -74,7 +75,7 @@ const steps = [
   ]}
 ];
 
-let currentStep = 0;
+let currentStep = params.get("section") === "tracking" ? steps.findIndex(({ title }) => title === "Tracking") : 0;
 let answers = JSON.parse(sessionStorage.getItem("mealdaddy-onboarding") || "{}");
 let existingDietStyle = "";
 
@@ -118,7 +119,11 @@ function fieldHtml([name, label, type, options, required]) {
   if (type === "metric_order") {
     const order = normalizeMetricOrder(answers[name], answers);
     answers[name] = order;
-    return `<fieldset class="setup-field metric-order-field"><legend>${escapeHtml(label)}</legend><p>Choose a position number. The other metrics renumber automatically.</p><ol class="metric-order-list">${metricOrderListHtml(order)}</ol><p class="metric-order-status sr-only" aria-live="polite"></p></fieldset>`;
+    return `<fieldset class="setup-field metric-order-field" id="today-metrics-order"><legend>${escapeHtml(label)}</legend><p>Choose a position number. The other metrics renumber automatically.</p><ol class="metric-order-list">${metricOrderListHtml(order)}</ol><p class="metric-order-status sr-only" aria-live="polite"></p></fieldset>`;
+  }
+  if (type === "optional_metrics") {
+    const selected = normalizeOptionalMetrics(answers[name]);
+    return `<fieldset class="setup-field"><legend>${escapeHtml(label)}</legend><p class="field-help">These are estimated only when the meal information supports them. Missing values display as unavailable—not zero.</p><div class="setup-choices">${OPTIONAL_METRICS.map(({ key, label: metricName }) => `<label class="setup-choice"><input type="checkbox" name="${name}" value="${escapeHtml(key)}" ${selected.includes(key) ? "checked" : ""}><span>${escapeHtml(metricName)}</span></label>`).join("")}</div></fieldset>`;
   }
   if (type === "single" || type === "multi") {
     return `<fieldset class="setup-field"><legend>${escapeHtml(label)} ${required ? requiredMark : ""}</legend><div class="setup-choices">${options.map((option) => {
@@ -136,6 +141,7 @@ function collectVisibleAnswers() {
   for (const field of steps[currentStep]?.fields || []) {
     const [name, , type] = field;
     if (type === "metric_order") answers[name] = normalizeMetricOrder(answers[name], answers);
+    else if (type === "optional_metrics") answers[name] = normalizeOptionalMetrics(form.getAll(name));
     else answers[name] = type === "multi" ? form.getAll(name) : (form.get(name) || "").toString().trim();
   }
   sessionStorage.setItem("mealdaddy-onboarding", JSON.stringify(answers));
@@ -166,6 +172,7 @@ function render() {
   $("#setup-back").disabled = currentStep === 0;
   $("#setup-next").textContent = summary ? "Finish setup" : "Next";
   window.scrollTo({ top: 0, behavior: "instant" });
+  if (params.get("section") === "tracking") requestAnimationFrame(() => $("#today-metrics-order")?.scrollIntoView({ block: "start" }));
 }
 
 function validateStep() {
@@ -271,6 +278,14 @@ $("#setup-form").addEventListener("change", (event) => {
     updateMetricOrderList();
     const status = $(".metric-order-status");
     if (status) status.textContent = `${metricLabel(key)} moved to position ${answers.today_metric_order.indexOf(key) + 1}.`;
+    return;
+  }
+  if (event.target.name === "today_optional_metrics") {
+    const selected = [...$("#setup-form").querySelectorAll('input[name="today_optional_metrics"]:checked')].map((input) => input.value);
+    answers.today_optional_metrics = normalizeOptionalMetrics(selected);
+    answers.today_metric_order = normalizeMetricOrder(answers.today_metric_order, answers);
+    sessionStorage.setItem("mealdaddy-onboarding", JSON.stringify(answers));
+    updateMetricOrderList();
     return;
   }
   if (event.target.name === "unit_system") {

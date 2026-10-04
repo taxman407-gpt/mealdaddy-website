@@ -5,11 +5,22 @@ export const TODAY_METRICS = [
   { key: "netCarbs", label: "Net carbs" },
   { key: "fat", label: "Fat" },
   { key: "fiber", label: "Fiber" },
-  { key: "water", label: "Water" },
-  { key: "inflammation", label: "Inflammation" }
+  { key: "water", label: "Hydration" },
+  { key: "inflammation", label: "Inflammation" },
+  { key: "sodium", label: "Sodium", optional: true },
+  { key: "addedSugar", label: "Added sugar", optional: true },
+  { key: "saturatedFat", label: "Saturated fat", optional: true }
 ];
 
 const validKeys = new Set(TODAY_METRICS.map(({ key }) => key));
+export const OPTIONAL_METRICS = TODAY_METRICS.filter(({ optional }) => optional);
+export const CORE_METRIC_KEYS = TODAY_METRICS.filter(({ optional }) => !optional).map(({ key }) => key);
+
+export function normalizeOptionalMetrics(value) {
+  return Array.isArray(value)
+    ? value.filter((key, index) => OPTIONAL_METRICS.some((metric) => metric.key === key) && value.indexOf(key) === index)
+    : [];
+}
 
 export function defaultMetricOrder(profile = {}) {
   const goals = Array.isArray(profile.primary_goals) ? profile.primary_goals : [];
@@ -25,13 +36,14 @@ export function defaultMetricOrder(profile = {}) {
   if (/gain muscle|high protein/.test(context)) add("protein", "calories");
   if (/lose weight|maintain weight/.test(context)) add("calories", "protein");
   if (/heart|mediterranean|dash/.test(context)) add("fiber", "fat", "inflammation");
-  add("calories", "protein", "totalCarbs", "netCarbs", "fat", "fiber", "water", "inflammation");
+  add(...CORE_METRIC_KEYS, ...normalizeOptionalMetrics(profile.today_optional_metrics));
   return prioritized;
 }
 
 export function normalizeMetricOrder(value, profile = {}) {
-  const supplied = Array.isArray(value) ? value.filter((key, index) => validKeys.has(key) && value.indexOf(key) === index) : [];
-  return [...supplied, ...defaultMetricOrder(profile).filter((key) => !supplied.includes(key))];
+  const available = new Set([...CORE_METRIC_KEYS, ...normalizeOptionalMetrics(profile.today_optional_metrics)]);
+  const supplied = Array.isArray(value) ? value.filter((key, index) => validKeys.has(key) && available.has(key) && value.indexOf(key) === index) : [];
+  return [...supplied, ...defaultMetricOrder(profile).filter((key) => available.has(key) && !supplied.includes(key))];
 }
 
 export function metricLabel(key) {
@@ -39,7 +51,8 @@ export function metricLabel(key) {
 }
 
 export function moveMetric(order, key, direction) {
-  const normalized = normalizeMetricOrder(order);
+  const optional = order.filter((item) => OPTIONAL_METRICS.some(({ key: optionalKey }) => optionalKey === item));
+  const normalized = normalizeMetricOrder(order, { today_optional_metrics: optional });
   const index = normalized.indexOf(key);
   const nextIndex = index + direction;
   if (index < 0 || nextIndex < 0 || nextIndex >= normalized.length) return normalized;
@@ -48,7 +61,8 @@ export function moveMetric(order, key, direction) {
 }
 
 export function moveMetricToPosition(order, key, position) {
-  const normalized = normalizeMetricOrder(order);
+  const optional = order.filter((item) => OPTIONAL_METRICS.some(({ key: optionalKey }) => optionalKey === item));
+  const normalized = normalizeMetricOrder(order, { today_optional_metrics: optional });
   const currentIndex = normalized.indexOf(key);
   const nextIndex = Math.min(normalized.length - 1, Math.max(0, Number(position) - 1));
   if (currentIndex < 0 || !Number.isFinite(nextIndex) || currentIndex === nextIndex) return normalized;

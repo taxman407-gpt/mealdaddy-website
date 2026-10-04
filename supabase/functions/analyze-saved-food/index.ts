@@ -164,6 +164,9 @@ Deno.serve(async (request) => {
         net_carbs_g: { type: "number", minimum: 0, maximum: 2000 },
         fat_g: { type: "number", minimum: 0, maximum: 1000 },
         fiber_g: { type: "number", minimum: 0, maximum: 500 },
+        sodium_mg: { type: "number", minimum: 0, maximum: 50000 },
+        added_sugar_g: { type: "number", minimum: 0, maximum: 1000 },
+        saturated_fat_g: { type: "number", minimum: 0, maximum: 1000 },
         sugar_alcohols_g: { type: "number", minimum: 0, maximum: 500 },
         allulose_g: { type: "number", minimum: 0, maximum: 500 },
         hydration_ounces: { type: "number", minimum: 0, maximum: 500 },
@@ -188,6 +191,9 @@ Deno.serve(async (request) => {
               net_carbs_g: { type: "number", minimum: 0, maximum: 2000 },
               fat_g: { type: "number", minimum: 0, maximum: 1000 },
               fiber_g: { type: "number", minimum: 0, maximum: 500 },
+              sodium_mg: { type: "number", minimum: 0, maximum: 50000 },
+              added_sugar_g: { type: "number", minimum: 0, maximum: 1000 },
+              saturated_fat_g: { type: "number", minimum: 0, maximum: 1000 },
               hydration_ounces: { type: "number", minimum: 0, maximum: 500 },
               evidence_type: { type: "string", enum: ["nutrition_label", "photo_estimate", "description_estimate"] },
               confidence: { type: "string", enum: ["low", "medium", "high"] },
@@ -195,7 +201,7 @@ Deno.serve(async (request) => {
               inflammation_impact: { type: "string", enum: ["helpful", "neutral", "watch"] },
               inflammation_note: { type: "string", minLength: 1, maxLength: 140 }
             },
-            required: ["name", "calories", "protein_g", "carbs_g", "net_carbs_g", "fat_g", "fiber_g", "hydration_ounces", "evidence_type", "confidence", "inflammation_score", "inflammation_impact", "inflammation_note"]
+            required: ["name", "calories", "protein_g", "carbs_g", "net_carbs_g", "fat_g", "fiber_g", "sodium_mg", "added_sugar_g", "saturated_fat_g", "hydration_ounces", "evidence_type", "confidence", "inflammation_score", "inflammation_impact", "inflammation_note"]
           }
         }
       },
@@ -210,6 +216,9 @@ Deno.serve(async (request) => {
         "net_carbs_g",
         "fat_g",
         "fiber_g",
+        "sodium_mg",
+        "added_sugar_g",
+        "saturated_fat_g",
         "sugar_alcohols_g",
         "allulose_g",
         "hydration_ounces",

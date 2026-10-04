@@ -13,7 +13,7 @@ import {
   favoriteMealFromEstimate,
   favoriteMealNutritionFields,
   normalizeFavoriteComponents
-} from "./favorite-meal.js?v=20260813-4";
+} from "./favorite-meal.js?v=20261004-1";
 import { weightedInflammationScore } from "./inflammation-impact.js?v=20260813-4";
 
 const allowedPhotoTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
@@ -25,6 +25,9 @@ const numericFields = [
   "net_carbs_g",
   "fat_g",
   "fiber_g",
+  "sodium_mg",
+  "added_sugar_g",
+  "saturated_fat_g",
   "sugar_alcohols_g",
   "allulose_g",
   "hydration_ounces"
@@ -100,6 +103,11 @@ function normalizedFood(food) {
     components: normalizeFavoriteComponents(food.components, componentFallback)
   };
   numericFields.forEach((field) => { normalized[field] = numberValue(food[field]); });
+  ["sodium_mg", "added_sugar_g", "saturated_fat_g"].forEach((field) => {
+    if (food[field] === undefined && normalized.components.length) {
+      normalized[field] = Math.round(normalized.components.reduce((sum, component) => sum + numberValue(component[field]), 0) * 10) / 10;
+    }
+  });
   return normalized;
 }
 
@@ -558,7 +566,14 @@ export async function initializeSavedFoods({
       let query = editing
         ? supabase.from("saved_foods").update(payload).eq("id", editing.id).eq("user_id", user.id)
         : supabase.from("saved_foods").insert(payload);
-      const { data, error } = await query.select("*").single();
+      let { data, error } = await query.select("*").single();
+      if (error && /sodium_mg|added_sugar_g|saturated_fat_g/i.test(String(error.message || ""))) {
+        const { sodium_mg, added_sugar_g, saturated_fat_g, ...compatiblePayload } = payload;
+        query = editing
+          ? supabase.from("saved_foods").update(compatiblePayload).eq("id", editing.id).eq("user_id", user.id)
+          : supabase.from("saved_foods").insert(compatiblePayload);
+        ({ data, error } = await query.select("*").single());
+      }
       if (error) {
         if (uploadedPhotoPath) await removeRetainedPhoto(uploadedPhotoPath).catch(() => {});
         throw error;
@@ -597,6 +612,9 @@ export async function initializeSavedFoods({
       net_carbs_g: food.net_carbs_g,
       fat_g: food.fat_g,
       fiber_g: food.fiber_g,
+      sodium_mg: food.sodium_mg,
+      added_sugar_g: food.added_sugar_g,
+      saturated_fat_g: food.saturated_fat_g,
       hydration_ounces: food.hydration_ounces,
       evidence_type: food.evidence_type === "nutrition_label" ? "nutrition_label" : "description_estimate",
       confidence: food.confidence
@@ -624,6 +642,9 @@ export async function initializeSavedFoods({
       net_carbs_g: totals.net_carbs_g,
       fat_g: totals.fat_g,
       fiber_g: totals.fiber_g,
+      sodium_mg: totals.sodium_mg,
+      added_sugar_g: totals.added_sugar_g,
+      saturated_fat_g: totals.saturated_fat_g,
       hydration_ounces: totals.hydration_ounces,
       confidence: food.confidence,
       note: `${evidenceLabels[food.evidence_type]} reviewed by the user; ${servingText}.`,
@@ -642,6 +663,9 @@ export async function initializeSavedFoods({
         net_carbs_g: totals.net_carbs_g,
         fat_g: totals.fat_g,
         fiber_g: totals.fiber_g,
+        sodium_mg: totals.sodium_mg,
+        added_sugar_g: totals.added_sugar_g,
+        saturated_fat_g: totals.saturated_fat_g,
         hydration_ounces: totals.hydration_ounces
       },
       components: scaledComponents

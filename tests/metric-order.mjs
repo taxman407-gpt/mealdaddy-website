@@ -15,6 +15,10 @@ const custom = normalizeMetricOrder(["water", "protein"]);
 assert.deepEqual(custom.slice(0, 2), ["water", "protein"]);
 assert.equal(custom.length, 8);
 
+const withOptional = normalizeMetricOrder(["sodium", "water"], { today_optional_metrics: ["sodium", "addedSugar"] });
+assert.equal(withOptional.length, 10);
+assert.deepEqual(withOptional.slice(0, 2), ["sodium", "water"]);
+
 assert.deepEqual(moveMetric(defaultOrder, "protein", -1).slice(0, 2), ["protein", "calories"]);
 assert.deepEqual(moveMetric(defaultOrder, "calories", -1), defaultOrder);
 assert.deepEqual(moveMetricToPosition(defaultOrder, "water", 1).slice(0, 2), ["water", "calories"]);

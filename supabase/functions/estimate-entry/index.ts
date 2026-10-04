@@ -310,6 +310,9 @@ Deno.serve(async (request) => {
       net_carbs_g: { type: "number", minimum: 0, maximum: 2000 },
       fat_g: { type: "number", minimum: 0, maximum: 1000 },
       fiber_g: { type: "number", minimum: 0, maximum: 500 },
+      sodium_mg: { type: "number", minimum: 0, maximum: 50000 },
+      added_sugar_g: { type: "number", minimum: 0, maximum: 1000 },
+      saturated_fat_g: { type: "number", minimum: 0, maximum: 1000 },
       hydration_ounces: { type: "number", minimum: 0, maximum: 500 },
       inflammation_score: { type: "number", minimum: 1, maximum: 10 },
       inflammation_summary: { type: "string", minLength: 1, maxLength: 240 },
@@ -333,6 +336,9 @@ Deno.serve(async (request) => {
             net_carbs_g: { type: "number", minimum: 0, maximum: 2000 },
             fat_g: { type: "number", minimum: 0, maximum: 1000 },
             fiber_g: { type: "number", minimum: 0, maximum: 500 },
+            sodium_mg: { type: "number", minimum: 0, maximum: 50000 },
+            added_sugar_g: { type: "number", minimum: 0, maximum: 1000 },
+            saturated_fat_g: { type: "number", minimum: 0, maximum: 1000 },
             hydration_ounces: { type: "number", minimum: 0, maximum: 500 },
             inflammation_score: { type: "number", minimum: 1, maximum: 10 },
             inflammation_impact: { type: "string", enum: ["helpful", "neutral", "watch"] },
@@ -340,7 +346,7 @@ Deno.serve(async (request) => {
             evidence_type: { type: "string", enum: ["nutrition_label", "photo_estimate", "description_estimate"] },
             confidence: { type: "string", enum: ["low", "medium", "high"] }
           },
-          required: ["name", "calories", "protein_g", "carbs_g", "net_carbs_g", "fat_g", "fiber_g", "hydration_ounces", "inflammation_score", "inflammation_impact", "inflammation_note", "evidence_type", "confidence"]
+          required: ["name", "calories", "protein_g", "carbs_g", "net_carbs_g", "fat_g", "fiber_g", "sodium_mg", "added_sugar_g", "saturated_fat_g", "hydration_ounces", "inflammation_score", "inflammation_impact", "inflammation_note", "evidence_type", "confidence"]
         }
       },
       label_detected: { type: "boolean" },
@@ -357,15 +363,18 @@ Deno.serve(async (request) => {
           net_carbs_g: { type: "number", minimum: 0, maximum: 2000 },
           fat_g: { type: "number", minimum: 0, maximum: 1000 },
           fiber_g: { type: "number", minimum: 0, maximum: 500 },
+          sodium_mg: { type: "number", minimum: 0, maximum: 50000 },
+          added_sugar_g: { type: "number", minimum: 0, maximum: 1000 },
+          saturated_fat_g: { type: "number", minimum: 0, maximum: 1000 },
           sugar_alcohols_g: { type: "number", minimum: 0, maximum: 500 },
           allulose_g: { type: "number", minimum: 0, maximum: 500 },
           confidence: { type: "string", enum: ["low", "medium", "high"] },
           notes: { type: "string", maxLength: 500 }
         },
-        required: ["name", "brand_or_restaurant", "serving_description", "calories", "protein_g", "carbs_g", "net_carbs_g", "fat_g", "fiber_g", "sugar_alcohols_g", "allulose_g", "confidence", "notes"]
+        required: ["name", "brand_or_restaurant", "serving_description", "calories", "protein_g", "carbs_g", "net_carbs_g", "fat_g", "fiber_g", "sodium_mg", "added_sugar_g", "saturated_fat_g", "sugar_alcohols_g", "allulose_g", "confidence", "notes"]
       }
     },
-    required: ["calories", "protein_g", "carbs_g", "net_carbs_g", "fat_g", "fiber_g", "hydration_ounces", "inflammation_score", "inflammation_summary", "confidence", "note", "entry_description", "photo_description", "description_reconciliation_note", "components", "label_detected", "label_food"]
+    required: ["calories", "protein_g", "carbs_g", "net_carbs_g", "fat_g", "fiber_g", "sodium_mg", "added_sugar_g", "saturated_fat_g", "hydration_ounces", "inflammation_score", "inflammation_summary", "confidence", "note", "entry_description", "photo_description", "description_reconciliation_note", "components", "label_detected", "label_food"]
   };
 
   const hasUserDescription = entry.description.trim().toLowerCase() !== "meal photo";
@@ -475,7 +484,7 @@ Deno.serve(async (request) => {
   if (reconciliationNote) estimate.note = reconciliationNote;
   estimate.source = labelCandidate ? "nutrition_label_photo" : photoPath ? "meal_photo_estimate" : "ai_text_estimate";
   if (itemizeExisting) {
-    for (const field of ["calories", "protein_g", "carbs_g", "net_carbs_g", "fat_g", "fiber_g", "hydration_ounces"]) {
+    for (const field of ["calories", "protein_g", "carbs_g", "net_carbs_g", "fat_g", "fiber_g", "sodium_mg", "added_sugar_g", "saturated_fat_g", "hydration_ounces"]) {
       const priorValue = entry.nutrition_estimate?.[field];
       if (typeof priorValue === "number") estimate[field] = priorValue;
     }
@@ -499,6 +508,9 @@ Deno.serve(async (request) => {
         if (!analyzed) return component;
         return {
           ...component,
+          sodium_mg: analyzed.sodium_mg,
+          added_sugar_g: analyzed.added_sugar_g,
+          saturated_fat_g: analyzed.saturated_fat_g,
           inflammation_score: analyzed.inflammation_score,
           inflammation_impact: analyzed.inflammation_impact,
           inflammation_note: analyzed.inflammation_note
