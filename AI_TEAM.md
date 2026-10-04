@@ -9,7 +9,7 @@ Owner requirements clarified October 4, 2026. These roles support development an
 - The general manager coordinates work and preserves decisions, evidence, test results, and version history. Owner approval is required before releasing the reviewed candidate to production.
 - Work with synthetic users and controlled test inboxes in isolated staging. Do not test against real customer accounts or expose customer records to the internal team.
 - Maintain a dedicated synthetic test user for every supported diet. Audit every selection surface: current choices include Mediterranean, DASH, Low Inflammation, Low Carb, Keto, Vegetarian, Vegan, High Protein, Paleo, Gluten Free, Pescatarian, and Flexible/None. Treat spelling variants as aliases; add a tester whenever a diet is added.
-- Each diet user runs the common account, logging, meals, restaurant, history, privacy, and report scenarios plus its diet-specific cases. Cross-diet scenarios cover allergies, conflicting preferences, budget, and missing information.
+- Each diet user runs the common account, logging, meals, restaurant, history, privacy, and report scenarios plus its diet-specific cases. Cross-diet scenarios cover allergies, conflicting preferences, budget, and missing information. Verify that the same account can sync supported data across devices and platforms, that device-only choices remain local, and that one account cannot read another account's records.
 
 ## Low Inflammation AI Coach
 
@@ -37,7 +37,7 @@ Owner requirements clarified October 4, 2026. These roles support development an
 - Primary diet: Low Inflammation. Goals exclude Reduce Inflammation in the baseline case.
 - Scenarios: first-time selection; saved preference reload; change from another diet; Low Inflammation as an additional style; mixed dietary restrictions; no scored meals; partially scored days; meal edits and deletion; restaurant and kitchen suggestions; report comparisons.
 - Check AI identity when asked to impersonate a certified professional or claim professional review. Expected behavior is truthful AI identification, without invented credentials.
-- For the planned reference setting, verify European guidance by default and U.S. guidance only after explicit selection. Save that preference locally under the planned device-only storage model.
+- For the planned reference setting, verify European guidance by default and U.S. guidance only after explicit selection. Preserve the explicit selection across the user's signed-in devices through protected account sync.
 
 ### Required review record
 
@@ -48,7 +48,8 @@ Record candidate version, scope, evidence sources, checks actually run, pass/fai
 These owner decisions are requirements, not claims that implementation is complete:
 
 - Inflammation Score has equal visual prominence with other categories on the main dashboard and comparable detail in meal views, history, and reports across all diets. Show missing scores and coverage honestly; a larger visual presence does not establish scientific validity.
-- Store meal history, diet preferences, photos, and progress on the user's device, with an explicit backup/recovery design. Central account records are limited to email and necessary disclosed authentication/consent/billing records. Email addresses are never sold. Existing cloud records require a verified migration plan before deletion; provider retention must be reviewed before any exclusively-on-device claim.
+- Retain protected account storage and supported cross-device/platform syncing for meal history, diet preferences, saved food evidence, and progress. This supersedes the earlier device-only/email-only-central-storage proposal. Keep existing optional device-only and one-time storage choices, transient-photo handling, and export/deletion controls. Collect and retain only what is needed for disclosed service purposes; verify each provider's data use and retention. Do not remove existing cloud records to implement the superseded proposal.
+- MealDaddy does not sell user data, including email addresses, meal histories, photos, preferences, and progress. Limit provider access to disclosed service purposes and review contracts and integrations against this commitment. Treat a transfer accompanying a company acquisition separately from selling user records as a product. A change of ownership does not automatically override existing privacy promises; any changed practices require legal review, notice, and consent where required.
 - Default nutrition references to Europe/EFSA/EU for all users, with U.S./FDA guidance only by explicit choice. Applicable laws and local safety obligations remain mandatory.
 - Isolated staging, immutable release archives, approval of a complete candidate, and tested recovery must precede production release. A local Git branch or the existing UI sandbox page alone is not full backend isolation.
 
@@ -58,6 +59,15 @@ These owner decisions are requirements, not claims that implementation is comple
 - EU food health claims: https://food.ec.europa.eu/food-safety/labelling-and-nutrition/nutrition-and-health-claims/health-claims_en
 
 Consult current primary sources for each assignment and record the versions used.
+
+## Privacy decision revision: October 4, 2026
+
+The owner reaffirmed retaining data collection needed for cross-platform use and prohibited sale of all user data, not only email addresses. The device-only architecture proposal is superseded. Account sync already exists; this revision preserves it without migrating or deleting data. The local privacy-policy draft now distinguishes service operation, the no-sale commitment, and a possible business ownership transfer. It remains a draft for qualified legal review before publication. Any future buyer's proposed policy changes must be assessed against the original collection promises and applicable law.
+
+Research references for that distinction:
+
+- FTC: https://www.ftc.gov/business-guidance/blog/2014/04/ftc-staff-facebook-whatsapp-privacy-promises-prevail
+- UK ICO: https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/data-sharing/data-sharing-a-code-of-practice/due-diligence/
 
 ## First local review: October 4, 2026
 
