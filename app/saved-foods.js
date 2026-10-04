@@ -19,6 +19,7 @@ import { weightedInflammationScore } from "./inflammation-impact.js?v=20260813-4
 const allowedPhotoTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 const maxPhotoBytes = 8 * 1024 * 1024;
 const maxPinnedFoods = 3;
+const stagedSavedFoodColumns = new Set(["nickname", "sodium_mg", "added_sugar_g", "saturated_fat_g", "is_pinned"]);
 const numericFields = [
   "calories",
   "protein_g",
@@ -213,11 +214,18 @@ export async function initializeSavedFoods({
   if (!root) return;
   const $ = (selector) => document.querySelector(selector);
   const pinStorageKey = `mealdaddy-saved-food-pins:${user.id}`;
+  const overrideStorageKey = `mealdaddy-saved-food-overrides:${user.id}`;
   let storedPinKeys = [];
+  let storedOverrides = {};
   try {
     storedPinKeys = JSON.parse(localStorage.getItem(pinStorageKey) || "[]");
   } catch {
     storedPinKeys = [];
+  }
+  try {
+    storedOverrides = JSON.parse(localStorage.getItem(overrideStorageKey) || "{}");
+  } catch {
+    storedOverrides = {};
   }
   const state = {
     foods: [],
@@ -226,7 +234,8 @@ export async function initializeSavedFoods({
     reviewComponents: [],
     objectUrls: [],
     storageMode: getSavedFoodStorageMode(user.id),
-    pinKeys: new Set(Array.isArray(storedPinKeys) ? storedPinKeys.slice(0, maxPinnedFoods) : [])
+    pinKeys: new Set(Array.isArray(storedPinKeys) ? storedPinKeys.slice(0, maxPinnedFoods) : []),
+    fieldOverrides: storedOverrides && typeof storedOverrides === "object" && !Array.isArray(storedOverrides) ? storedOverrides : {}
   };
 
   function foodKey(food) {
@@ -235,6 +244,31 @@ export async function initializeSavedFoods({
 
   function persistPinKeys() {
     try { localStorage.setItem(pinStorageKey, JSON.stringify([...state.pinKeys])); } catch {}
+  }
+
+  function persistFieldOverrides() {
+    try { localStorage.setItem(overrideStorageKey, JSON.stringify(state.fieldOverrides)); } catch {}
+  }
+
+  function missingSavedFoodColumn(error, payload) {
+    const message = String(error?.message || "");
+    return [...stagedSavedFoodColumns].find((field) => Object.hasOwn(payload, field) && new RegExp(`['\"]?${field}['\"]?`, "i").test(message)) || null;
+  }
+
+  async function writeSyncedFood(payload, editing) {
+    const compatiblePayload = { ...payload };
+    const omittedFields = [];
+    while (true) {
+      const query = editing
+        ? supabase.from("saved_foods").update(compatiblePayload).eq("id", editing.id).eq("user_id", user.id)
+        : supabase.from("saved_foods").insert(compatiblePayload);
+      const result = await query.select("*").single();
+      if (!result.error) return { ...result, omittedFields };
+      const missingField = missingSavedFoodColumn(result.error, compatiblePayload);
+      if (!missingField) return { ...result, omittedFields };
+      delete compatiblePayload[missingField];
+      omittedFields.push(missingField);
+    }
   }
 
   function displayName(food) {
@@ -435,7 +469,7 @@ export async function initializeSavedFoods({
         .order("last_used_at", { ascending: false, nullsFirst: false })
         .order("updated_at", { ascending: false });
       if (error) throw error;
-      syncedFoods = (data || []).map((food) => normalizedFood({ ...food, storage_scope: "sync" }));
+      syncedFoods = (data || []).map((food) => normalizedFood({ ...food, ...(state.fieldOverrides[food.id] || {}), storage_scope: "sync" }));
       await replaceSyncedFoodCache(user.id, syncedFoods).catch(() => {});
     } catch (error) {
       syncedFoods = (await getCachedSyncedFoods(user.id).catch(() => []))
@@ -593,17 +627,7 @@ export async function initializeSavedFoods({
         last_verified_on: new Date().toISOString().slice(0, 10),
         updated_at: new Date().toISOString()
       };
-      let query = editing
-        ? supabase.from("saved_foods").update(payload).eq("id", editing.id).eq("user_id", user.id)
-        : supabase.from("saved_foods").insert(payload);
-      let { data, error } = await query.select("*").single();
-      if (error && /sodium_mg|added_sugar_g|saturated_fat_g/i.test(String(error.message || ""))) {
-        const { sodium_mg, added_sugar_g, saturated_fat_g, ...compatiblePayload } = payload;
-        query = editing
-          ? supabase.from("saved_foods").update(compatiblePayload).eq("id", editing.id).eq("user_id", user.id)
-          : supabase.from("saved_foods").insert(compatiblePayload);
-        ({ data, error } = await query.select("*").single());
-      }
+      const { data, error, omittedFields } = await writeSyncedFood(payload, editing);
       if (error) {
         if (uploadedPhotoPath) await removeRetainedPhoto(uploadedPhotoPath).catch(() => {});
         throw error;
@@ -611,7 +635,17 @@ export async function initializeSavedFoods({
       if (priorPhotoPath && priorPhotoPath !== photoPath) {
         await removeRetainedPhoto(priorPhotoPath).catch(() => {});
       }
-      await updateSyncedFoodCache(user.id, normalizedFood({ ...data, storage_scope: "sync" })).catch(() => {});
+      if (omittedFields.length) {
+        state.fieldOverrides[data.id] = {
+          ...(state.fieldOverrides[data.id] || {}),
+          ...Object.fromEntries(omittedFields.map((field) => [field, payload[field]]))
+        };
+        persistFieldOverrides();
+      } else if (state.fieldOverrides[data.id]) {
+        delete state.fieldOverrides[data.id];
+        persistFieldOverrides();
+      }
+      await updateSyncedFoodCache(user.id, normalizedFood({ ...data, ...(state.fieldOverrides[data.id] || {}), storage_scope: "sync" })).catch(() => {});
       return data;
     }
 
@@ -934,6 +968,10 @@ export async function initializeSavedFoods({
             .eq("user_id", user.id);
           if (error) throw error;
           await deleteLocalSavedFood(user.id, "sync", food.id).catch(() => {});
+          if (state.fieldOverrides[food.id]) {
+            delete state.fieldOverrides[food.id];
+            persistFieldOverrides();
+          }
         } else {
           await deleteLocalSavedFood(user.id, "device", food.id);
         }
