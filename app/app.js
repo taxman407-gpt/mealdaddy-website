@@ -924,6 +924,7 @@ function renderTotals() {
     sum.water += entry.kind === "hydration" ? Number(n.ounces || 0) : Number(n.hydration_ounces || 0);
     return sum;
   }, { calories: 0, protein: 0, carbs: 0, netCarbs: 0, fat: 0, fiber: 0, water: 0 });
+  const inflammation = summarizeInflammationEntries(state.entries);
   $("#energy-total").textContent = Math.round(totals.calories).toLocaleString();
   $("#protein-total").textContent = `${Math.round(totals.protein)}g`;
   $("#carbs-total").textContent = `${Math.round(totals.carbs)}g`;
@@ -931,6 +932,7 @@ function renderTotals() {
   $("#fat-total").textContent = `${Math.round(totals.fat)}g`;
   $("#fiber-total").textContent = `${Math.round(totals.fiber)}g`;
   $("#water-total").textContent = `${Math.round(totals.water)}oz`;
+  $("#inflammation-total").textContent = inflammation.score === null ? "—" : formatEstimateNumber(inflammation.score);
   $("#energy-progress").value = totals.calories;
   $("#protein-progress").value = totals.protein;
   $("#carbs-progress").value = totals.carbs;
@@ -938,6 +940,7 @@ function renderTotals() {
   $("#fat-progress").value = totals.fat;
   $("#fiber-progress").value = totals.fiber;
   $("#water-progress").value = totals.water;
+  $("#inflammation-progress").value = inflammation.score ?? 0;
   updateMetricBar("#energy-progress", totals.calories);
   updateMetricBar("#protein-progress", totals.protein);
   updateMetricBar("#carbs-progress", totals.carbs);
@@ -945,6 +948,9 @@ function renderTotals() {
   updateMetricBar("#fat-progress", totals.fat);
   updateMetricBar("#fiber-progress", totals.fiber);
   updateMetricBar("#water-progress", totals.water);
+  updateMetricBar("#inflammation-progress", inflammation.score ?? 0);
+  const inflammationTrack = $("#inflammation-progress").nextElementSibling;
+  if (inflammation.score === null) inflammationTrack.setAttribute("aria-label", "Not scored yet");
   renderCoachFeedback(totals);
 }
 
@@ -954,10 +960,12 @@ const metricBreakdownDefinitions = {
   carbs: { title: "Carbohydrates / Net Carbs", unit: "g" },
   fat: { title: "Fat", unit: "g" },
   fiber: { title: "Fiber", unit: "g" },
-  water: { title: "Hydration", unit: "oz" }
+  water: { title: "Hydration", unit: "oz" },
+  inflammation: { title: "Inflammation Score™", unit: "/10" }
 };
 
 function nutritionMetricValues(nutrition, metric, hydrationOunces = 0) {
+  if (metric === "inflammation") return { primary: estimateInflammationScore(nutrition) ?? 0 };
   if (metric === "calories") return { primary: Number(nutrition.calories || 0) };
   if (metric === "protein") return { primary: Number(nutrition.protein_g || 0) };
   if (metric === "carbs") {
@@ -987,6 +995,7 @@ function formatEstimateNumber(value) {
 function formatMetricContribution(metric, values) {
   if (metric === "calories") return `${Math.round(values.primary).toLocaleString()} cal`;
   if (metric === "carbs") return `${formatEstimateNumber(values.primary)}g / ${formatEstimateNumber(values.secondary)}g net`;
+  if (metric === "inflammation") return `${formatEstimateNumber(values.primary)}/10`;
   return `${formatEstimateNumber(values.primary)}${metricBreakdownDefinitions[metric].unit}`;
 }
 
@@ -1040,6 +1049,19 @@ function needsMealImpactDetails(entry) {
 }
 
 function buildMetricContributions(metric) {
+  if (metric === "inflammation") {
+    return state.entries
+      .filter((entry) => entry.kind === "meal" && entry.status !== "pending_estimate")
+      .map((entry) => ({
+        entry,
+        component: null,
+        displayName: String(entry.description || "Meal"),
+        sourceLabel: contributionEntryLabel(entry),
+        values: { primary: estimateInflammationScore(entry.nutrition_estimate || {}) ?? 0 }
+      }))
+      .filter(({ values }) => values.primary > 0)
+      .sort((left, right) => right.values.primary - left.values.primary);
+  }
   return state.entries
     .filter((entry) => entry.status !== "pending_estimate")
     .flatMap((entry) => {
@@ -1121,6 +1143,9 @@ function buildMetricContributions(metric) {
 }
 
 function dailyMetricTotals(metric) {
+  if (metric === "inflammation") {
+    return { primary: summarizeInflammationEntries(state.entries).score ?? 0, secondary: 0 };
+  }
   return state.entries
     .filter((entry) => entry.status !== "pending_estimate")
     .reduce((sum, entry) => {
@@ -1135,6 +1160,7 @@ function metricStandoutObservation(metric, contributions, totals) {
   if (!contributions.length) return "Log an entry with an estimate to see a useful observation here.";
   const largest = contributions[0];
   const largestName = contributionName(largest);
+  if (metric === "inflammation") return `${largestName} had today’s highest estimated food-pattern impact at ${formatEstimateNumber(largest.values.primary)}/10. This score describes the logged meal pattern; it is not a medical test or diagnosis.`;
   if (metric === "protein") {
     const efficiencyCandidates = contributions.filter((contribution) => contribution.values.primary > 0 && contributionCalories(contribution) > 0);
     const efficient = efficiencyCandidates.sort((a, b) => {
@@ -1175,7 +1201,7 @@ function renderMetricBreakdown(metric) {
   const contributions = buildMetricContributions(metric);
   const totals = dailyMetricTotals(metric);
   const pendingCount = state.entries.filter((entry) => entry.status === "pending_estimate").length;
-  const unitemizedCount = metric === "calories" ? 0 : state.entries.filter(needsIngredientItemization).length;
+  const unitemizedCount = metric === "calories" || metric === "inflammation" ? 0 : state.entries.filter(needsIngredientItemization).length;
   $("#metric-breakdown-title").textContent = definition.title;
   const detailStatus = [
     pendingCount ? `${pendingCount} pending ${pendingCount === 1 ? "estimate is" : "estimates are"} not included yet.` : "",
@@ -1186,15 +1212,20 @@ function renderMetricBreakdown(metric) {
       : ""
   ].filter(Boolean).join(" ");
   $("#metric-breakdown-summary").textContent = totals.primary > 0 || totals.secondary > 0
-    ? metric === "calories"
+    ? metric === "inflammation"
+      ? `${formatMetricContribution(metric, totals)} estimated from ${contributions.length} scored ${contributions.length === 1 ? "meal" : "meals"}. Lower scores indicate a more anti-inflammatory food pattern.`
+      : metric === "calories"
       ? `${formatMetricContribution(metric, totals)} across ${contributions.length} estimated ${contributions.length === 1 ? "entry" : "entries"}.${detailStatus ? ` ${detailStatus}` : ""}`
       : `${formatMetricContribution(metric, totals)} estimated daily total. Ingredient sources are itemized below.${detailStatus ? ` ${detailStatus}` : ""}`
     : `No estimated ${definition.title.toLowerCase()} sources are available yet.${detailStatus ? ` ${detailStatus}` : ""}`;
   $("#metric-contribution-list").innerHTML = contributions.length
     ? contributions.map(({ displayName, sourceLabel, values }) => {
-      const share = totals.primary > 0 ? Math.min(100, Math.round((values.primary / totals.primary) * 100)) : 0;
+      const share = metric === "inflammation"
+        ? Math.round((values.primary / 10) * 100)
+        : totals.primary > 0 ? Math.min(100, Math.round((values.primary / totals.primary) * 100)) : 0;
+      const shareLabel = metric === "inflammation" ? inflammationBand(values.primary).label : `${share}% of this total`;
       return `<li>
-        <span class="metric-contribution-main"><strong>${escapeHtml(displayName)}</strong><small>${escapeHtml(sourceLabel)} · ${share}% of this total</small></span>
+        <span class="metric-contribution-main"><strong>${escapeHtml(displayName)}</strong><small>${escapeHtml(sourceLabel)} · ${escapeHtml(shareLabel)}</small></span>
         <span class="metric-contribution-value">${escapeHtml(formatMetricContribution(metric, values))}</span>
         <span class="metric-contribution-bar" aria-hidden="true"><span style="width:${share}%"></span></span>
       </li>`;

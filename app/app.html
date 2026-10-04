@@ -7,7 +7,7 @@
   <meta name="robots" content="noindex" />
   <title>Today - MealDaddy</title>
   <link rel="manifest" href="./manifest.webmanifest" />
-  <link rel="stylesheet" href="./styles.css?v=20261004-2" />
+  <link rel="stylesheet" href="./styles.css?v=20261004-3" />
 </head>
 <body class="app-page auth-loading v1-live" data-app-view="log">
   <header class="app-header">
@@ -60,6 +60,7 @@
         <button class="metric-card" type="button" data-metric="fat" aria-haspopup="dialog" aria-controls="metric-breakdown"><span>Fat</span><progress id="fat-progress" value="0" max="100"></progress><span class="v1-over-track" aria-label="0 percent of target"><i class="v1-goal-fill"></i><i class="v1-excess-fill"></i></span><strong><span id="fat-total">0</span> / <span id="fat-goal-label">100g</span></strong></button>
         <button class="metric-card" type="button" data-metric="fiber" aria-haspopup="dialog" aria-controls="metric-breakdown"><span>Fiber</span><progress id="fiber-progress" value="0" max="30"></progress><span class="v1-over-track" aria-label="0 percent of target"><i class="v1-goal-fill"></i><i class="v1-excess-fill"></i></span><strong><span id="fiber-total">0</span> / <span id="fiber-goal-label">30g</span></strong></button>
         <button class="metric-card" type="button" data-metric="water" aria-haspopup="dialog" aria-controls="metric-breakdown"><span>Water</span><progress id="water-progress" value="0" max="90"></progress><span class="v1-over-track" aria-label="0 percent of target"><i class="v1-goal-fill"></i><i class="v1-excess-fill"></i></span><strong><span id="water-total">0</span> / <span id="water-goal-label">90oz</span></strong></button>
+        <button class="metric-card" type="button" data-metric="inflammation" aria-haspopup="dialog" aria-controls="metric-breakdown"><span>Inflammation</span><progress id="inflammation-progress" value="0" max="10"></progress><span class="v1-over-track" aria-label="Not scored yet"><i class="v1-goal-fill"></i><i class="v1-excess-fill"></i></span><strong><span id="inflammation-total">—</span> / 10</strong></button>
       </section>
       <p class="estimate-note"><span aria-hidden="true">≈</span> Nutrition totals are estimates. Each entry now explains its source, confidence, and main uncertainty.</p>
     </section>
@@ -386,7 +387,7 @@
     <div class="onboarding-panel"><div class="step-indicator"><span class="is-active"></span><span></span><span></span></div><p class="eyebrow">A few basics first</p><h1 id="onboarding-title">How do you like to eat?</h1><p>Choose the closest fit. You can adjust individual preferences anytime.</p><div class="choice-grid" id="diet-options"></div><label class="select-field">Coaching tone<select id="tone-options"><option value="supportive">Supportive</option><option value="direct">Direct</option><option value="data_focused">Data-focused</option><option value="playful">Playful</option></select></label><button class="button button-primary full-button" id="continue-onboarding" type="button" disabled>Save my starting plan</button><p class="privacy-line">These preferences are protected by row-level security and can only be accessed by your account.</p></div>
   </section>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="./app.js?v=20261004-2" type="module"></script>
+  <script src="./app.js?v=20261004-3" type="module"></script>
   <script src="./register-sw.js?v=20260930-1"></script>
 </body>
 </html>
