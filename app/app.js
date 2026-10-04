@@ -1921,11 +1921,12 @@ function renderRestaurantPlan(rawPlan) {
       const restaurantName = String(option.restaurant_name || plan.restaurant || "Restaurant").trim();
       const address = String(option.address || "").trim();
       const mapUrl = restaurantMapUrl(restaurantName, address);
+      const fullOrder = String(option.order || "").replace(/\s+/g, " ").trim();
+      const conciseOrder = fullOrder.length > 180 ? `${fullOrder.slice(0, 177).replace(/\s+\S*$/, "")}…` : fullOrder;
       const published = option.evidence_type === "restaurant_published" && sourceUrl;
       return `<article class="restaurant-choice">
         <span class="restaurant-choice-letter" aria-hidden="true">${restaurantChoiceLetters[index]}</span>
-        <div class="restaurant-choice-main"><span>${escapeHtml(restaurantFitLabels[index])}</span><h3>${escapeHtml(restaurantName)}</h3><h4>${escapeHtml(String(option.title || `Option ${restaurantChoiceLetters[index]}`))}</h4><p>${escapeHtml(String(option.order || ""))}</p></div>
-        ${address ? `<div class="restaurant-address"><span>${escapeHtml(address)}</span><div><button type="button" data-copy-restaurant-address="${escapeHtml(address)}">Copy address</button>${mapUrl ? `<a href="${escapeHtml(mapUrl)}" target="_blank" rel="noopener noreferrer">Open in Maps</a>` : ""}</div></div>` : ""}
+        <div class="restaurant-choice-main"><span>${escapeHtml(restaurantFitLabels[index])}</span><h3>${escapeHtml(restaurantName)}</h3>${address ? `<div class="restaurant-address"><button type="button" data-copy-restaurant-address="${escapeHtml(address)}">Copy</button><small>${escapeHtml(address)}</small>${mapUrl ? `<a href="${escapeHtml(mapUrl)}" target="_blank" rel="noopener noreferrer">Maps</a>` : ""}</div>` : ""}<h4>${escapeHtml(String(option.title || `Option ${restaurantChoiceLetters[index]}`))}</h4><p>${escapeHtml(conciseOrder)}</p></div>
         ${substitutions.length ? `<ul class="restaurant-substitutions" aria-label="Accepted substitutions">${substitutions.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : ""}
         <div class="restaurant-choice-metrics"><span><strong>${formatEstimateNumber(option.calories)} cal</strong>Energy</span><span><strong>${formatEstimateNumber(option.protein_g)}g</strong>Protein</span><span><strong>${formatEstimateNumber(option.net_carbs_g)}g</strong>Net carbs</span><span><strong>${formatEstimateNumber(option.fiber_g)}g</strong>Fiber</span></div>
         <p class="restaurant-choice-why">${escapeHtml(String(option.why || ""))}</p>
