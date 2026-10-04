@@ -8,8 +8,11 @@ assert.match(script, /class="saved-food-quick-log"[^>]+type="submit"[^>]+form=/)
 assert.match(script, /class="saved-food-expand"[^>]+data-expand-saved-food[^>]+aria-expanded="false"/);
 assert.match(script, /class="saved-food-expanded"[^>]+hidden/);
 assert.match(script, /Log with these choices/);
-assert.match(script, /\.order\("use_count", \{ ascending: false \}\)/);
-assert.match(script, /Number\(b\.use_count \|\| 0\) - Number\(a\.use_count \|\| 0\)/);
+assert.match(script, /const maxPinnedFoods = 3/);
+assert.match(script, /data-pin-saved-food/);
+assert.match(script, /filter\(\(item\) => item\.is_pinned\)\.length >= maxPinnedFoods/);
+assert.match(script, /Number\(Boolean\(b\.is_pinned\)\) - Number\(Boolean\(a\.is_pinned\)\)/);
+assert.match(script, /localeCompare\(displayName\(b\)/);
 assert.match(styles, /\.saved-food-quick-log[\s\S]*width: 100%/);
 assert.match(styles, /\.saved-food-expand/);
 

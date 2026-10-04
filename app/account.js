@@ -402,6 +402,7 @@ function savedFoodsCsv(foods) {
     "confidence",
     "notes",
     "last_verified_on",
+    "is_pinned",
     "use_count",
     "last_used_at"
   ];
@@ -424,6 +425,7 @@ function savedFoodsCsv(foods) {
     food.confidence,
     food.notes,
     food.last_verified_on,
+    food.is_pinned,
     food.use_count,
     food.last_used_at
   ].map(csvCell).join(","));

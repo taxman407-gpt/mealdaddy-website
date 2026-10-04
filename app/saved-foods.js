@@ -18,6 +18,7 @@ import { weightedInflammationScore } from "./inflammation-impact.js?v=20260813-4
 
 const allowedPhotoTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 const maxPhotoBytes = 8 * 1024 * 1024;
+const maxPinnedFoods = 3;
 const numericFields = [
   "calories",
   "protein_g",
@@ -211,14 +212,40 @@ export async function initializeSavedFoods({
   const root = document.querySelector("#saved-foods");
   if (!root) return;
   const $ = (selector) => document.querySelector(selector);
+  const pinStorageKey = `mealdaddy-saved-food-pins:${user.id}`;
+  let storedPinKeys = [];
+  try {
+    storedPinKeys = JSON.parse(localStorage.getItem(pinStorageKey) || "[]");
+  } catch {
+    storedPinKeys = [];
+  }
   const state = {
     foods: [],
     pendingFile: null,
     editingFood: null,
     reviewComponents: [],
     objectUrls: [],
-    storageMode: getSavedFoodStorageMode(user.id)
+    storageMode: getSavedFoodStorageMode(user.id),
+    pinKeys: new Set(Array.isArray(storedPinKeys) ? storedPinKeys.slice(0, maxPinnedFoods) : [])
   };
+
+  function foodKey(food) {
+    return `${food.storage_scope}:${food.id}`;
+  }
+
+  function persistPinKeys() {
+    try { localStorage.setItem(pinStorageKey, JSON.stringify([...state.pinKeys])); } catch {}
+  }
+
+  function displayName(food) {
+    return String(food.nickname || food.name || "");
+  }
+
+  function favoriteSort(a, b) {
+    const pinDifference = Number(Boolean(b.is_pinned)) - Number(Boolean(a.is_pinned));
+    if (pinDifference) return pinDifference;
+    return displayName(a).localeCompare(displayName(b), undefined, { sensitivity: "base", numeric: true });
+  }
 
   function storageCopy(mode = state.storageMode) {
     if (mode === "device_only") {
@@ -348,7 +375,7 @@ export async function initializeSavedFoods({
             <label><span>Log as</span><select name="meal_label">${["Breakfast", "Brunch", "Lunch", "Dinner", "Snack"].map((label) => `<option${label === defaultLabel ? " selected" : ""}>${label}</option>`).join("")}</select></label>
             <button class="button button-primary" type="submit">Log with these choices</button>
           </form>
-          <div class="saved-food-item-actions"><button type="button" data-edit-saved-food="${escapeHtml(food.storage_scope)}:${escapeHtml(food.id)}">Edit</button><button type="button" data-delete-saved-food="${escapeHtml(food.storage_scope)}:${escapeHtml(food.id)}">Delete</button></div>
+          <div class="saved-food-item-actions"><button class="saved-food-pin${food.is_pinned ? " is-pinned" : ""}" type="button" data-pin-saved-food="${escapeHtml(food.storage_scope)}:${escapeHtml(food.id)}" aria-pressed="${food.is_pinned ? "true" : "false"}">${food.is_pinned ? "📌 Unpin" : "📌 Pin to top"}</button><button type="button" data-edit-saved-food="${escapeHtml(food.storage_scope)}:${escapeHtml(food.id)}">Edit</button><button type="button" data-delete-saved-food="${escapeHtml(food.storage_scope)}:${escapeHtml(food.id)}">Delete</button></div>
       </div>
     </article>`;
   }
@@ -419,13 +446,9 @@ export async function initializeSavedFoods({
     }
     const deviceFoods = (await getDeviceSavedFoods(user.id).catch(() => []))
       .map((food) => normalizedFood({ ...food, storage_scope: "device" }));
-    state.foods = [...syncedFoods, ...deviceFoods].sort((a, b) => {
-      const useDifference = Number(b.use_count || 0) - Number(a.use_count || 0);
-      if (useDifference) return useDifference;
-      const aDate = new Date(a.last_used_at || a.updated_at || a.created_at || 0).valueOf();
-      const bDate = new Date(b.last_used_at || b.updated_at || b.created_at || 0).valueOf();
-      return bDate - aDate;
-    });
+    state.foods = [...syncedFoods, ...deviceFoods]
+      .map((food) => ({ ...food, is_pinned: Boolean(food.is_pinned) || state.pinKeys.has(foodKey(food)) }))
+      .sort(favoriteSort);
     renderFoods();
   }
 
@@ -845,6 +868,7 @@ export async function initializeSavedFoods({
 
   $("#saved-foods-list").addEventListener("click", async (event) => {
     const expandButton = event.target.closest("[data-expand-saved-food]");
+    const pinButton = event.target.closest("[data-pin-saved-food]");
     const editButton = event.target.closest("[data-edit-saved-food]");
     const deleteButton = event.target.closest("[data-delete-saved-food]");
     if (expandButton) {
@@ -853,6 +877,39 @@ export async function initializeSavedFoods({
         const willOpen = details.hidden;
         details.hidden = !willOpen;
         expandButton.setAttribute("aria-expanded", String(willOpen));
+      }
+      return;
+    }
+    if (pinButton) {
+      const food = foodByKey(pinButton.dataset.pinSavedFood);
+      if (!food) return;
+      const nextPinned = !food.is_pinned;
+      if (nextPinned && state.foods.filter((item) => item.is_pinned).length >= maxPinnedFoods) {
+        toast("You can pin up to 3 favorites. Unpin one before choosing another.");
+        return;
+      }
+      pinButton.disabled = true;
+      food.is_pinned = nextPinned;
+      if (nextPinned) state.pinKeys.add(foodKey(food));
+      else state.pinKeys.delete(foodKey(food));
+      persistPinKeys();
+      try {
+        if (food.storage_scope === "sync") {
+          const { error } = await supabase.from("saved_foods").update({ is_pinned: nextPinned }).eq("id", food.id).eq("user_id", user.id);
+          if (!error) await updateSyncedFoodCache(user.id, food).catch(() => {});
+        } else {
+          await saveDeviceFood(user.id, food);
+        }
+        state.foods.sort(favoriteSort);
+        renderFoods();
+        toast(nextPinned ? `${displayName(food)} pinned to the top.` : `${displayName(food)} unpinned.`);
+      } catch (error) {
+        food.is_pinned = !nextPinned;
+        if (food.is_pinned) state.pinKeys.add(foodKey(food));
+        else state.pinKeys.delete(foodKey(food));
+        persistPinKeys();
+        renderFoods();
+        toast(error.message || "That favorite's pin could not be changed.");
       }
       return;
     }

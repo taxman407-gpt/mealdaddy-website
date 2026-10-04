@@ -227,6 +227,7 @@ h2 { font-size: clamp(1.65rem, 3vw, 2.6rem); line-height: 1.06; letter-spacing: 
 .saved-food-expanded .saved-food-main > strong { margin-top: 6px; }
 .saved-food-expanded .saved-food-log-form,
 .saved-food-expanded .saved-food-item-actions { grid-column: 1 / -1; }
+.saved-food-pin.is-pinned { border-color: var(--forest); color: var(--forest); background: var(--lime); }
 @media (max-width: 560px) {
   .saved-foods-list .saved-food-item { grid-template-columns: minmax(0, 1fr) 38px; padding: 8px; }
   .saved-food-quick-log { grid-template-columns: 50px minmax(0, 1fr); height: 48px; }
