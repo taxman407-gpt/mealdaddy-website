@@ -542,6 +542,9 @@ export async function initializeSavedFoods({
   function populateReview(food, editingFood = null) {
     const normalized = normalizedFood(food);
     state.editingFood = editingFood;
+    $("#favorite-update-scope").hidden = !editingFood;
+    const defaultUpdateScope = document.querySelector('input[name="favorite_update_scope"][value="today"]');
+    if (defaultUpdateScope) defaultUpdateScope.checked = true;
     state.reviewComponents = normalized.components;
     setReviewField("item_type", normalized.item_type);
     setReviewField("nickname", normalized.nickname);
@@ -661,13 +664,20 @@ export async function initializeSavedFoods({
     });
   }
 
-  async function logFood(food, servings, mealLabel, occurredAt = new Date().toISOString(), occurredLabel = "today") {
-    const multiplier = Math.max(0.1, Math.min(50, numberValue(servings) || 1));
-    const totals = {};
-    numericFields.forEach((field) => { totals[field] = Math.round(numberValue(food[field]) * multiplier * 10) / 10; });
+  function favoriteEntryDescription(food, multiplier) {
     const servingText = multiplier === 1 ? food.serving_description : `${formatNumber(multiplier)} × ${food.serving_description}`;
     const displayName = food.nickname || food.name;
-    const description = [displayName, food.nickname ? `(${food.name})` : "", food.brand_or_restaurant ? `(${food.brand_or_restaurant})` : "", `— ${servingText}`].filter(Boolean).join(" ");
+    return {
+      displayName,
+      servingText,
+      description: [displayName, food.nickname ? `(${food.name})` : "", food.brand_or_restaurant ? `(${food.brand_or_restaurant})` : "", `— ${servingText}`].filter(Boolean).join(" ")
+    };
+  }
+
+  function favoriteEntryNutrition(food, multiplier, description) {
+    const totals = {};
+    numericFields.forEach((field) => { totals[field] = Math.round(numberValue(food[field]) * multiplier * 10) / 10; });
+    const { displayName, servingText } = favoriteEntryDescription(food, multiplier);
     const componentSource = food.components?.length ? food.components : [{
       name: food.name,
       calories: food.calories,
@@ -718,6 +728,7 @@ export async function initializeSavedFoods({
         key: `${food.storage_scope}:${food.id}`,
         id: food.id,
         storage_scope: food.storage_scope,
+        servings: multiplier,
         name: displayName,
         brand_or_restaurant: food.brand_or_restaurant || "",
         description,
@@ -739,6 +750,58 @@ export async function initializeSavedFoods({
       nutrition.inflammation_score = savedInflammationScore;
       nutrition.inflammation_summary = "Based on the saved meal's reviewed food components. Review again when ingredients or preparation change.";
     }
+    return nutrition;
+  }
+
+  async function syncFavoriteEntries(food, previousFood, scope) {
+    if (!previousFood?.id) return 0;
+    const previousKey = `${previousFood.storage_scope}:${previousFood.id}`;
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 1);
+    const entries = [];
+    const pageSize = 1000;
+    for (let from = 0; ; from += pageSize) {
+      let query = supabase
+        .from("ledger_entries")
+        .select("id,description,nutrition_estimate")
+        .eq("user_id", user.id)
+        .order("id", { ascending: true })
+        .range(from, from + pageSize - 1);
+      if (scope === "today") query = query.gte("occurred_at", start.toISOString()).lt("occurred_at", end.toISOString());
+      const { data, error } = await query;
+      if (error) throw error;
+      entries.push(...(data || []));
+      if (!data || data.length < pageSize) break;
+    }
+    const matches = entries.filter((entry) => {
+      const origin = entry.nutrition_estimate?.favorite_origin;
+      return origin && (origin.id === previousFood.id || origin.key === previousKey);
+    });
+    for (let index = 0; index < matches.length; index += 25) {
+      await Promise.all(matches.slice(index, index + 25).map(async (entry) => {
+        const origin = entry.nutrition_estimate?.favorite_origin || {};
+        const multiplier = Math.max(0.1, Math.min(50, numberValue(origin.servings) || 1));
+        const { description } = favoriteEntryDescription(food, multiplier);
+        const nutrition = favoriteEntryNutrition(food, multiplier, description);
+        const photoPath = entry.nutrition_estimate?.photo_path;
+        if (typeof photoPath === "string") nutrition.photo_path = photoPath;
+        const { error: updateError } = await supabase
+          .from("ledger_entries")
+          .update({ description, nutrition_estimate: nutrition, status: "estimated" })
+          .eq("id", entry.id)
+          .eq("user_id", user.id);
+        if (updateError) throw updateError;
+      }));
+    }
+    return matches.length;
+  }
+
+  async function logFood(food, servings, mealLabel, occurredAt = new Date().toISOString(), occurredLabel = "today") {
+    const multiplier = Math.max(0.1, Math.min(50, numberValue(servings) || 1));
+    const { displayName, description } = favoriteEntryDescription(food, multiplier);
+    const nutrition = favoriteEntryNutrition(food, multiplier, description);
     const { error } = await supabase.from("ledger_entries").insert({
       user_id: user.id,
       client_request_id: crypto.randomUUID(),
@@ -850,8 +913,19 @@ export async function initializeSavedFoods({
       status.textContent = "Add a name and serving description before saving.";
       return;
     }
-    const mode = state.editingFood
-      ? state.editingFood.storage_scope === "device" ? "device_only" : "sync_cache"
+    const previousFood = state.editingFood ? { ...state.editingFood } : null;
+    const recipeDescriptionChanged = previousFood && ["name", "brand_or_restaurant", "serving_description", "notes"].some((field) =>
+      String(food[field] || "").trim() !== String(previousFood[field] || "").trim()
+    );
+    const nutritionStayedIdentical = previousFood && numericFields.every((field) =>
+      Math.abs(numberValue(food[field]) - numberValue(previousFood[field])) < 0.01
+    );
+    if (recipeDescriptionChanged && nutritionStayedIdentical && !window.confirm("The recipe description changed, but every nutrition value stayed the same. Save only if you reviewed those values and they are still correct. Continue?")) {
+      status.textContent = "Review the nutrition values so they match the updated recipe.";
+      return;
+    }
+    const mode = previousFood
+      ? previousFood.storage_scope === "device" ? "device_only" : "sync_cache"
       : selectedStorageMode();
     const keepPhoto = $("#saved-food-keep-photo").checked;
     button.disabled = true;
@@ -863,7 +937,19 @@ export async function initializeSavedFoods({
         return;
       }
       if (!state.editingFood) setStorageMode(mode);
-      await saveReviewedFood(food, mode, keepPhoto);
+      const savedFood = await saveReviewedFood(food, mode, keepPhoto);
+      let updatedTodayCount = 0;
+      if (previousFood) {
+        const updateScope = document.querySelector('input[name="favorite_update_scope"]:checked')?.value || "today";
+        const currentFood = normalizedFood({
+          ...previousFood,
+          ...food,
+          ...savedFood,
+          id: savedFood?.id || previousFood.id,
+          storage_scope: previousFood.storage_scope
+        });
+        if (updateScope !== "future") updatedTodayCount = await syncFavoriteEntries(currentFood, previousFood, updateScope);
+      }
       if (mode === "device_only") {
         const persistence = await requestPersistentDeviceStorage();
         $("#saved-foods-status").textContent = persistence.persistent
@@ -875,7 +961,9 @@ export async function initializeSavedFoods({
       await loadFoods();
       await onLedgerChange();
       closeEditor();
-      toast(`${food.nickname || food.name} saved to My Foods.`);
+      toast(updatedTodayCount
+        ? `${food.nickname || food.name} saved. ${updatedTodayCount} linked ${updatedTodayCount === 1 ? "entry" : "entries"} updated automatically.`
+        : `${food.nickname || food.name} saved to My Foods.`);
     } catch (error) {
       status.textContent = error.message || "The saved food could not be stored.";
     } finally {

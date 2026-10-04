@@ -325,6 +325,12 @@
             <label><input type="radio" name="saved_food_storage" value="one_time" /><span><strong>Log once</strong><small>Use these reviewed values now without remembering the item.</small></span></label>
           </fieldset>
           <p class="saved-food-review-storage-copy" id="saved-food-review-storage-copy"></p>
+          <fieldset class="saved-food-review-storage" id="favorite-update-scope" hidden>
+            <legend>Which logged entries should use these changes?</legend>
+            <label><input type="radio" name="favorite_update_scope" value="today" checked /><span><strong>Future uses + today</strong><small>Correct every use of this favorite from today and use it going forward.</small></span></label>
+            <label><input type="radio" name="favorite_update_scope" value="future" /><span><strong>Future uses only</strong><small>Keep all earlier entries exactly as they were logged.</small></span></label>
+            <label><input type="radio" name="favorite_update_scope" value="all" /><span><strong>All linked entries</strong><small>Apply the correction throughout your history.</small></span></label>
+          </fieldset>
           <label class="saved-food-keep-photo"><input id="saved-food-keep-photo" type="checkbox" /><span><strong>Keep a private reference photo</strong><small>Otherwise the photo is deleted and only the reviewed nutrition data remains.</small></span></label>
           <div class="saved-food-editor-actions"><button class="button button-primary" id="save-saved-food" type="submit">Save to My Foods</button><button class="button button-quiet" id="saved-food-back-to-photo" type="button">Back</button></div>
           <p class="saved-food-editor-status" id="saved-food-review-status" role="status" aria-live="polite"></p>
@@ -395,7 +401,7 @@
     <div class="onboarding-panel"><div class="step-indicator"><span class="is-active"></span><span></span><span></span></div><p class="eyebrow">A few basics first</p><h1 id="onboarding-title">How do you like to eat?</h1><p>Choose the closest fit. You can adjust individual preferences anytime.</p><div class="choice-grid" id="diet-options"></div><label class="select-field">Coaching tone<select id="tone-options"><option value="supportive">Supportive</option><option value="direct">Direct</option><option value="data_focused">Data-focused</option><option value="playful">Playful</option></select></label><button class="button button-primary full-button" id="continue-onboarding" type="button" disabled>Save my starting plan</button><p class="privacy-line">These preferences are protected by row-level security and can only be accessed by your account.</p></div>
   </section>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="./app.js?v=20261004-16" type="module"></script>
+  <script src="./app.js?v=20261004-18" type="module"></script>
   <script src="./register-sw.js?v=20260930-1"></script>
 </body>
 </html>
