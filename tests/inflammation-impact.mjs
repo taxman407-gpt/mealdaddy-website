@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {
   estimateInflammationScore,
   inflammationBand,
+  inflammationProgressColor,
   summarizeInflammationEntries,
   summarizeInflammationReport,
   weightedInflammationScore
@@ -18,6 +19,10 @@ assert.equal(estimateInflammationScore({ inflammation_score: 4.4, components }),
 assert.equal(inflammationBand(2).tone, "lower");
 assert.equal(inflammationBand(5).tone, "moderate");
 assert.equal(inflammationBand(8).tone, "higher");
+assert.equal(inflammationProgressColor(4), "#ddf65d");
+assert.match(inflammationProgressColor(7), /color-mix/);
+assert.equal(inflammationProgressColor(9), "#258cff");
+assert.equal(inflammationProgressColor(10), "#258cff");
 
 const entries = [
   { kind: "meal", status: "estimated", occurred_at: "2026-08-01T12:00:00Z", nutrition_estimate: { calories: 500, inflammation_score: 3 } },
