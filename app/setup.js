@@ -10,6 +10,29 @@ const $ = (selector) => document.querySelector(selector);
 const params = new URLSearchParams(location.search);
 const selectedPlan = params.get("plan") === "core" ? "core" : "";
 
+function safeReturnTarget(value) {
+  if (!value) return "./app.html";
+  try {
+    const target = new URL(value, location.href);
+    if (target.origin !== location.origin) return "./app.html";
+    const filename = target.pathname.split("/").pop();
+    if (!new Set(["app.html", "account.html"]).has(filename)) return "./app.html";
+    if (filename === "app.html") {
+      const view = target.searchParams.get("view");
+      const safeView = new Set(["today", "log", "entries", "plan", "more"]).has(view) ? view : "log";
+      return `./app.html?view=${encodeURIComponent(safeView)}`;
+    }
+    const priorReturn = target.searchParams.get("returnTo");
+    return priorReturn
+      ? `./account.html?returnTo=${encodeURIComponent(safeReturnTarget(priorReturn))}`
+      : "./account.html";
+  } catch {
+    return "./app.html";
+  }
+}
+
+const saveExitTarget = safeReturnTarget(params.get("returnTo"));
+
 const choices = {
   goals: ["Lose Weight", "Maintain Weight", "Gain Muscle", "Eat Healthier", "Reduce Inflammation", "Better Blood Sugar", "Heart Healthy", "Meal Planning", "Other"],
   sex: ["Male", "Female", "Prefer not to say"],
@@ -259,7 +282,7 @@ $("#setup-next").addEventListener("click", async () => {
 $("#setup-back").addEventListener("click", () => { if (currentStep > 0) { if (currentStep < steps.length) collectVisibleAnswers(); currentStep -= 1; render(); } });
 async function saveAndExit() {
   if (currentStep < steps.length) collectVisibleAnswers();
-  if (await saveProfile(false)) location.replace("./app.html");
+  if (await saveProfile(false)) location.replace(saveExitTarget);
 }
 $("#save-exit").addEventListener("click", saveAndExit);
 $("#save-exit-bottom").addEventListener("click", saveAndExit);

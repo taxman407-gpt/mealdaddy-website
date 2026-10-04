@@ -9,6 +9,22 @@ if (!session) throw new Error("Authentication required");
 const user = session.user;
 let membership = null;
 let contactOptedIn = true;
+
+function safeAppReturn(value) {
+  if (!value) return "./app.html?view=more";
+  try {
+    const target = new URL(value, location.href);
+    if (target.origin !== location.origin || !target.pathname.endsWith("/app/app.html")) return "./app.html?view=more";
+    const view = target.searchParams.get("view");
+    return `./app.html?view=${new Set(["today", "log", "entries", "plan", "more"]).has(view) ? view : "more"}`;
+  } catch {
+    return "./app.html?view=more";
+  }
+}
+
+const accountReturnTarget = safeAppReturn(new URLSearchParams(location.search).get("returnTo"));
+document.querySelectorAll('a[href="./app.html"]').forEach((link) => { link.href = accountReturnTarget; });
+$("#edit-setup-link").href = `./setup.html?returnTo=${encodeURIComponent(`./account.html?returnTo=${encodeURIComponent(accountReturnTarget)}`)}`;
 document.body.classList.remove("auth-loading");
 $("#account-email").textContent = user.email || "Signed in";
 $("#member-since").textContent = formatDate(user.created_at);

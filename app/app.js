@@ -63,8 +63,16 @@ document.querySelectorAll("[data-more-target]").forEach((control) => {
   });
 });
 
-// Opening MealDaddy always favors the fastest path for recording a meal.
-showAppView("log", { focus: false });
+// Opening MealDaddy favors fast logging unless a trusted in-app return view was supplied.
+const requestedAppView = new URLSearchParams(location.search).get("view");
+showAppView(appViews.has(requestedAppView) ? requestedAppView : "log", { focus: false });
+
+document.querySelectorAll("[data-account-link]").forEach((link) => {
+  link.addEventListener("click", () => {
+    const currentView = appViews.has(document.body.dataset.appView) ? document.body.dataset.appView : "log";
+    link.href = `./account.html?returnTo=${encodeURIComponent(`./app.html?view=${currentView}`)}`;
+  });
+});
 
 document.querySelector("#recreate-favorite")?.addEventListener("click", () => {
   showAppSubview("log", "foods");
@@ -417,7 +425,11 @@ function renderDietChoices() {
 }
 
 function showOnboarding() {
-  location.assign(`./setup.html${pendingPlan ? `?plan=${pendingPlan}` : ""}`);
+  const currentView = appViews.has(document.body.dataset.appView) ? document.body.dataset.appView : "log";
+  const setupParams = new URLSearchParams();
+  if (pendingPlan) setupParams.set("plan", pendingPlan);
+  setupParams.set("returnTo", `./app.html?view=${currentView}`);
+  location.assign(`./setup.html?${setupParams.toString()}`);
 }
 
 function closeOnboarding() {
