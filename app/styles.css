@@ -792,16 +792,15 @@ html:has(.v1-live) { height: auto; min-height: 100%; overflow-y: auto !important
 .v1-live .reports-card,
 .v1-live .rating-card,
 .v1-live .saved-foods-card { background: var(--v1-panel); border-color: var(--v1-line); color: var(--v1-text); }
-.v1-live .today-status .metric-grid { display: grid; grid-template-columns: 1fr; gap: 0; }
+.v1-live .today-status .metric-grid { display: grid; grid-template-columns: 1fr; gap: 7px; }
 .v1-live .today-status .metric-card {
-  display: grid; grid-template-columns: minmax(90px, 1fr) auto; gap: 6px 12px; align-items: center;
-  min-height: 58px; border: 0; border-bottom: 1px solid rgba(190,208,200,.14); border-radius: 0;
-  padding: 8px 0; background: transparent; box-shadow: none; text-align: left;
+  display: grid; grid-template-columns: 108px minmax(90px, 1fr) auto; gap: 12px; align-items: center;
+  min-height: 34px; border: 0; border-radius: 0; padding: 2px 0;
+  background: transparent; box-shadow: none; text-align: left;
 }
-.v1-live .today-status .metric-card:last-child { border-bottom: 0; }
-.v1-live .today-status .metric-card > span:first-child { grid-column: 1 / -1; color: var(--v1-muted); font-size: .78rem; font-weight: 760; }
-.v1-live .today-status .metric-card > .v1-over-track { grid-column: 1; grid-row: 2; }
-.v1-live .today-status .metric-card strong { grid-column: 2; grid-row: 2; color: white; font-size: .78rem; letter-spacing: 0; white-space: nowrap; }
+.v1-live .today-status .metric-card > span:first-child { grid-column: 1; color: var(--v1-muted); font-size: .78rem; font-weight: 500; }
+.v1-live .today-status .metric-card > .v1-over-track { grid-column: 2; }
+.v1-live .today-status .metric-card strong { grid-column: 3; color: white; font-size: .78rem; letter-spacing: 0; white-space: nowrap; text-align: right; }
 .v1-live .today-status .metric-card progress { display: none; }
 .v1-over-track { display: flex; width: 100%; height: 10px; overflow: hidden; border-radius: 99px; background: var(--v1-line); }
 .v1-over-track i { display: block; height: 100%; transition: width .2s ease; }
