@@ -1,5 +1,9 @@
 # MealDaddy launch runbook
 
+## Internal AI review
+
+See [AI_TEAM.md](AI_TEAM.md) for the internal diet-coach roles, dedicated diet test users, truthful AI attribution requirements, and owner decisions awaiting implementation. The Low Inflammation AI Coach reviews development and tests; it is not a credentialed human adviser or an automatically exposed customer persona.
+
 ## Release candidate
 
 - Release marker: `20260812-1`

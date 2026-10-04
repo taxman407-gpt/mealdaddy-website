@@ -28,6 +28,7 @@ yarn.lock
 wrangler.jsonc
 README.md
 LAUNCH_RUNBOOK.md
+AI_TEAM.md
 pnpm-workspace.yaml
 netlify.toml
 dist

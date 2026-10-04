@@ -14,7 +14,7 @@ const choices = {
   sex: ["Male", "Female", "Prefer not to say"],
   units: ["US", "Metric"],
   activity: ["Mostly seated", "Lightly active", "Active", "Very active"],
-  eatingStyles: ["Mediterranean", "DASH", "Low Carb", "Keto", "Vegetarian", "Vegan", "High Protein", "Paleo", "Gluten Free", "None"],
+  eatingStyles: ["Mediterranean", "DASH", "Low Inflammation", "Low Carb", "Keto", "Vegetarian", "Vegan", "High Protein", "Paleo", "Gluten Free", "None"],
   proteins: ["Chicken", "Beef", "Pork", "Fish", "Seafood", "Eggs", "Turkey", "Beans", "Tofu"],
   cuisines: ["Mexican", "Italian", "Asian", "Mediterranean", "BBQ", "Indian", "American", "Other"],
   household: ["Just me", "Me + Partner", "Family", "Other"],

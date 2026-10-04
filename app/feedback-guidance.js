@@ -141,7 +141,7 @@ export function buildProteinGuidance({
   const preferenceText = normalized([diet, ...(eatingStyles || []), ...(goals || [])].join(" "));
   const challengeText = normalized(biggestChallenge);
   const groups = allowedGroups(preferenceText);
-  const heartFocused = /\b(mediterranean|dash|heart healthy|reduce inflammation)\b/.test(preferenceText);
+  const heartFocused = /\b(mediterranean|dash|heart healthy|low inflammation|reduce inflammation)\b/.test(preferenceText);
   const carbFocused = /\b(low carb|keto|better blood sugar)\b/.test(preferenceText);
   const needsConvenience = /\b(time|busy|travel|pain|rarely cook|don't cook|do not cook)\b/.test(challengeText);
 

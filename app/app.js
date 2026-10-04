@@ -1,5 +1,5 @@
 import { invokeAuthenticated, supabase, requireSession } from "./supabase-client.js?v=20260930-3";
-import { buildProteinGuidance } from "./feedback-guidance.js?v=20260813-4";
+import { buildProteinGuidance } from "./feedback-guidance.js?v=20261004-1";
 import { entryDateDisplayLabel, localDateValue as localEntryDateValue, occurredAtForEntryDate, quickDateOptions } from "./entry-date.js?v=20260813-4";
 import { estimatedAdultBmi, formatWeight, formatWeightChange, normalizeUnitSystem, parseHeightCm, shouldEnableWeightTracking, weightFromKg, weightToKg } from "./health-metrics.js?v=20260813-4";
 import { initializeSavedFoods } from "./saved-foods.js?v=20260813-4";
@@ -12,7 +12,7 @@ document.querySelector("#focus-quick-entry")?.addEventListener("click", () => {
   document.querySelector("#quick-entry")?.focus();
 });
 
-const dietStyles = ["Mediterranean", "Low-carb", "Pescatarian", "DASH", "Vegetarian", "High-protein", "Flexible"];
+const dietStyles = ["Mediterranean", "Low Inflammation", "Low-carb", "Pescatarian", "DASH", "Vegetarian", "High-protein", "Flexible"];
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 const session = await requireSession();
@@ -1274,11 +1274,11 @@ function renderCoachFeedback(providedTotals) {
       .map((value) => String(value).toLowerCase().replaceAll("-", " ").trim())
   );
   const carbFocus = ["low carb", "keto", "better blood sugar"].some((value) => preferences.has(value));
-  const inflammationFocus = preferences.has("reduce inflammation");
+  const inflammationFocus = preferences.has("low inflammation") || preferences.has("reduce inflammation");
   const inflammationSummary = summarizeInflammationEntries(state.entries);
   const everyMacro = state.trackingDetail === "Every macro";
   const basicsOnly = state.trackingDetail === "Just the basics";
-  const fiberFocus = !basicsOnly || ["mediterranean", "dash", "vegetarian", "vegan", "reduce inflammation", "better blood sugar", "heart healthy"].some((value) => preferences.has(value));
+  const fiberFocus = !basicsOnly || ["mediterranean", "dash", "vegetarian", "vegan", "low inflammation", "reduce inflammation", "better blood sugar", "heart healthy"].some((value) => preferences.has(value));
   const hydrationFocus = !basicsOnly || totals.water > 0 || state.uses.includes("Hydration tracking") || state.reminders.includes("Water");
   const preferenceLabel = preferences.has("keto") ? "keto" : preferences.has("better blood sugar") && !preferences.has("low carb") ? "blood-sugar-aware" : "low-carb";
   const affirmationPools = {
@@ -1415,7 +1415,7 @@ function renderCoachFeedback(providedTotals) {
   }
   if (inflammationFocus) {
     if (inflammationSummary.score === null) {
-      suggestion.textContent += " Your reduce-inflammation goal is saved; meals with the new impact details will include the Inflammation Score™ and food-by-food context.";
+      suggestion.textContent += " Your inflammation-focused preference is saved; scored meals will include the Inflammation Score™ and food-by-food context.";
     } else {
       const score = inflammationSummary.score;
       const highestNutrition = inflammationSummary.highest?.entry?.nutrition_estimate || {};
