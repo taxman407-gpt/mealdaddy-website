@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2.54.0";
+import { requireConditionalMfa } from "../_shared/conditional-mfa.ts";
 
 const model = "gpt-5-mini";
 const cors = { "access-control-allow-origin": "*", "access-control-allow-headers": "authorization, x-client-info, apikey, content-type", "access-control-allow-methods": "POST, OPTIONS", "content-type": "application/json" };
@@ -28,6 +29,8 @@ Deno.serve(async (request) => {
   const source=String(body.source||"").trim().slice(0,500), detail=body.detailLevel==="detailed"?"detailed":"quick", search=body.searchCurrent===true;
   if(source.length<3) return json({error:"Describe the favorite meal to recreate."},400);
   const admin=createClient(url,secret);
+  const mfaResult=await requireConditionalMfa(admin,user.id,auth);
+  if(!mfaResult.ok) return json({error:mfaResult.error},mfaResult.status);
   const {data:profileRow}=await admin.from("profiles").select("diet_style,onboarding_data").eq("user_id",user.id).maybeSingle();
   const profile=profileRow?.onboarding_data||{};
   const personalContext={diet_style:profileRow?.diet_style||"",eating_styles:profile.eating_styles||[],goals:profile.primary_goals||[],foods_to_avoid:profile.foods_to_avoid||"",medical_restrictions:profile.medical_restrictions||"",foods_disliked:profile.foods_disliked||"",cooking_for:profile.cooking_for||"",appliances:profile.appliances||[]};

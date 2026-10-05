@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2.54.0";
 import { applyComponentTotals } from "../_shared/nutrition-reconciliation.mjs";
+import { requireConditionalMfa } from "../_shared/conditional-mfa.ts";
 
 const model = "gpt-5.6-luna";
 const monthlyBudgetMicros = 3_000_000;
@@ -100,6 +101,8 @@ Deno.serve(async (request) => {
   if (!entryId) return json({ error: "Entry ID is required." }, 400);
 
   const admin = createClient(supabaseUrl, serviceKey);
+  const mfaResult = await requireConditionalMfa(admin, user.id, authHeader);
+  if (!mfaResult.ok) return json({ error: mfaResult.error }, mfaResult.status);
   let { data: membership } = await admin
     .from("subscriptions")
     .select("plan_key,status")

@@ -4,7 +4,7 @@ export const restaurantFitLabels = ["Best fit", "Balanced choice", "Treat option
 export function safeRestaurantSourceUrl(value) {
   try {
     const url = new URL(String(value || ""));
-    return ["http:", "https:"].includes(url.protocol) ? url.href : "";
+    return url.protocol === "https:" ? url.href : "";
   } catch {
     return "";
   }

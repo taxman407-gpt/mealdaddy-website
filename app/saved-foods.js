@@ -15,6 +15,7 @@ import {
   normalizeFavoriteComponents
 } from "./favorite-meal.js?v=20261004-1";
 import { weightedInflammationScore } from "./inflammation-impact.js?v=20260813-4";
+import { preparePrivateImage } from "./private-image.js?v=20261004-1";
 
 const allowedPhotoTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 const maxPhotoBytes = 8 * 1024 * 1024;
@@ -612,11 +613,12 @@ export async function initializeSavedFoods({
 
   async function uploadRetainedPhoto(file) {
     if (!file) return null;
-    const extension = file.name.includes(".") ? file.name.split(".").pop().replace(/[^a-z0-9]/gi, "") : "jpg";
+    const preparedPhoto = await preparePrivateImage(file);
+    const extension = preparedPhoto.name.includes(".") ? preparedPhoto.name.split(".").pop().replace(/[^a-z0-9]/gi, "") : "jpg";
     const path = `${user.id}/${crypto.randomUUID()}.${extension || "jpg"}`;
     const { error } = await supabase.storage
       .from("saved-food-photos")
-      .upload(path, file, { upsert: false, contentType: file.type });
+      .upload(path, preparedPhoto, { upsert: false, contentType: preparedPhoto.type });
     if (error) throw error;
     return path;
   }
@@ -885,12 +887,14 @@ export async function initializeSavedFoods({
 
     button.disabled = true;
     status.textContent = "Reading the photo. This usually takes only a few seconds...";
-    const safeName = file.name.replace(/[^a-z0-9._-]/gi, "-");
-    const photoPath = `${user.id}/food-scan-${crypto.randomUUID()}-${safeName}`;
+    let photoPath = "";
     try {
+      const preparedPhoto = await preparePrivateImage(file);
+      const safeName = preparedPhoto.name.replace(/[^a-z0-9._-]/gi, "-");
+      photoPath = `${user.id}/food-scan-${crypto.randomUUID()}-${safeName}`;
       const { error: uploadError } = await supabase.storage
         .from("meal-photos")
-        .upload(photoPath, file, { upsert: false, contentType: file.type });
+        .upload(photoPath, preparedPhoto, { upsert: false, contentType: preparedPhoto.type });
       if (uploadError) throw uploadError;
       const itemType = document.querySelector('input[name="saved_food_item_type"]:checked')?.value || "packaged_product";
       const context = $("#saved-food-photo-context").value.trim();
@@ -904,7 +908,7 @@ export async function initializeSavedFoods({
     } catch (error) {
       status.textContent = await functionErrorMessage(error, "The photo could not be analyzed. Please try again.");
     } finally {
-      await supabase.storage.from("meal-photos").remove([photoPath]).catch(() => {});
+      if (photoPath) await supabase.storage.from("meal-photos").remove([photoPath]).catch(() => {});
       button.disabled = false;
     }
   });

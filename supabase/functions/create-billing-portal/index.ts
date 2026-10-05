@@ -1,5 +1,6 @@
 import Stripe from "npm:stripe@18.5.0";
 import { createClient } from "npm:@supabase/supabase-js@2.54.0";
+import { requireConditionalMfa } from "../_shared/conditional-mfa.ts";
 
 const corsHeaders = {
   "access-control-allow-origin": "*",
@@ -124,6 +125,8 @@ Deno.serve(async (request) => {
   const action = payload.action === "cancel" ? "cancel" : "manage";
 
   const admin = createClient(supabaseUrl, serviceKey);
+  const mfaResult = await requireConditionalMfa(admin, user.id, authHeader);
+  if (!mfaResult.ok) return json({ error: mfaResult.error }, mfaResult.status);
   const { data: membership, error: membershipError } = await admin
     .from("subscriptions")
     .select("stripe_customer_id,stripe_subscription_id,status,cancel_at_period_end")

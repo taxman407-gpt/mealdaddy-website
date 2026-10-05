@@ -5,7 +5,7 @@ import { dirname, join, resolve } from "node:path";
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const outputRoot = join(projectRoot, "dist");
 const publicFiles = ["index.html", "faq.html", "instructions.html", "privacy.html", "terms.html", "health-disclaimer.html", "script.js", "styles.css"];
-const publicDirectories = ["app", "assets"];
+const publicDirectories = ["app", "assets", ".well-known"];
 const testOnlyAppFiles = new Set([
   "sandbox.html",
   "sandbox.js",

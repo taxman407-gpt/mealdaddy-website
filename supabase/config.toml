@@ -30,6 +30,9 @@ verify_jwt = true
 [functions.adjust-leftovers]
 verify_jwt = true
 
+[functions.recipe-recreation]
+verify_jwt = true
+
 [api]
 enabled = true
 

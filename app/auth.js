@@ -1,4 +1,4 @@
-import { supabase } from "./supabase-client.js?v=20260930-3";
+import { supabase } from "./supabase-client.js?v=20261004-1";
 
 const form = document.querySelector("#auth-form");
 const email = document.querySelector("#email");
@@ -9,8 +9,82 @@ const status = document.querySelector("#auth-status");
 const submit = document.querySelector("#auth-submit");
 const title = document.querySelector("#auth-title");
 const copy = document.querySelector("#auth-copy");
+const mfaForm = document.querySelector("#mfa-signin-form");
+const mfaCode = document.querySelector("#mfa-signin-code");
+const mfaSubmit = document.querySelector("#mfa-signin-submit");
+const mfaFactor = document.querySelector("#mfa-signin-factor");
 let mode = "signin";
 let recoverySession = false;
+let pendingMfaFactorId = "";
+let pendingMfaFactors = [];
+let pendingMfaChallengeId = "";
+
+function cleanMfaCode(value) {
+  return String(value || "").replace(/\D/g, "").slice(0, 6);
+}
+
+async function requiredMfaFactors() {
+  const factorResult = await supabase.auth.mfa.listFactors();
+  if (factorResult.error) throw factorResult.error;
+  const factors = (factorResult.data.all || []).filter((factor) =>
+    factor.status === "verified" && ["totp", "phone"].includes(factor.factor_type)
+  );
+  if (!factors.length) return null;
+  const levelResult = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (levelResult.error) throw levelResult.error;
+  if (levelResult.data.currentLevel === "aal2") return null;
+  return factors;
+}
+
+function selectedMfaFactor() {
+  return pendingMfaFactors.find((factor) => factor.id === mfaFactor.value) || pendingMfaFactors[0] || null;
+}
+
+async function prepareSelectedMfaFactor() {
+  const factor = selectedMfaFactor();
+  pendingMfaFactorId = factor?.id || "";
+  pendingMfaChallengeId = "";
+  const phoneFactor = factor?.factor_type === "phone";
+  document.querySelector("#mfa-send-phone-code").hidden = !phoneFactor;
+  if (!factor) throw new Error("No verified two-step factor is available.");
+  if (!phoneFactor) {
+    status.textContent = "Enter the current code from the selected authenticator app.";
+    return;
+  }
+  status.textContent = "Sending a text-message security code…";
+  const { data, error } = await supabase.auth.mfa.challenge({ factorId: factor.id, channel: "sms" });
+  if (error || !data?.id) throw error || new Error("A text-message security code could not be sent.");
+  pendingMfaChallengeId = data.id;
+  status.textContent = "A security code was sent to the selected phone.";
+}
+
+async function showMfaForm(factors) {
+  pendingMfaFactors = factors;
+  mfaFactor.replaceChildren(...factors.map((factor, index) => {
+    const option = document.createElement("option");
+    option.value = factor.id;
+    option.textContent = factor.friendly_name || factor.phone || `${factor.factor_type === "phone" ? "Phone" : "Authenticator"} ${index + 1}`;
+    return option;
+  }));
+  document.querySelector("#mfa-signin-factor-label").hidden = factors.length < 2;
+  document.querySelector(".auth-tabs").hidden = true;
+  form.hidden = true;
+  document.querySelector("#reset-password").hidden = true;
+  mfaForm.hidden = false;
+  title.textContent = "Enter your security code";
+  copy.textContent = "Your password was accepted. Complete two-step verification to finish signing in.";
+  await prepareSelectedMfaFactor();
+  mfaCode.focus();
+}
+
+async function continueAfterAuthentication(destination) {
+  const factors = await requiredMfaFactors();
+  if (factors) {
+    await showMfaForm(factors);
+    return;
+  }
+  location.replace(destination);
+}
 
 function showRecoveryForm() {
   recoverySession = true;
@@ -88,8 +162,12 @@ form.addEventListener("submit", async (event) => {
       return;
     }
     await supabase.auth.signOut({ scope: "others" }).catch(() => {});
-    status.textContent = "Password updated. Opening your account...";
-    location.replace(safeReturnTo);
+    status.textContent = "Password updated. Checking account security...";
+    try {
+      await continueAfterAuthentication(safeReturnTo);
+    } catch (error) {
+      status.textContent = error.message || "Your password was updated, but account security could not be verified. Sign in again.";
+    }
     return;
   }
   status.textContent = mode === "signup" ? "Creating your account..." : "Signing in...";
@@ -113,7 +191,65 @@ form.addEventListener("submit", async (event) => {
     return;
   }
 
-  location.replace(mode === "signup" ? signupTarget.href : safeReturnTo);
+  try {
+    await continueAfterAuthentication(mode === "signup" ? signupTarget.href : safeReturnTo);
+  } catch (error) {
+    status.textContent = error.message || "Account security could not be verified. Please sign in again.";
+  }
+});
+
+mfaCode.addEventListener("input", (event) => {
+  event.target.value = cleanMfaCode(event.target.value);
+});
+
+mfaFactor.addEventListener("change", async () => {
+  mfaCode.value = "";
+  try {
+    await prepareSelectedMfaFactor();
+    mfaCode.focus();
+  } catch (error) {
+    status.textContent = error.message || "That two-step factor is unavailable.";
+  }
+});
+
+document.querySelector("#mfa-send-phone-code").addEventListener("click", async () => {
+  try {
+    await prepareSelectedMfaFactor();
+    mfaCode.focus();
+  } catch (error) {
+    status.textContent = error.message || "A new text-message code could not be sent.";
+  }
+});
+
+mfaForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const code = cleanMfaCode(mfaCode.value);
+  if (!pendingMfaFactorId || code.length !== 6) {
+    status.textContent = "Enter the six-digit code shown by your authenticator app.";
+    return;
+  }
+  mfaSubmit.disabled = true;
+  status.textContent = "Verifying your authenticator code…";
+  const factor = selectedMfaFactor();
+  const result = factor?.factor_type === "phone"
+    ? pendingMfaChallengeId
+      ? await supabase.auth.mfa.verify({ factorId: pendingMfaFactorId, challengeId: pendingMfaChallengeId, code })
+      : { error: new Error("Send a text-message code before verifying.") }
+    : await supabase.auth.mfa.challengeAndVerify({ factorId: pendingMfaFactorId, code });
+  const { error } = result;
+  mfaSubmit.disabled = false;
+  if (error) {
+    status.textContent = error.message || "That code could not be verified.";
+    mfaCode.select();
+    return;
+  }
+  status.textContent = "Verified. Opening your MealDaddy account…";
+  location.replace(safeReturnTo);
+});
+
+document.querySelector("#mfa-use-another-account").addEventListener("click", async () => {
+  await supabase.auth.signOut({ scope: "local" });
+  location.reload();
 });
 
 document.querySelector("#reset-password").addEventListener("click", async () => {
@@ -137,10 +273,18 @@ supabase.auth.onAuthStateChange((event) => {
 });
 const { data } = await supabase.auth.getSession();
 const recoveryParams = new URLSearchParams(location.search);
-const recoveryFromUrl = location.hash.includes("type=recovery") || recoveryParams.get("type") === "recovery" || recoveryParams.get("mode") === "recovery";
-if (data.session && recoveryFromUrl) {
-  showRecoveryForm();
-} else if (data.session) location.replace(safeReturnTo);
+const recoveryRequested = recoveryParams.get("type") === "recovery" || recoveryParams.get("mode") === "recovery";
+if (data.session && recoverySession) {
+  // PASSWORD_RECOVERY is the trusted signal; a query parameter alone is not.
+} else if (recoveryRequested) {
+  status.textContent = "This page has not received a verified password-recovery session. Open the newest Reset Password link from your MealDaddy email, or request another link below.";
+} else if (data.session) {
+  try {
+    await continueAfterAuthentication(safeReturnTo);
+  } catch (error) {
+    status.textContent = error.message || "Account security could not be verified. Please sign in again.";
+  }
+}
 if (accountWasDeleted) {
   status.textContent = "Your Meal Daddy account and private app data were permanently deleted, and billing was stopped.";
 }

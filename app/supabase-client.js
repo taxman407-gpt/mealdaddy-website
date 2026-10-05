@@ -15,8 +15,20 @@ export async function requireSession() {
   const { data, error } = await supabase.auth.getSession();
   if (error) throw error;
   if (!data.session) {
-    const returnTo = encodeURIComponent(location.pathname + location.hash);
+    const returnTo = encodeURIComponent(location.pathname + location.search + location.hash);
     location.replace(`./auth.html?returnTo=${returnTo}`);
+    return null;
+  }
+  const [factorResult, assurance] = await Promise.all([
+    supabase.auth.mfa.listFactors(),
+    supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+  ]);
+  if (factorResult.error) throw factorResult.error;
+  if (assurance.error) throw assurance.error;
+  const hasVerifiedFactor = (factorResult.data.all || []).some((factor) => factor.status === "verified");
+  if (hasVerifiedFactor && assurance.data.currentLevel !== "aal2") {
+    const returnTo = encodeURIComponent(location.pathname + location.search + location.hash);
+    location.replace(`./auth.html?mfa=required&returnTo=${returnTo}`);
     return null;
   }
   return data.session;

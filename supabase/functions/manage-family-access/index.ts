@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.54.0";
+import { createClient } from "npm:@supabase/supabase-js@2.54.0";
 
 const corsHeaders = {
   "access-control-allow-origin": "*",
@@ -74,6 +74,11 @@ Deno.serve(async (request) => {
   }
   if (jwtAssuranceLevel(authHeader) !== "aal2") {
     return json({ error: "Owner multi-factor authentication is required for family-access administration." }, 403);
+  }
+  const { data: factorData, error: factorError } = await admin.auth.admin.mfa.listFactors({ userId: owner.id });
+  const hasVerifiedFactor = (factorData?.factors ?? []).some((factor) => factor.status === "verified");
+  if (factorError || !hasVerifiedFactor) {
+    return json({ error: "A current owner authenticator is required for family-access administration." }, 403);
   }
 
   let action = "list";

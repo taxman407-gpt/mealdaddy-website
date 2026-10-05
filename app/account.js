@@ -1,4 +1,4 @@
-import { invokeAuthenticated, supabase, requireSession } from "./supabase-client.js?v=20260930-3";
+import { invokeAuthenticated, supabase, requireSession } from "./supabase-client.js?v=20261004-1";
 import { clearLocalSavedFoods, getDeviceSavedFoods } from "./saved-foods-store.js?v=20260929-1";
 import { metricLabel, normalizeMetricOrder, normalizeOptionalMetrics } from "./metric-order.js?v=20261004-3";
 
@@ -9,6 +9,11 @@ if (!session) throw new Error("Authentication required");
 const user = session.user;
 let membership = null;
 let contactOptedIn = true;
+let mfaEnrollment = null;
+let mfaVerifiedFactors = [];
+let mfaCurrentLevel = null;
+let pendingMfaEnrollmentAfterChallenge = false;
+let mfaPhoneChallengeId = "";
 
 function safeAppReturn(value) {
   if (!value) return "./app.html?view=more";
@@ -39,6 +44,337 @@ function formatDate(value) {
     year: "numeric"
   }).format(date);
 }
+
+function cleanMfaCode(value) {
+  return String(value || "").replace(/\D/g, "").slice(0, 6);
+}
+
+function setMfaMessage(message) {
+  $("#mfa-message").textContent = message;
+}
+
+function focusSecurityHeading() {
+  $("#security-title").focus({ preventScroll: true });
+}
+
+function selectedAccountMfaFactor() {
+  return mfaVerifiedFactors.find((candidate) => candidate.id === $("#mfa-challenge-factor").value) || mfaVerifiedFactors[0] || null;
+}
+
+async function prepareAccountMfaChallenge() {
+  const factor = selectedAccountMfaFactor();
+  mfaPhoneChallengeId = "";
+  const phoneFactor = factor?.factor_type === "phone";
+  $("#mfa-resend-phone-code").hidden = !phoneFactor;
+  if (!factor) throw new Error("No verified two-step factor is available.");
+  if (!phoneFactor) {
+    setMfaMessage("Enter the current code from your authenticator app.");
+    return;
+  }
+  setMfaMessage("Sending a text-message security code…");
+  const { data, error } = await supabase.auth.mfa.challenge({ factorId: factor.id, channel: "sms" });
+  if (error || !data?.id) throw error || new Error("A text-message security code could not be sent.");
+  mfaPhoneChallengeId = data.id;
+  setMfaMessage("A security code was sent to the selected phone.");
+}
+
+function enrollmentQrSource(qrCode) {
+  const value = String(qrCode || "");
+  if (value.startsWith("data:image/")) return value;
+  return value ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(value)}` : "";
+}
+
+async function loadMfaSecurity() {
+  const [factorResult, levelResult] = await Promise.all([
+    supabase.auth.mfa.listFactors(),
+    supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+  ]);
+  if (factorResult.error) throw factorResult.error;
+  if (levelResult.error) throw levelResult.error;
+  mfaVerifiedFactors = (factorResult.data.all || []).filter((factor) =>
+    factor.status === "verified" && ["totp", "phone"].includes(factor.factor_type)
+  );
+  mfaCurrentLevel = levelResult.data.currentLevel;
+  const hasMfa = mfaVerifiedFactors.length > 0;
+  const verifiedNow = mfaCurrentLevel === "aal2";
+  $("#mfa-status-pill").textContent = hasMfa ? (verifiedNow ? "Protected · verified" : "Protected") : "Not enabled";
+  $("#mfa-status-pill").classList.toggle("is-warning", hasMfa && !verifiedNow);
+  $("#mfa-status-pill").classList.toggle("is-muted", !hasMfa);
+  $("#mfa-summary").hidden = false;
+  $("#mfa-summary-copy").textContent = !hasMfa
+    ? "No authenticator app is connected yet. Add one to protect sensitive actions even if your password is compromised."
+    : verifiedNow
+      ? `This session has completed two-step verification${mfaVerifiedFactors.length > 1 ? ` with ${mfaVerifiedFactors.length} enrolled authenticators` : ""}.`
+      : "Your authenticator is enrolled. Verify this session before opening Owner tools or performing protected account actions.";
+  $("#mfa-enroll").hidden = mfaVerifiedFactors.length >= 2;
+  $("#mfa-enroll").textContent = hasMfa ? "Add backup authenticator" : "Add authenticator app";
+  $("#mfa-enroll").disabled = Boolean(mfaEnrollment);
+  $("#mfa-step-up").hidden = !hasMfa || verifiedNow;
+  $("#mfa-remove").hidden = !hasMfa || !verifiedNow;
+  const factorOptions = () => mfaVerifiedFactors.map((factor, index) => {
+    const option = document.createElement("option");
+    option.value = factor.id;
+    option.textContent = factor.friendly_name || factor.phone || `${factor.factor_type === "phone" ? "Phone" : "Authenticator"} ${index + 1}`;
+    return option;
+  });
+  $("#mfa-challenge-factor").replaceChildren(...factorOptions());
+  $("#mfa-manage-factor").replaceChildren(...factorOptions());
+  $("#mfa-challenge-factor-label").hidden = mfaVerifiedFactors.length < 2;
+  $("#mfa-manage-factor-label").hidden = !verifiedNow || mfaVerifiedFactors.length < 2;
+  updateDeleteButton();
+}
+
+async function removeUnverifiedMfaFactors() {
+  const { data, error } = await supabase.auth.mfa.listFactors();
+  if (error) throw error;
+  for (const factor of data.all || []) {
+    if (factor.factor_type === "totp" && factor.status !== "verified") {
+      const result = await supabase.auth.mfa.unenroll({ factorId: factor.id });
+      if (result.error) throw result.error;
+    }
+  }
+}
+
+async function beginMfaEnrollment() {
+  const button = $("#mfa-enroll");
+  setMfaMessage("Creating a private authenticator setup…");
+  try {
+    await removeUnverifiedMfaFactors();
+    const { data, error } = await supabase.auth.mfa.enroll({
+      factorType: "totp",
+      issuer: "MealDaddy",
+      friendlyName: "MealDaddy Authenticator"
+    });
+    if (error) throw error;
+    mfaEnrollment = data;
+    $("#mfa-qr").src = enrollmentQrSource(data.totp.qr_code);
+    $("#mfa-secret").textContent = data.totp.secret;
+    $("#mfa-enrollment").hidden = false;
+    $("#mfa-enrollment-code").focus();
+    setMfaMessage("Scan the QR code, then enter the current six-digit code to finish.");
+  } catch (error) {
+    setMfaMessage(error.message || "Authenticator setup could not begin.");
+    button.disabled = false;
+  }
+}
+
+$("#mfa-enroll").addEventListener("click", () => {
+  const button = $("#mfa-enroll");
+  button.disabled = true;
+  $("#mfa-reauth-form").hidden = false;
+  $("#mfa-reauth-password").focus();
+  setMfaMessage("Re-enter your current password before changing authenticator settings.");
+});
+
+$("#mfa-reauth-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const submitButton = event.submitter;
+  submitButton.disabled = true;
+  setMfaMessage("Verifying your password…");
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: user.email,
+    password: $("#mfa-reauth-password").value
+  });
+  submitButton.disabled = false;
+  if (error || data.user?.id !== user.id) {
+    setMfaMessage("Your current password could not be verified.");
+    $("#mfa-reauth-password").select();
+    return;
+  }
+  $("#mfa-reauth-form").reset();
+  $("#mfa-reauth-form").hidden = true;
+  mfaCurrentLevel = "aal1";
+  $("#owner-tools-link").hidden = true;
+  $("#mfa-remove").hidden = true;
+  $("#mfa-step-up").hidden = !mfaVerifiedFactors.length;
+  updateDeleteButton();
+  if (mfaVerifiedFactors.length) {
+    pendingMfaEnrollmentAfterChallenge = true;
+    $("#mfa-challenge-form").hidden = false;
+    try {
+      await prepareAccountMfaChallenge();
+    } catch (error) {
+      setMfaMessage(error.message || "That two-step factor is unavailable.");
+    }
+    $("#mfa-challenge-code").focus();
+    return;
+  }
+  await beginMfaEnrollment();
+});
+
+$("#mfa-cancel-reauth").addEventListener("click", () => {
+  $("#mfa-reauth-form").reset();
+  $("#mfa-reauth-form").hidden = true;
+  $("#mfa-enroll").disabled = false;
+  setMfaMessage("Authenticator settings were not changed.");
+  $("#mfa-enroll").focus();
+});
+
+$("#mfa-copy-secret").addEventListener("click", async () => {
+  const secret = $("#mfa-secret").textContent;
+  if (!secret) return;
+  try {
+    await navigator.clipboard.writeText(secret);
+    setMfaMessage("The setup key was copied. Keep it private.");
+  } catch {
+    setMfaMessage("Press and hold the setup key to copy it.");
+  }
+});
+
+$("#mfa-enrollment-code").addEventListener("input", (event) => {
+  event.target.value = cleanMfaCode(event.target.value);
+});
+
+$("#mfa-enrollment-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const code = cleanMfaCode($("#mfa-enrollment-code").value);
+  if (!mfaEnrollment?.id || code.length !== 6) {
+    setMfaMessage("Enter the six-digit code shown by your authenticator app.");
+    return;
+  }
+  const button = event.submitter;
+  button.disabled = true;
+  setMfaMessage("Verifying your authenticator…");
+  const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId: mfaEnrollment.id, code });
+  button.disabled = false;
+  if (error) {
+    setMfaMessage(error.message || "That code could not be verified.");
+    return;
+  }
+  mfaEnrollment = null;
+  $("#mfa-enrollment-form").reset();
+  $("#mfa-enrollment").hidden = true;
+  $("#mfa-qr").removeAttribute("src");
+  $("#mfa-secret").textContent = "";
+  setMfaMessage("Authenticator protection is active.");
+  await loadMfaSecurity();
+  await showOwnerToolsIfAuthorized().catch(() => {});
+  focusSecurityHeading();
+});
+
+$("#mfa-cancel-enrollment").addEventListener("click", async () => {
+  const enrollment = mfaEnrollment;
+  mfaEnrollment = null;
+  $("#mfa-enrollment").hidden = true;
+  $("#mfa-enrollment-form").reset();
+  $("#mfa-qr").removeAttribute("src");
+  $("#mfa-secret").textContent = "";
+  if (enrollment?.id) await supabase.auth.mfa.unenroll({ factorId: enrollment.id }).catch(() => {});
+  $("#mfa-enroll").disabled = false;
+  setMfaMessage("Authenticator setup was canceled.");
+  $("#mfa-enroll").focus();
+});
+
+$("#mfa-step-up").addEventListener("click", async () => {
+  $("#mfa-challenge-form").hidden = false;
+  try {
+    await prepareAccountMfaChallenge();
+  } catch (error) {
+    setMfaMessage(error.message || "That two-step factor is unavailable.");
+  }
+  $("#mfa-challenge-code").focus();
+});
+
+$("#mfa-challenge-factor").addEventListener("change", async () => {
+  $("#mfa-challenge-code").value = "";
+  try {
+    await prepareAccountMfaChallenge();
+    $("#mfa-challenge-code").focus();
+  } catch (error) {
+    setMfaMessage(error.message || "That two-step factor is unavailable.");
+  }
+});
+
+$("#mfa-resend-phone-code").addEventListener("click", async () => {
+  try {
+    await prepareAccountMfaChallenge();
+    $("#mfa-challenge-code").focus();
+  } catch (error) {
+    setMfaMessage(error.message || "A new text-message code could not be sent.");
+  }
+});
+
+$("#mfa-challenge-code").addEventListener("input", (event) => {
+  event.target.value = cleanMfaCode(event.target.value);
+});
+
+$("#mfa-challenge-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const factor = selectedAccountMfaFactor();
+  const code = cleanMfaCode($("#mfa-challenge-code").value);
+  if (!factor || code.length !== 6) {
+    setMfaMessage("Enter the six-digit code shown by your authenticator app.");
+    return;
+  }
+  const button = event.submitter;
+  button.disabled = true;
+  setMfaMessage("Verifying this session…");
+  const result = factor.factor_type === "phone"
+    ? mfaPhoneChallengeId
+      ? await supabase.auth.mfa.verify({ factorId: factor.id, challengeId: mfaPhoneChallengeId, code })
+      : { error: new Error("Send a text-message code before verifying.") }
+    : await supabase.auth.mfa.challengeAndVerify({ factorId: factor.id, code });
+  const { error } = result;
+  button.disabled = false;
+  if (error) {
+    setMfaMessage(error.message || "That code could not be verified.");
+    return;
+  }
+  $("#mfa-challenge-form").reset();
+  $("#mfa-challenge-form").hidden = true;
+  mfaPhoneChallengeId = "";
+  if (pendingMfaEnrollmentAfterChallenge) {
+    pendingMfaEnrollmentAfterChallenge = false;
+    await beginMfaEnrollment();
+    return;
+  }
+  setMfaMessage("This session now has two-step verification.");
+  await loadMfaSecurity();
+  await showOwnerToolsIfAuthorized().catch(() => {});
+  focusSecurityHeading();
+});
+
+$("#mfa-cancel-challenge").addEventListener("click", () => {
+  $("#mfa-challenge-form").reset();
+  $("#mfa-challenge-form").hidden = true;
+  mfaPhoneChallengeId = "";
+  if (pendingMfaEnrollmentAfterChallenge) {
+    pendingMfaEnrollmentAfterChallenge = false;
+    $("#mfa-enroll").disabled = false;
+    location.reload();
+    return;
+  } else {
+    $("#mfa-step-up").focus();
+  }
+  setMfaMessage("");
+});
+
+$("#mfa-remove").addEventListener("click", async () => {
+  const factor = mfaVerifiedFactors.find((candidate) => candidate.id === $("#mfa-manage-factor").value) || mfaVerifiedFactors[0];
+  if (!factor) return;
+  const factorName = factor.friendly_name || "this authenticator";
+  if (!window.confirm(`Remove ${factorName} from your MealDaddy account?`)) return;
+  const button = $("#mfa-remove");
+  button.disabled = true;
+  setMfaMessage("Removing the authenticator…");
+  const { error } = await supabase.auth.mfa.unenroll({ factorId: factor.id });
+  button.disabled = false;
+  if (error) {
+    setMfaMessage(error.message || "The authenticator could not be removed.");
+    return;
+  }
+  $("#owner-tools-link").hidden = true;
+  const refreshResult = await supabase.auth.refreshSession();
+  if (refreshResult.error) {
+    setMfaMessage("The authenticator was removed. Sign in again to refresh this session securely.");
+    await supabase.auth.signOut({ scope: "local" });
+    location.replace("./auth.html");
+    return;
+  }
+  setMfaMessage("The authenticator was removed.");
+  await loadMfaSecurity();
+  focusSecurityHeading();
+});
 
 function titleCase(value = "") {
   return value.replaceAll("_", " ").replace(/\b\w/g, (character) => character.toUpperCase());
@@ -536,6 +872,13 @@ $("#delete-password").addEventListener("input", updateDeleteButton);
 $("#delete-account").addEventListener("click", async () => {
   const button = $("#delete-account");
   const status = $("#delete-message");
+  if (mfaVerifiedFactors.length && mfaCurrentLevel !== "aal2") {
+    status.textContent = "Verify this session with your authenticator before deleting your account.";
+    $("#mfa-step-up").click();
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    $("#security-title").scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "start" });
+    return;
+  }
   button.disabled = true;
   button.textContent = "Canceling billing and deleting data...";
   status.textContent = "Please keep this page open. Meal Daddy is first verifying that billing cannot continue.";
@@ -596,6 +939,14 @@ try {
   await loadContactPreference();
 } catch (error) {
   $("#contact-preference-message").textContent = error.message || "Your email preference could not be loaded. Please refresh this page.";
+}
+
+try {
+  await loadMfaSecurity();
+} catch (error) {
+  $("#mfa-status-pill").textContent = "Unavailable";
+  $("#mfa-status-pill").classList.add("is-warning");
+  setMfaMessage(error.message || "Authenticator settings could not be loaded.");
 }
 
 showOwnerToolsIfAuthorized().catch(() => {});

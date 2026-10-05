@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2.54.0";
+import { requireConditionalMfa } from "../_shared/conditional-mfa.ts";
 
 const model = "gpt-5.6-luna";
 const monthlyBudgetMicros = 3_000_000;
@@ -102,7 +103,10 @@ Deno.serve(async (request) => {
   if (textOnly && !context) return json({ error: "A food or recipe description is required." }, 400);
 
   const admin = createClient(supabaseUrl, serviceKey);
+  let reservationId: string | null = null;
   try {
+    const mfaResult = await requireConditionalMfa(admin, user.id, authHeader);
+    if (!mfaResult.ok) return json({ error: mfaResult.error }, mfaResult.status);
     const [subscriptionResult, grantResult] = await Promise.all([
       admin
         .from("subscriptions")
@@ -118,29 +122,13 @@ Deno.serve(async (request) => {
     if (subscriptionResult.error || grantResult.error) {
       return json({ error: "Membership access could not be verified." }, 500);
     }
-    const hasCore = subscriptionResult.data?.plan_key === "core" &&
-      ["trialing", "active", "past_due"].includes(subscriptionResult.data.status);
+    const membership = subscriptionResult.data;
+    const hasCore = membership?.plan_key === "core" &&
+      ["trialing", "active"].includes(membership.status);
     const hasFamilyAccess = grantResult.data?.access_type === "family" &&
       grantResult.data.status === "active";
     if (!hasCore && !hasFamilyAccess) {
       return json({ error: "An active Meal Daddy Core membership is required." }, 402);
-    }
-
-    const monthStart = new Date();
-    monthStart.setUTCDate(1);
-    monthStart.setUTCHours(0, 0, 0, 0);
-    const { data: usageRows, error: usageError } = await admin
-      .from("ai_usage_events")
-      .select("estimated_cost_micros")
-      .eq("user_id", user.id)
-      .gte("created_at", monthStart.toISOString());
-    if (usageError) return json({ error: "Usage could not be checked." }, 500);
-    const usedMicros = (usageRows ?? []).reduce(
-      (sum, row) => sum + Number(row.estimated_cost_micros || 0),
-      0
-    );
-    if (usedMicros >= monthlyBudgetMicros) {
-      return json({ error: "The monthly Core AI allowance has been reached." }, 429);
     }
 
     let photo: Blob | null = null;
@@ -259,6 +247,27 @@ Deno.serve(async (request) => {
         detail: itemType === "packaged_product" ? "high" : "auto"
       });
     }
+
+    const monthlyLimitMicros = membership?.status === "trialing" ? 500_000 : monthlyBudgetMicros;
+    const dailyCallLimit = membership?.status === "trialing" ? 30 : 50;
+    const { data: reservationRows, error: reservationError } = await admin.rpc("reserve_ai_usage", {
+      requested_user_id: user.id,
+      requested_ledger_entry_id: null,
+      requested_kind: "analyze-saved-food",
+      requested_reserved_micros: 100_000,
+      requested_monthly_limit_micros: monthlyLimitMicros,
+      requested_daily_call_limit: dailyCallLimit
+    });
+    if (reservationError || !reservationRows?.[0]?.reservation_id) {
+      const detail = reservationError?.message ?? "";
+      if (detail.includes("AI_PAUSED")) return json({ error: "Meal Daddy analysis is temporarily paused. Please try again later." }, 503);
+      if (detail.includes("AI_REQUEST_IN_PROGRESS")) return json({ error: "Another AI request is already running for this account. Please wait a moment." }, 429);
+      if (detail.includes("AI_DAILY_LIMIT")) return json({ error: "Today's Core AI request limit has been reached." }, 429);
+      if (detail.includes("AI_MONTHLY_LIMIT")) return json({ error: "The Core AI allowance has been reached." }, 429);
+      return json({ error: "AI usage could not be reserved. No provider request was made." }, 503);
+    }
+    reservationId = reservationRows[0].reservation_id;
+
     const openAiResponse = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
@@ -310,20 +319,41 @@ Deno.serve(async (request) => {
     const inputTokens = Number(response.usage?.input_tokens || 0);
     const outputTokens = Number(response.usage?.output_tokens || 0);
     const estimatedCostMicros = inputTokens * 1 + outputTokens * 6;
-    await admin.from("ai_usage_events").insert({
-      user_id: user.id,
-      provider: "openai",
-      model,
-      input_tokens: inputTokens,
-      output_tokens: outputTokens,
-      estimated_cost_micros: estimatedCostMicros
+    const { error: settleError } = await admin.rpc("settle_ai_usage", {
+      requested_reservation_id: reservationId,
+      requested_user_id: user.id,
+      requested_provider: "openai",
+      requested_model: model,
+      requested_input_tokens: inputTokens,
+      requested_output_tokens: outputTokens,
+      requested_actual_cost_micros: estimatedCostMicros
     });
+    if (settleError) return json({ error: "The analysis completed, but usage accounting needs attention." }, 503);
+    reservationId = null;
 
     return json({ ok: true, food });
+  } catch (error) {
+    console.error("Saved-food analysis failed before completion", error instanceof Error ? error.message : "unknown error");
+    return json({ error: "Meal Daddy could not analyze that favorite right now." }, 503);
   } finally {
+    if (reservationId) {
+      try {
+        const { error: releaseError } = await admin.rpc("release_ai_usage", {
+          requested_reservation_id: reservationId,
+          requested_user_id: user.id
+        });
+        if (releaseError) console.error("Saved-food AI reservation release failed", releaseError.message);
+      } catch {
+        console.error("Saved-food AI reservation release could not be reached");
+      }
+    }
     if (photoPath) {
-      const { error: cleanupError } = await admin.storage.from("meal-photos").remove([photoPath]);
-      if (cleanupError) console.error("Temporary saved-food photo cleanup failed", cleanupError.message);
+      try {
+        const { error: cleanupError } = await admin.storage.from("meal-photos").remove([photoPath]);
+        if (cleanupError) console.error("Temporary saved-food photo cleanup failed", cleanupError.message);
+      } catch {
+        console.error("Temporary saved-food photo cleanup could not be reached");
+      }
     }
   }
 });

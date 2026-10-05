@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2.54.0";
+import { requireConditionalMfa } from "../_shared/conditional-mfa.ts";
 
 // Restaurant web search uses a model/configuration explicitly supported by the Responses API.
 const mealPlanningModel = "gpt-5-mini";
@@ -300,6 +301,8 @@ Deno.serve(async (request) => {
   }
 
   const admin = createClient(supabaseUrl, secretKey);
+  const mfaResult = await requireConditionalMfa(admin, user.id, authHeader);
+  if (!mfaResult.ok) return json({ error: mfaResult.error }, mfaResult.status);
   const { data: membership } = await admin
     .from("subscriptions")
     .select("plan_key,status")

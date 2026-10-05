@@ -1,14 +1,15 @@
-import { invokeAuthenticated, supabase, requireSession } from "./supabase-client.js?v=20260930-3";
+import { invokeAuthenticated, supabase, requireSession } from "./supabase-client.js?v=20261004-1";
 import { buildProteinGuidance } from "./feedback-guidance.js?v=20261004-1";
 import { adaptiveHydrationGuidance } from "./adaptive-hydration.js?v=20261004-1";
 import { entryDateDisplayLabel, localDateValue as localEntryDateValue, occurredAtForEntryDate, quickDateOptions } from "./entry-date.js?v=20260813-4";
 import { estimatedAdultBmi, formatWeight, formatWeightChange, normalizeUnitSystem, parseHeightCm, shouldEnableWeightTracking, weightFromKg, weightToKg } from "./health-metrics.js?v=20260813-4";
-import { initializeSavedFoods } from "./saved-foods.js?v=20261004-10";
-import { normalizeRestaurantPlan, restaurantChoiceLetters, restaurantFitLabels, restaurantMapUrl, restaurantOptionToLedgerEntry, safeRestaurantSourceUrl } from "./restaurant-plan.js?v=20260813-4";
+import { initializeSavedFoods } from "./saved-foods.js?v=20261004-11";
+import { normalizeRestaurantPlan, restaurantChoiceLetters, restaurantFitLabels, restaurantMapUrl, restaurantOptionToLedgerEntry, safeRestaurantSourceUrl } from "./restaurant-plan.js?v=20261004-1";
 import { estimateInflammationScore, inflammationBand, inflammationImpact, inflammationProgressBackgroundSize, summarizeInflammationEntries, summarizeInflammationReport, weightedInflammationScore } from "./inflammation-impact.js?v=20261004-4";
 import { resolvePrimaryEatingStyle } from "./profile-preferences.js?v=20260929-1";
 import { metricProgressSegments } from "./metric-progress.js?v=20260930-1";
 import { normalizeMetricOrder, normalizeOptionalMetrics } from "./metric-order.js?v=20261004-3";
+import { preparePrivateImage } from "./private-image.js?v=20261004-1";
 
 document.querySelector("#focus-quick-entry")?.addEventListener("click", () => {
   document.querySelector("#quick-entry")?.focus();
@@ -98,6 +99,8 @@ const user = session.user;
 const allowedPlans = new Set(["core"]);
 const mealLabels = new Set(["Breakfast", "Brunch", "Lunch", "Dinner", "Snack"]);
 const entryCategories = [...mealLabels, "Hydration"];
+const supportedMealPhotoTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+const maximumMealPhotoBytes = 8 * 1024 * 1024;
 const query = new URLSearchParams(location.search);
 let pendingPlan = allowedPlans.has(query.get("plan")) ? query.get("plan") : null;
 const checkoutResult = query.get("checkout");
@@ -271,6 +274,15 @@ function toast(message) {
   toast.timer = setTimeout(() => element.classList.remove("is-visible"), 3200);
 }
 
+function mealPhotoValidationMessage(file) {
+  if (!file) return "";
+  if (!supportedMealPhotoTypes.has(String(file.type || "").toLowerCase())) {
+    return "Use a JPG, PNG, WebP, or GIF photo.";
+  }
+  if (file.size > maximumMealPhotoBytes) return "Use a photo no larger than 8 MB.";
+  return "";
+}
+
 function hasCurrentCoreMembership() {
   return state.membershipPlan === "core" && ["trialing", "active", "past_due"].includes(state.membershipStatus);
 }
@@ -406,11 +418,12 @@ async function startCheckout(plan) {
   try {
     const { data, error } = await invokeAuthenticated("create-checkout", { body: { plan } });
     if (error) throw error;
-    if (!data?.url || new URL(data.url).hostname !== "checkout.stripe.com") {
+    const checkoutUrl = data?.url ? new URL(data.url) : null;
+    if (!checkoutUrl || checkoutUrl.protocol !== "https:" || checkoutUrl.hostname !== "checkout.stripe.com") {
       throw new Error(data?.error || "Stripe Checkout did not return a valid address.");
     }
     pendingPlan = null;
-    location.assign(data.url);
+    location.assign(checkoutUrl.href);
   } catch (error) {
     status.textContent = "Checkout could not be opened. Please try again.";
     toast(error.message || "Checkout could not be opened.");
@@ -2010,7 +2023,18 @@ function startVoiceCapture() {
   recognition.start(); toast("Listening...");
 }
 
-$("#photo-input").addEventListener("change", (event) => { state.photo = event.target.files[0] || null; if (state.photo) toast("Meal or label photo ready. This can be the before image if you later photograph leftovers."); });
+$("#photo-input").addEventListener("change", (event) => {
+  const file = event.target.files[0] || null;
+  const validationMessage = mealPhotoValidationMessage(file);
+  if (validationMessage) {
+    state.photo = null;
+    event.target.value = "";
+    toast(validationMessage);
+    return;
+  }
+  state.photo = file;
+  if (file) toast("Meal or label photo ready. This can be the before image if you later photograph leftovers.");
+});
 
 function clearCoachPhoto() {
   state.coachPhoto = null;
@@ -2068,8 +2092,7 @@ $("#clear-restaurant-location").addEventListener("click", clearRestaurantLocatio
 
 $("#coach-photo-input").addEventListener("change", (event) => {
   const file = event.target.files[0] || null;
-  const supportedTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
-  if (file && (!supportedTypes.has(file.type) || file.size > 8 * 1024 * 1024)) {
+  if (mealPhotoValidationMessage(file)) {
     clearCoachPhoto();
     toast("Use a JPG, PNG, WebP, or GIF photo no larger than 8 MB.");
     return;
@@ -2272,11 +2295,12 @@ $("#coach-action-form").addEventListener("submit", async (event) => {
   let photoPath = "";
   try {
     if (state.coachMode === "dinner" && state.coachPhoto) {
-      const safeName = state.coachPhoto.name.replace(/[^a-z0-9._-]/gi, "-");
+      const preparedPhoto = await preparePrivateImage(state.coachPhoto);
+      const safeName = preparedPhoto.name.replace(/[^a-z0-9._-]/gi, "-");
       photoPath = `${user.id}/coach-${crypto.randomUUID()}-${safeName}`;
       const { error: uploadError } = await supabase.storage
         .from("meal-photos")
-        .upload(photoPath, state.coachPhoto, { upsert: false });
+        .upload(photoPath, preparedPhoto, { upsert: false, contentType: preparedPhoto.type });
       if (uploadError) {
         status.textContent = `Photo was not uploaded: ${uploadError.message}`;
         return;
@@ -2426,7 +2450,16 @@ function renderLeftoverReview(entry, analysis) {
 }
 
 $("#leftover-photo-input").addEventListener("change", (event) => {
-  state.leftoverPhoto = event.target.files[0] || null;
+  const file = event.target.files[0] || null;
+  const validationMessage = mealPhotoValidationMessage(file);
+  if (validationMessage) {
+    state.leftoverPhoto = null;
+    event.target.value = "";
+    $("#leftover-photo-name").textContent = "No photo selected.";
+    $("#leftover-analysis-status").textContent = validationMessage;
+    return;
+  }
+  state.leftoverPhoto = file;
   $("#leftover-photo-name").textContent = state.leftoverPhoto ? `${state.leftoverPhoto.name || "After-meal photo"} ready` : "No photo selected.";
 });
 
@@ -2448,21 +2481,20 @@ $("#leftover-analysis-form").addEventListener("submit", async (event) => {
     $("#leftover-analysis-status").textContent = "Take or choose an after-meal photo first.";
     return;
   }
-  if (file.size > 8 * 1024 * 1024) {
-    $("#leftover-analysis-status").textContent = "Use a photo no larger than 8 MB.";
-    return;
-  }
-  if (!new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]).has(file.type.toLowerCase())) {
-    $("#leftover-analysis-status").textContent = "Use a JPG, PNG, WebP, or GIF photo.";
+  const validationMessage = mealPhotoValidationMessage(file);
+  if (validationMessage) {
+    $("#leftover-analysis-status").textContent = validationMessage;
     return;
   }
   const button = $("#analyze-leftovers");
   button.disabled = true;
   $("#leftover-analysis-status").textContent = "Comparing what was served with what remains...";
-  const safeName = (file.name || "after-meal.jpg").replace(/[^a-z0-9._-]/gi, "-");
-  const photoPath = `${user.id}/leftover-scan-${crypto.randomUUID()}-${safeName}`;
+  let photoPath = "";
   try {
-    const { error: uploadError } = await supabase.storage.from("meal-photos").upload(photoPath, file, { upsert: false });
+    const preparedPhoto = await preparePrivateImage(file);
+    const safeName = (preparedPhoto.name || "after-meal.jpg").replace(/[^a-z0-9._-]/gi, "-");
+    photoPath = `${user.id}/leftover-scan-${crypto.randomUUID()}-${safeName}`;
+    const { error: uploadError } = await supabase.storage.from("meal-photos").upload(photoPath, preparedPhoto, { upsert: false, contentType: preparedPhoto.type });
     if (uploadError) throw uploadError;
     const { data, error } = await invokeAuthenticated("adjust-leftovers", {
       body: {
@@ -2486,8 +2518,10 @@ $("#leftover-analysis-form").addEventListener("submit", async (event) => {
       $("#leftover-analysis-status").textContent = error.message || "The after-meal photo could not be analyzed.";
     }
   } finally {
-    const { error: cleanupError } = await supabase.storage.from("meal-photos").remove([photoPath]);
-    if (cleanupError) console.warn("Temporary after-meal photo cleanup failed.", cleanupError);
+    if (photoPath) {
+      const { error: cleanupError } = await supabase.storage.from("meal-photos").remove([photoPath]);
+      if (cleanupError) console.warn("Temporary after-meal photo cleanup failed.", cleanupError);
+    }
     button.disabled = false;
   }
 });
@@ -2868,16 +2902,27 @@ $("#entry-form").addEventListener("submit", async (event) => {
   hideSavedFoodMatchPrompt();
   setQuickLogBusy(true);
   const submittedPhoto = state.photo;
+  const photoValidationMessage = mealPhotoValidationMessage(submittedPhoto);
+  if (photoValidationMessage) {
+    state.photo = null;
+    $("#photo-input").value = "";
+    toast(photoValidationMessage);
+    setQuickLogBusy(false);
+    return;
+  }
   let photoPath = null;
+  let photoUploaded = false;
+  let photoAttachedToEntry = false;
   try {
     if (submittedPhoto) {
-      const safeName = submittedPhoto.name.replace(/[^a-z0-9._-]/gi, "-");
+      const preparedPhoto = await preparePrivateImage(submittedPhoto);
+      const safeName = preparedPhoto.name.replace(/[^a-z0-9._-]/gi, "-");
       photoPath = `${user.id}/${crypto.randomUUID()}-${safeName}`;
-      const { error: uploadError } = await supabase.storage.from("meal-photos").upload(photoPath, submittedPhoto, { upsert: false, contentType: submittedPhoto.type });
+      const { error: uploadError } = await supabase.storage.from("meal-photos").upload(photoPath, preparedPhoto, { upsert: false, contentType: preparedPhoto.type });
       if (uploadError) {
-        toast(`Photo was not uploaded: ${uploadError.message}`);
-        return;
+        throw new Error(`Photo was not uploaded: ${uploadError.message}`);
       }
+      photoUploaded = true;
     }
     const estimateHydration = kind === "hydration" && hydrationNeedsNutritionEstimate(description);
     const nutrition = kind === "hydration" ? { ounces } : photoPath ? { photo_path: photoPath } : null;
@@ -2886,11 +2931,10 @@ $("#entry-form").addEventListener("submit", async (event) => {
       .insert({ user_id: user.id, client_request_id: crypto.randomUUID(), kind, occurred_at: occurredAt, description, meal_label: kind === "meal" ? mealLabel : null, nutrition_estimate: nutrition, status: kind === "hydration" && !estimateHydration ? "estimated" : "pending_estimate" })
       .select("id")
       .single();
-    if (error) {
-      if (photoPath) await supabase.storage.from("meal-photos").remove([photoPath]).catch(() => {});
-      toast(error.message);
-      return;
-    }
+    if (error || !savedEntry?.id) throw error || new Error("The meal entry was not saved.");
+    // Once the ledger insert succeeds, this is an attached private photo rather than an orphan.
+    // Estimate retries and after-meal comparisons rely on the retained path.
+    photoAttachedToEntry = Boolean(photoPath);
     input.value = "";
     state.photo = null;
     $("#photo-input").value = "";
@@ -2937,6 +2981,14 @@ $("#entry-form").addEventListener("submit", async (event) => {
   } catch (error) {
     toast(error.message || "The meal could not be logged.");
   } finally {
+    if (photoUploaded && !photoAttachedToEntry && photoPath) {
+      try {
+        const { error: cleanupError } = await supabase.storage.from("meal-photos").remove([photoPath]);
+        if (cleanupError) console.warn("Failed Quick Log photo cleanup.", cleanupError);
+      } catch (cleanupError) {
+        console.warn("Failed Quick Log photo cleanup.", cleanupError);
+      }
+    }
     setQuickLogBusy(false);
   }
 });

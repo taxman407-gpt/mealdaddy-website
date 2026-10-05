@@ -1,0 +1,5 @@
+Contact: mailto:taxman407@gmail.com
+Expires: 2027-10-04T23:59:59Z
+Preferred-Languages: en
+Canonical: https://www.mealdaddy.ai/.well-known/security.txt
+Policy: https://www.mealdaddy.ai/privacy.html

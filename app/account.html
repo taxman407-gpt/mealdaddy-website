@@ -7,7 +7,7 @@
   <meta name="robots" content="noindex, nofollow" />
   <title>Account & Privacy - MealDaddy</title>
   <link rel="manifest" href="./manifest.webmanifest" />
-  <link rel="stylesheet" href="./styles.css?v=20261004-20" />
+  <link rel="stylesheet" href="./styles.css?v=20261004-21" />
 </head>
 <body class="app-page auth-loading account-page">
   <header class="app-header">
@@ -60,6 +60,46 @@
         <div><dt>Optional Today metrics</dt><dd id="profile-optional-metrics">Loading…</dd></div>
       </dl>
       <p class="account-status" id="profile-message" role="status" aria-live="polite"></p>
+    </section>
+
+    <section class="account-card security-card" aria-labelledby="security-title">
+      <div class="account-card-heading">
+        <div>
+          <p class="eyebrow">Account security</p>
+          <h2 id="security-title" tabindex="-1">Authenticator app protection</h2>
+          <p>Add a six-digit code from an authenticator app. MealDaddy requires this stronger verification for Owner tools and other sensitive account actions.</p>
+        </div>
+        <span class="status-pill" id="mfa-status-pill">Checking…</span>
+      </div>
+      <div id="mfa-summary" class="mfa-summary" hidden>
+        <p id="mfa-summary-copy"></p>
+        <div class="account-actions-row">
+          <button class="button button-primary" id="mfa-enroll" type="button" hidden>Add authenticator app</button>
+          <button class="button button-primary" id="mfa-step-up" type="button" hidden>Verify this session</button>
+          <button class="button button-danger-outline" id="mfa-remove" type="button" hidden>Remove authenticator app</button>
+        </div>
+        <label id="mfa-manage-factor-label" class="mfa-factor-choice" hidden><span>Authenticator to remove</span><select id="mfa-manage-factor"></select></label>
+      </div>
+      <form id="mfa-reauth-form" class="mfa-code-form" hidden>
+        <label><span>Current password</span><input id="mfa-reauth-password" type="password" autocomplete="current-password" minlength="8" required /></label>
+        <div class="account-actions-row"><button class="button button-primary" type="submit">Continue securely</button><button class="button button-quiet" id="mfa-cancel-reauth" type="button">Cancel</button></div>
+      </form>
+      <div id="mfa-enrollment" class="mfa-enrollment" hidden>
+        <h3>Scan this code</h3>
+        <p>Use Google Authenticator, Microsoft Authenticator, 1Password, Authy, or another TOTP-compatible app.</p>
+        <img id="mfa-qr" alt="Authenticator enrollment QR code" />
+        <p class="mfa-secret-row"><span>Can’t scan it?</span><code id="mfa-secret"></code><button class="text-button" id="mfa-copy-secret" type="button">Copy setup key</button></p>
+        <form id="mfa-enrollment-form" class="mfa-code-form">
+          <label><span>Enter the six-digit code</span><input id="mfa-enrollment-code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required /></label>
+          <div class="account-actions-row"><button class="button button-primary" type="submit">Finish setup</button><button class="button button-quiet" id="mfa-cancel-enrollment" type="button">Cancel</button></div>
+        </form>
+      </div>
+      <form id="mfa-challenge-form" class="mfa-code-form" hidden>
+        <label id="mfa-challenge-factor-label" hidden><span>Two-step method</span><select id="mfa-challenge-factor"></select></label>
+        <label><span>Security code</span><input id="mfa-challenge-code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required /></label>
+        <div class="account-actions-row"><button class="button button-primary" type="submit">Verify</button><button class="button button-quiet" id="mfa-resend-phone-code" type="button" hidden>Send new code</button><button class="button button-quiet" id="mfa-cancel-challenge" type="button">Cancel</button></div>
+      </form>
+      <p class="account-status" id="mfa-message" role="status" aria-live="polite"></p>
     </section>
 
     <section class="account-card membership-card" aria-labelledby="membership-title">
@@ -124,7 +164,7 @@
       </div>
       <div class="privacy-grid">
         <article><strong>Account & food records</strong><p>Stored in your protected Meal Daddy account so they can sync across your devices. Row-level security limits access to your account.</p></article>
-        <article><strong>Meal and food photos</strong><p>Uploaded privately only when you choose a photo. Processing photos are temporary and removed after the request. A My Foods reference photo is retained only when you select that option.</p></article>
+        <article><strong>Meal and food photos</strong><p>Uploaded privately only when you choose a photo. Before cloud upload, the web app re-encodes supported images to remove embedded EXIF/GPS metadata. Processing photos are temporary and removed after the request. A My Foods reference photo is retained only when you select that option.</p></article>
         <article><strong>My Foods storage</strong><p>Reviewed food data can sync to your protected account with a device cache, remain only in this browser, or be used once without saving. Device-only data can be lost if browser or app data is cleared.</p></article>
         <article><strong>AI processing</strong><p>Only the information needed for a meal estimate or requested guidance is sent to the approved AI service. Provider selection changes which AI service processes that request.</p></article>
         <article><strong>Location</strong><p>Restaurant Mode with MealDaddy MenuVector™ asks only when you tap the location control. Approximate location can inform that request and is not saved to your profile or ledger.</p></article>
@@ -168,7 +208,7 @@
   </main>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="./account.js?v=20261004-6"></script>
+  <script type="module" src="./account.js?v=20261004-7"></script>
   <script src="./register-sw.js?v=20260929-2"></script>
 </body>
 </html>

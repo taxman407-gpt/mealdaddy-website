@@ -1,4 +1,23 @@
-const release = "20261004-v95";
+const release = "20261004-v96";
+const canonicalHost = "www.mealdaddy.ai";
+
+function isLocalHostname(hostname) {
+  return hostname === "localhost" ||
+    hostname.endsWith(".localhost") ||
+    hostname === "127.0.0.1" ||
+    hostname === "0.0.0.0" ||
+    hostname === "[::1]";
+}
+
+function canonicalRedirectUrl(requestUrl) {
+  const url = new URL(requestUrl);
+  if (isLocalHostname(url.hostname)) return null;
+  if (url.protocol === "https:" && url.hostname.toLowerCase() === canonicalHost) return null;
+  url.protocol = "https:";
+  url.hostname = canonicalHost;
+  url.port = "";
+  return url;
+}
 
 const privatePathPrefixes = [
   "/docs/",
@@ -48,6 +67,9 @@ function secured(response) {
 
 export default {
   async fetch(request, env) {
+    const canonicalUrl = canonicalRedirectUrl(request.url);
+    if (canonicalUrl) return secured(Response.redirect(canonicalUrl.toString(), 308));
+
     const url = new URL(request.url);
     if (privateRootFiles.has(url.pathname) || privatePathPrefixes.some((prefix) => url.pathname.startsWith(prefix))) {
       return secured(new Response("Not found", { status: 404 }));

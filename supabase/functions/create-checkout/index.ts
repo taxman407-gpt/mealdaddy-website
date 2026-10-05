@@ -1,5 +1,6 @@
 import Stripe from "npm:stripe@18.5.0";
 import { createClient } from "npm:@supabase/supabase-js@2.54.0";
+import { requireConditionalMfa } from "../_shared/conditional-mfa.ts";
 
 const corsHeaders = {
   "access-control-allow-origin": "*",
@@ -93,6 +94,8 @@ Deno.serve(async (request) => {
   if (!price) return json({ error: "Checkout is not configured for this plan." }, 503);
 
   const admin = createClient(supabaseUrl, serviceKey);
+  const mfaResult = await requireConditionalMfa(admin, user.id, authHeader);
+  if (!mfaResult.ok) return json({ error: mfaResult.error }, mfaResult.status);
   const { data: complimentaryGrant, error: grantError } = await admin
     .from("complimentary_access_grants")
     .select("status")
@@ -152,6 +155,33 @@ Deno.serve(async (request) => {
       }
     }, { idempotencyKey: `mealdaddy-core-${user.id}-${easternWeekStart()}` });
 
+    const { error: checkoutTrackingError } = await admin
+      .from("stripe_checkout_sessions")
+      .upsert({
+        checkout_session_id: session.id,
+        user_id: user.id,
+        stripe_customer_id: typeof session.customer === "string"
+          ? session.customer
+          : session.customer?.id ?? null,
+        stripe_subscription_id: typeof session.subscription === "string"
+          ? session.subscription
+          : session.subscription?.id ?? null,
+        status: session.status ?? "unknown",
+        updated_at: new Date().toISOString()
+      }, { onConflict: "checkout_session_id" });
+    if (checkoutTrackingError) {
+      try {
+        if (session.status === "open") await stripe.checkout.sessions.expire(session.id);
+      } catch (expirationError) {
+        console.error(
+          "Untracked Checkout Session could not be expired",
+          session.id,
+          expirationError instanceof Error ? expirationError.message : "Unknown error"
+        );
+      }
+      throw new Error("Checkout Session ownership could not be recorded.");
+    }
+
     if (eligible) {
       const { error: attachError } = await admin.rpc("attach_trial_checkout", {
         requested_reservation_id: reservation.reservation_id,
@@ -159,7 +189,11 @@ Deno.serve(async (request) => {
         requested_checkout_session_id: session.id
       });
       if (attachError) {
-        await stripe.checkout.sessions.expire(session.id);
+        const expiredSession = await stripe.checkout.sessions.expire(session.id);
+        await admin
+          .from("stripe_checkout_sessions")
+          .update({ status: expiredSession.status ?? "expired", updated_at: new Date().toISOString() })
+          .eq("checkout_session_id", session.id);
         await admin.rpc("release_trial_reservation", {
           requested_reservation_id: reservation.reservation_id,
           requested_user_id: user.id

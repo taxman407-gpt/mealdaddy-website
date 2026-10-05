@@ -57,6 +57,15 @@ function roundedAverage(values: number[]) {
   return Math.round((values.reduce((sum, value) => sum + value, 0) / values.length) * 100) / 100;
 }
 
+function redactFeedbackPii(value: string) {
+  return String(value || "")
+    .replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, "[email removed]")
+    .replace(/\b(?:https?:\/\/|www\.)\S+/gi, "[link removed]")
+    .replace(/(?:\+?1[\s.-]?)?(?:\(?\d{3}\)?[\s.-]?)\d{3}[\s.-]?\d{4}\b/g, "[phone removed]")
+    .replace(/\b\d{1,6}\s+[A-Za-z0-9.' -]{2,50}\s(?:street|st|avenue|ave|road|rd|drive|dr|lane|ln|boulevard|blvd|court|ct|way)\b/gi, "[address removed]")
+    .trim();
+}
+
 function groupByCustomer(rows: FeedbackRow[]) {
   const groups = new Map<string, FeedbackRow[]>();
   for (const row of rows) {
@@ -127,7 +136,7 @@ function buildAnonymousFeedbackInput(rows: FeedbackRow[]) {
     const timeline = groups[index].map((row) => ({
       submitted_at: row.source_updated_at,
       rating: row.rating,
-      comment: row.comment.trim().slice(0, 1500),
+      comment: redactFeedbackPii(row.comment).slice(0, 1500),
       public_display_consent: row.public_display_consent
     }));
     const anonymousGroup = {
@@ -276,6 +285,10 @@ Deno.serve(async (request) => {
     if (claims.aal !== "aal2") return json({ error: "Owner multi-factor authentication is required for feedback insights." }, 403);
   } catch {
     return json({ error: "Owner authentication assurance could not be verified." }, 403);
+  }
+  const { data: factorData, error: factorError } = await authClient.auth.mfa.listFactors();
+  if (factorError || !(factorData?.totp ?? []).length) {
+    return json({ error: "A current owner authenticator is required for feedback insights." }, 403);
   }
 
   let action = "latest";

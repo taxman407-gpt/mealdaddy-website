@@ -1,5 +1,6 @@
 import Stripe from "npm:stripe@18.5.0";
 import { createClient } from "npm:@supabase/supabase-js@2.54.0";
+import { reconcileCheckoutSessionsForDeletion } from "../_shared/checkout-reconciliation.mjs";
 
 const corsHeaders = {
   "access-control-allow-origin": "*",
@@ -16,6 +17,7 @@ const cancellableStatuses = new Set([
   "unpaid",
   "paused"
 ]);
+const terminalSubscriptionStatuses = new Set(["canceled", "incomplete_expired"]);
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: corsHeaders });
@@ -29,35 +31,13 @@ function namedKey(variable: string, fallback: string) {
   }
 }
 
-async function findMealDaddySubscriptions(
-  stripe: Stripe,
-  userId: string,
-  knownSubscriptionId?: string | null
-) {
-  const found = new Map<string, Stripe.Subscription>();
-
-  if (knownSubscriptionId) {
-    try {
-      const subscription = await stripe.subscriptions.retrieve(knownSubscriptionId);
-      if (subscription.metadata.user_id === userId) found.set(subscription.id, subscription);
-    } catch (error) {
-      const code = typeof error === "object" && error && "code" in error ? error.code : "";
-      if (code !== "resource_missing") throw error;
-    }
+function jwtAssuranceLevel(authHeader: string) {
+  try {
+    const encoded = authHeader.slice("Bearer ".length).split(".")[1];
+    return JSON.parse(atob(encoded.replace(/-/g, "+").replace(/_/g, "/"))).aal ?? "aal1";
+  } catch {
+    return "aal1";
   }
-
-  let page: string | undefined;
-  do {
-    const result = await stripe.subscriptions.search({
-      query: `metadata['user_id']:'${userId}'`,
-      limit: 100,
-      ...(page ? { page } : {})
-    });
-    for (const subscription of result.data) found.set(subscription.id, subscription);
-    page = result.has_more ? result.next_page ?? undefined : undefined;
-  } while (page);
-
-  return [...found.values()];
 }
 
 async function removePrivatePhotos(
@@ -126,6 +106,14 @@ Deno.serve(async (request) => {
   }
 
   const admin = createClient(supabaseUrl, serviceKey);
+  const { data: factorData, error: factorError } = await admin.auth.admin.mfa.listFactors({ userId: user.id });
+  if (factorError) {
+    return json({ error: "Account security could not be verified. Nothing was deleted." }, 500);
+  }
+  const hasVerifiedFactor = (factorData.factors ?? []).some((factor) => factor.status === "verified");
+  if (hasVerifiedFactor && jwtAssuranceLevel(authHeader) !== "aal2") {
+    return json({ error: "Verify this session with your authenticator before permanent deletion." }, 403);
+  }
   const { data: membership, error: membershipError } = await admin
     .from("subscriptions")
     .select("stripe_subscription_id")
@@ -133,22 +121,41 @@ Deno.serve(async (request) => {
     .maybeSingle();
   if (membershipError) return json({ error: "Billing status could not be verified. Nothing was deleted." }, 500);
 
+  const { data: checkoutSessions, error: checkoutSessionsError } = await admin
+    .from("stripe_checkout_sessions")
+    .select("checkout_session_id,stripe_subscription_id")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: true });
+  if (checkoutSessionsError) {
+    return json({ error: "Checkout status could not be verified. Nothing was deleted." }, 500);
+  }
+
+  let reconciledCheckoutSessionIds: string[] = [];
   try {
     const stripe = new Stripe(stripeKey);
-    const subscriptions = await findMealDaddySubscriptions(
+    const reconciliation = await reconcileCheckoutSessionsForDeletion({
       stripe,
-      user.id,
-      membership?.stripe_subscription_id
-    );
+      userId: user.id,
+      knownSubscriptionId: membership?.stripe_subscription_id,
+      checkoutSessions: checkoutSessions ?? []
+    });
+    reconciledCheckoutSessionIds = reconciliation.reconciledCheckoutSessionIds;
+    const subscriptions = reconciliation.subscriptions;
     for (const subscription of subscriptions) {
-      if (!cancellableStatuses.has(subscription.status)) continue;
-      await stripe.subscriptions.cancel(subscription.id, {
-        invoice_now: false,
-        prorate: false,
-        cancellation_details: {
-          comment: "Customer permanently deleted their Meal Daddy account."
+      if (cancellableStatuses.has(subscription.status)) {
+        const canceled = await stripe.subscriptions.cancel(subscription.id, {
+          invoice_now: false,
+          prorate: false,
+          cancellation_details: {
+            comment: "Customer permanently deleted their Meal Daddy account."
+          }
+        });
+        if (canceled.status !== "canceled") {
+          throw new Error(`Stripe subscription ${subscription.id} did not confirm cancellation.`);
         }
-      });
+      } else if (!terminalSubscriptionStatuses.has(subscription.status)) {
+        throw new Error(`Stripe subscription ${subscription.id} returned an unknown status.`);
+      }
     }
   } catch (error) {
     console.error("Stripe cancellation verification error", error instanceof Error ? error.message : "Unknown error");
@@ -159,6 +166,18 @@ Deno.serve(async (request) => {
 
   try {
     await removePrivatePhotos(admin, user.id);
+    for (let offset = 0; offset < reconciledCheckoutSessionIds.length; offset += 100) {
+      const checkoutSessionIds = reconciledCheckoutSessionIds.slice(offset, offset + 100);
+      const { data: removedSessions, error: removeSessionsError } = await admin
+        .from("stripe_checkout_sessions")
+        .delete()
+        .eq("user_id", user.id)
+        .in("checkout_session_id", checkoutSessionIds)
+        .select("checkout_session_id");
+      if (removeSessionsError || removedSessions?.length !== checkoutSessionIds.length) {
+        throw new Error("Reconciled Checkout Session associations could not be cleared.");
+      }
+    }
     const { error: deleteError } = await admin.auth.admin.deleteUser(user.id);
     if (deleteError) throw deleteError;
   } catch (error) {

@@ -4,6 +4,20 @@
 
 See [AI_TEAM.md](AI_TEAM.md) for the internal diet-coach roles, dedicated diet test users, truthful AI attribution requirements, and owner decisions awaiting implementation. The Low Inflammation AI Coach reviews development and tests; it is not a credentialed human adviser or an automatically exposed customer persona.
 
+## Security release gate
+
+The [security team charter](AI_TEAM.md#security-team) defines review responsibilities, required coverage, and evidence. Role definitions do not establish that monitoring or testing is running.
+
+- Security corrections take priority over features, appearance, growth, and cost optimization. Follow the [immediate escalation procedure](AI_TEAM.md#security-priority-and-immediate-escalation) as soon as the team cannot safely correct or verify an issue; do not wait for release review. Notify the owner immediately about suspected active exploitation, exposed secrets, or customer-data exposure as well.
+- An escalation includes impact and uncertainty, the blocker, containment, proposed correction, responsible role, outside assistance or owner decisions needed, verification/recovery steps, and a timeline or next update point. Continue authorized remediation while awaiting the needed decision; distinguish a local fix from a verified production correction.
+- Record the current candidate commit, artifact digest, migration/configuration versions, and test environment; the historical release marker below is not evidence for a newer candidate.
+- Confirm isolated staging services and credentials before authenticated, adversarial, billing, upload, deletion, or recovery tests. Use synthetic accounts and Stripe test mode. A separate frontend URL sharing production data is insufficient.
+- Run local checks, then execute applicable staging tests with anonymous access, two unrelated members, and a separate test administrator. Verify account isolation through direct API/database/storage access, not only through the UI. Passing source-text assertions does not demonstrate deployed enforcement.
+- Attach redacted test results, actual platform coverage, findings, retests, residual risks, and untested scenarios to the candidate. Include AI-input abuse, payment/retry behavior, data retention/sync, and backup/restore coverage.
+- Block release on required test failures or gaps, unresolved critical/high findings, account-isolation failures, authentication bypasses, exposed secrets, or unverified staging isolation. Obtain the security lead's recommendation and owner approval of the complete candidate.
+- Promote the approved artifact with recorded environment-specific configuration and database compatibility. Retest affected areas after changes. Scope production smoke checks separately and keep them non-disruptive.
+- Arrange an owner-approved independent human penetration-test engagement before broad promotion/native-store launch. Native iOS/Android releases require tests of those actual builds.
+
 ## Release candidate
 
 - Release marker: `20260812-1`
@@ -15,8 +29,8 @@ See [AI_TEAM.md](AI_TEAM.md) for the internal diet-coach roles, dedicated diet t
 1. `pnpm test`
 2. `pnpm run build`
 3. Confirm `dist/` has no `server/`, `supabase/`, repository metadata, or deployment configuration.
-4. Syntax-parse all ten Edge Functions.
-5. Run `supabase db push --linked --dry-run --include-all` and confirm only the intended migration appears.
+4. Syntax-parse every Edge Function included in the candidate.
+5. Verify that the linked Supabase project is the intended isolated staging project before running `supabase db push --linked --dry-run --include-all`; confirm only intended migrations appear. Review production migration plans separately as part of release approval.
 
 ## Safe two-account acceptance
 

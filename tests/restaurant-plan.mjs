@@ -48,6 +48,8 @@ assert.deepEqual(plan.options.map((option) => option.label), ["A", "B", "C"]);
 assert.deepEqual(plan.options.map((option) => option.fit), ["Best fit", "Balanced choice", "Treat option"]);
 assert.equal(normalizeRestaurantPlan({ options: rawOptions.slice(0, 2) }), null);
 assert.equal(safeRestaurantSourceUrl("javascript:alert(1)"), "");
+assert.equal(safeRestaurantSourceUrl("http://example.com/nutrition"), "");
+assert.equal(safeRestaurantSourceUrl("https://example.com/nutrition"), "https://example.com/nutrition");
 assert.match(restaurantMapUrl("A Example Kitchen", "100 Main Street"), /^https:\/\/www\.google\.com\/maps\/search/);
 assert.match(restaurantMapUrl("A Example Kitchen", "100 Main Street"), /A%20Example%20Kitchen/);
 
