@@ -156,6 +156,9 @@ function profileContext(profile: Record<string, any> | null) {
     calorie_goal: answers.calorie_goal,
     protein_goal: answers.protein_goal,
     net_carb_goal: answers.net_carb_goal,
+    hydration_goal_ounces: answers.water_goal,
+    hydration_target_source: answers.hydration_target_source,
+    sodium_goal_mg: answers.sodium_goal_mg,
     eating_styles: answers.eating_styles,
     foods_to_avoid: answers.foods_to_avoid,
     medical_restrictions: answers.medical_restrictions,
@@ -202,6 +205,11 @@ Deno.serve(async (request) => {
     totalCarbs: number;
     netCarbs: number;
     netCarbGoal: number | null;
+    hydrationOunces: number;
+    hydrationGoalOunces: number;
+    hydrationTargetSource: string;
+    sodiumMg: number | null;
+    sodiumGoalMg: number;
   } | null = null;
   let location: {
     latitude: number;
@@ -222,6 +230,14 @@ Deno.serve(async (request) => {
       const netCarbGoal = suppliedGoal === null || suppliedGoal === undefined
         ? null
         : Number(suppliedGoal);
+      const hydrationOunces = Number(body.nutritionContext.hydrationOunces);
+      const hydrationGoalOunces = Number(body.nutritionContext.hydrationGoalOunces);
+      const hydrationTargetSource = typeof body.nutritionContext.hydrationTargetSource === "string"
+        ? body.nutritionContext.hydrationTargetSource.slice(0, 80)
+        : "My own target";
+      const sodiumValue = body.nutritionContext.sodiumMg;
+      const sodiumMg = sodiumValue === null || sodiumValue === undefined ? null : Number(sodiumValue);
+      const sodiumGoalMg = Number(body.nutritionContext.sodiumGoalMg);
       if (
         !Number.isFinite(calories) ||
         !Number.isFinite(protein) ||
@@ -239,7 +255,11 @@ Deno.serve(async (request) => {
           !Number.isFinite(netCarbGoal) ||
           netCarbGoal < 1 ||
           netCarbGoal > 1_000
-        ))
+        )) ||
+        !Number.isFinite(hydrationOunces) || hydrationOunces < 0 || hydrationOunces > 2_000 ||
+        !Number.isFinite(hydrationGoalOunces) || hydrationGoalOunces <= 0 || hydrationGoalOunces > 2_000 ||
+        (sodiumMg !== null && (!Number.isFinite(sodiumMg) || sodiumMg < 0 || sodiumMg > 100_000)) ||
+        !Number.isFinite(sodiumGoalMg) || sodiumGoalMg <= 0 || sodiumGoalMg > 100_000
       ) {
         return json({ error: "Invalid nutrition context." }, 400);
       }
@@ -248,7 +268,12 @@ Deno.serve(async (request) => {
         protein: Math.round(protein),
         totalCarbs: Math.round(totalCarbs),
         netCarbs: Math.round(netCarbs),
-        netCarbGoal: netCarbGoal === null ? null : Math.round(netCarbGoal)
+        netCarbGoal: netCarbGoal === null ? null : Math.round(netCarbGoal),
+        hydrationOunces: Math.round(hydrationOunces),
+        hydrationGoalOunces: Math.round(hydrationGoalOunces),
+        hydrationTargetSource,
+        sodiumMg: sodiumMg === null ? null : Math.round(sodiumMg),
+        sodiumGoalMg: Math.round(sodiumGoalMg)
       };
     }
     if (body.location && typeof body.location === "object") {
@@ -325,8 +350,11 @@ Deno.serve(async (request) => {
   const nutritionGuardrail = nutritionContext?.netCarbGoal
     ? `The user's saved hard daily net-carb ceiling is ${nutritionContext.netCarbGoal}g. They have logged approximately ${nutritionContext.netCarbs}g today, leaving ${Math.max(0, nutritionContext.netCarbGoal - nutritionContext.netCarbs)}g. Treat the remaining allowance as a hard constraint whenever possible. Estimate net carbs for each recommendation and show projected daily net carbs. Never recommend an option over the ceiling if a lower-carb option can meet the request. If the user is already at or over the ceiling, choose options with as close to zero additional net carbs as practical and say so clearly.`
     : "Treat any explicit numeric nutrition limit in the user's request as a hard constraint unless safety requires otherwise.";
+  const hydrationGuardrail = nutritionContext
+    ? `The user's saved hydration target is ${nutritionContext.hydrationGoalOunces} oz and its source is ${nutritionContext.hydrationTargetSource}. They have logged about ${nutritionContext.hydrationOunces} oz, leaving ${Math.max(0, nutritionContext.hydrationGoalOunces - nutritionContext.hydrationOunces)} oz. Estimated sodium so far is ${nutritionContext.sodiumMg === null ? "unavailable" : `${nutritionContext.sodiumMg} mg`} against a saved ${nutritionContext.sodiumGoalMg} mg target. Never raise or override the saved hydration target because of sodium, a restaurant meal, exercise, weather, or a generic formula. Treat a clinician-recommended target as a firm ceiling. You may suggest pacing only within the remaining allowance and may recommend lower-sodium food choices. If the user explicitly asks to change a clinician-recommended hydration target, direct them to confirm the new target with their clinician before updating it.`
+    : "Never invent or automatically raise a hydration target.";
 
-  const systemText = `You are MealDaddy AI, an automated nutrition and meal-planning assistant. You are not a human professional and have no professional licenses or certifications. Never claim or imply that you are a registered dietitian, certified nutritionist, physician, or other credentialed human expert, or that a human expert reviewed these suggestions. Internal AI development and testing roles are not people advising the user. ${task} ${nutritionGuardrail} Respect listed allergies, restrictions, preferences, budget, and household needs. Do not diagnose, prescribe, or replace medical advice. Use a supportive, direct tone.${mode === "dinner" ? " Return plain text under 220 words." : " Nutrition numbers must reflect the customized order after substitutions. If exact numbers are unavailable, provide conservative estimates and lower confidence."}`;
+  const systemText = `You are MealDaddy AI, an automated nutrition and meal-planning assistant. You are not a human professional and have no professional licenses or certifications. Never claim or imply that you are a registered dietitian, certified nutritionist, physician, or other credentialed human expert, or that a human expert reviewed these suggestions. Internal AI development and testing roles are not people advising the user. ${task} ${nutritionGuardrail} ${hydrationGuardrail} Respect listed allergies, restrictions, preferences, budget, and household needs. Do not diagnose, prescribe, or replace medical advice. Use a supportive, direct tone.${mode === "dinner" ? " Return plain text under 220 words." : " Nutrition numbers must reflect the customized order after substitutions. If exact numbers are unavailable, provide conservative estimates and lower confidence."}`;
   const userText = `Saved profile:\n${JSON.stringify(profileContext(profile))}\n\nToday's nutrition context:\n${JSON.stringify(nutritionContext)}\n\nApproximate area shared for this request:\n${JSON.stringify(location)}\n\nUser request:\n${context}`;
   const requestBody: Record<string, unknown> = {
       model: mode === "restaurant" ? restaurantSearchModel : mealPlanningModel,

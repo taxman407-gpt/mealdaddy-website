@@ -1,5 +1,6 @@
 import { invokeAuthenticated, supabase, requireSession } from "./supabase-client.js?v=20260930-3";
 import { buildProteinGuidance } from "./feedback-guidance.js?v=20261004-1";
+import { adaptiveHydrationGuidance } from "./adaptive-hydration.js?v=20261004-1";
 import { entryDateDisplayLabel, localDateValue as localEntryDateValue, occurredAtForEntryDate, quickDateOptions } from "./entry-date.js?v=20260813-4";
 import { estimatedAdultBmi, formatWeight, formatWeightChange, normalizeUnitSystem, parseHeightCm, shouldEnableWeightTracking, weightFromKg, weightToKg } from "./health-metrics.js?v=20260813-4";
 import { initializeSavedFoods } from "./saved-foods.js?v=20261004-10";
@@ -100,7 +101,7 @@ const entryCategories = [...mealLabels, "Hydration"];
 const query = new URLSearchParams(location.search);
 let pendingPlan = allowedPlans.has(query.get("plan")) ? query.get("plan") : null;
 const checkoutResult = query.get("checkout");
-const state = { preferredName: "", diet: "", tone: "supportive", provider: "best_value", entries: [], recentEntries: [], ledgerReviewDate: localEntryDateValue(), weightEntries: [], photo: null, coachPhoto: null, restaurantLocation: null, restaurantPlan: null, coachMode: "dinner", membershipPlan: null, membershipStatus: null, membershipAccess: null, calorieGoal: 2050, proteinGoal: 130, netCarbGoal: 0, fiberGoal: 30, waterGoal: 90, sodiumGoal: 2300, addedSugarGoal: 50, saturatedFatGoal: 20, unitSystem: "us", heightCm: null, age: null, trackBmi: false, goalWeightKg: null, eatingStyles: [], goals: [], trackingDetail: "Moderate", uses: [], reminders: [], favoriteProteins: [], foodsLoved: "", foodsDisliked: "", foodsToAvoid: "", biggestChallenge: "", optionalMetrics: [], metricOrder: normalizeMetricOrder([]), suggestedProteinTarget: 40, leftoverEntryId: null, leftoverPhoto: null, leftoverAnalysis: null, leftoverReturnFocus: null, savedFoodsApi: null, pendingQuickLog: null, skipSavedFoodMatch: false, pendingLabelCandidate: null, pendingLabelPhoto: null, estimatingEntryIds: new Set(), estimateFailures: new Map(), currentTotals: { calories: 0, protein: 0, carbs: 0, netCarbs: 0, fat: 0, fiber: 0, water: 0, sodium: null, addedSugar: null, saturatedFat: null } };
+const state = { preferredName: "", diet: "", tone: "supportive", provider: "best_value", entries: [], recentEntries: [], ledgerReviewDate: localEntryDateValue(), weightEntries: [], photo: null, coachPhoto: null, restaurantLocation: null, restaurantPlan: null, coachMode: "dinner", membershipPlan: null, membershipStatus: null, membershipAccess: null, calorieGoal: 2050, proteinGoal: 130, netCarbGoal: 0, fiberGoal: 30, waterGoal: 90, hydrationTargetSource: "My own target", sodiumGoal: 2300, addedSugarGoal: 50, saturatedFatGoal: 20, unitSystem: "us", heightCm: null, age: null, trackBmi: false, goalWeightKg: null, eatingStyles: [], goals: [], trackingDetail: "Moderate", uses: [], reminders: [], favoriteProteins: [], foodsLoved: "", foodsDisliked: "", foodsToAvoid: "", biggestChallenge: "", optionalMetrics: [], metricOrder: normalizeMetricOrder([]), suggestedProteinTarget: 40, leftoverEntryId: null, leftoverPhoto: null, leftoverAnalysis: null, leftoverReturnFocus: null, savedFoodsApi: null, pendingQuickLog: null, skipSavedFoodMatch: false, pendingLabelCandidate: null, pendingLabelPhoto: null, estimatingEntryIds: new Set(), estimateFailures: new Map(), currentTotals: { calories: 0, protein: 0, carbs: 0, netCarbs: 0, fat: 0, fiber: 0, water: 0, sodium: null, addedSugar: null, saturatedFat: null } };
 const entryById = (entryId) => state.recentEntries.find((item) => item.id === entryId) || state.entries.find((item) => item.id === entryId);
 const ledgerReviewDate = $("#ledger-review-date");
 if (ledgerReviewDate) {
@@ -497,6 +498,7 @@ async function loadProfile() {
   state.proteinGoal = proteinGoal;
   state.fiberGoal = fiberGoal;
   state.waterGoal = waterGoal;
+  state.hydrationTargetSource = profile.hydration_target_source || "My own target";
   state.sodiumGoal = Math.max(1, Number(profile.sodium_goal_mg || 2300));
   state.addedSugarGoal = Math.max(1, Number(profile.added_sugar_goal_g || Math.round(calorieGoal * 0.1 / 4)));
   state.saturatedFatGoal = Math.max(1, Number(profile.saturated_fat_goal_g || Math.round(calorieGoal * 0.1 / 9)));
@@ -1430,6 +1432,7 @@ function renderCoachFeedback(providedTotals) {
   const basicsOnly = state.trackingDetail === "Just the basics";
   const fiberFocus = !basicsOnly || ["mediterranean", "dash", "vegetarian", "vegan", "low inflammation", "reduce inflammation", "better blood sugar", "heart healthy"].some((value) => preferences.has(value));
   const hydrationFocus = !basicsOnly || totals.water > 0 || state.uses.includes("Hydration tracking") || state.reminders.includes("Water");
+  const hydrationGuidance = adaptiveHydrationGuidance({ hydrationOunces: totals.water, hydrationGoalOunces: state.waterGoal, sodiumMg: totals.sodium, sodiumGoalMg: state.sodiumGoal, targetSource: state.hydrationTargetSource });
   const preferenceLabel = preferences.has("keto") ? "keto" : preferences.has("better blood sugar") && !preferences.has("low carb") ? "blood-sugar-aware" : "low-carb";
   const affirmationPools = {
     supportive: [
@@ -1533,9 +1536,9 @@ function renderCoachFeedback(providedTotals) {
     : "";
 
   if (caloriePercent >= 1.1) {
-    suggestion.textContent = "You’re above your calorie target, but one day is information—not failure. Favor water and a satisfying protein-and-produce choice if you’re hungry.";
+    suggestion.textContent = "You’re above your calorie target, but one day is information—not failure. Choose a satisfying protein-and-produce option if you’re hungry, and keep fluids within your saved hydration target.";
   } else if (waterPercent < 0.35 && new Date().getHours() >= 12) {
-    suggestion.textContent = "Hydration is the clearest opportunity right now. Have 12–16 oz of water with your next meal or break.";
+    suggestion.textContent = `Hydration is the clearest opportunity right now. ${hydrationGuidance.message}`;
   } else if (proteinPercent + 0.15 < caloriePercent) {
     const remaining = Math.max(0, Math.round(state.proteinGoal - totals.protein));
     state.suggestedProteinTarget = Math.min(40, Math.max(20, remaining));
@@ -1586,6 +1589,9 @@ function renderCoachFeedback(providedTotals) {
         suggestion.textContent += ` Your Inflammation Score™ is toward the higher end today.${foodContext} A useful next choice is minimally processed protein, colorful non-starchy vegetables, and a clearly identified cooking oil or sauce.`;
       }
     }
+  }
+  if (hydrationFocus && hydrationGuidance.sodiumHigh && !suggestion.textContent.includes("Estimated sodium is at or above")) {
+    suggestion.textContent += ` ${hydrationGuidance.message}`;
   }
   if (netCarbGuardrail) suggestion.textContent += ` ${netCarbGuardrail}`;
 }
@@ -2255,7 +2261,12 @@ $("#coach-action-form").addEventListener("submit", async (event) => {
           protein: Math.round(state.currentTotals.protein),
           totalCarbs: Math.round(state.currentTotals.carbs),
           netCarbs: Math.round(state.currentTotals.netCarbs),
-          netCarbGoal: state.netCarbGoal || null
+          netCarbGoal: state.netCarbGoal || null,
+          hydrationOunces: Math.round(state.currentTotals.water),
+          hydrationGoalOunces: state.waterGoal,
+          hydrationTargetSource: state.hydrationTargetSource,
+          sodiumMg: state.currentTotals.sodium === null ? null : Math.round(state.currentTotals.sodium),
+          sodiumGoalMg: state.sodiumGoal
         }
       }
     });

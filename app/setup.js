@@ -49,7 +49,8 @@ const choices = {
   uses: ["Log meals", "Meal planning", "Grocery lists", "Restaurant recommendations", "Weight tracking", "Photo logging", "Recipe ideas", "Hydration tracking", "Weekly reports"],
   detail: ["Just the basics", "Moderate", "Every macro"],
   coaching: ["Friendly", "Encouraging", "Direct", "Detailed", "Short & Simple"],
-  reminders: ["Water", "Protein", "Fiber", "Restaurant choices", "Grocery shopping", "Weekly weigh-ins"]
+  reminders: ["Water", "Protein", "Fiber", "Restaurant choices", "Grocery shopping", "Weekly weigh-ins"],
+  hydrationTargetSource: ["My own target", "Clinician recommended", "General starting estimate"]
 };
 
 const steps = [
@@ -66,7 +67,8 @@ const steps = [
     ["primary_eating_style", "Primary eating style shown on your dashboard", "single", choices.eatingStyles, true],
     ["eating_styles", "Other eating styles Meal Daddy should consider", "multi", choices.eatingStyles],
     ["net_carb_goal", "Daily net-carb ceiling", "target", "Optional"],
-    ["fiber_goal", "Daily fiber target", "target", "Optional"], ["water_goal", "Daily hydration target", "target", "Optional"]
+    ["fiber_goal", "Daily fiber target", "target", "Optional"], ["water_goal", "Daily hydration target", "target", "Optional"],
+    ["hydration_target_source", "Where did this hydration target come from?", "single", choices.hydrationTargetSource]
   ]},
   { title: "Health", intro: "All health questions are optional.", fields: [
     ["foods_to_avoid", "Foods you must avoid", "textarea", "Allergies, intolerances, religious needs, or personal choices"],
@@ -114,6 +116,7 @@ function normalizeAnswers() {
   }
   if (!answers.unit_system) answers.unit_system = "US";
   if (!answers.track_bmi) answers.track_bmi = "No";
+  if (!answers.hydration_target_source) answers.hydration_target_source = "My own target";
 }
 normalizeAnswers();
 
@@ -174,6 +177,7 @@ function renderSummary() {
   const rows = [
     ["Goals", (answers.primary_goals || []).join(", ")], ["Calories", answers.calorie_goal ? `${answers.calorie_goal}/day` : "Not set"],
     ["Protein", answers.protein_goal ? `${answers.protein_goal}g/day` : "Not set"], ["Net-carb ceiling", answers.net_carb_goal ? `${answers.net_carb_goal}g/day` : "Not set"],
+    ["Hydration target", answers.water_goal ? `${answers.water_goal} oz/day · ${answers.hydration_target_source || "My own target"}` : "Not set"],
     ["Starting weight", answers.current_weight ? `${answers.current_weight} ${weightUnit(normalizeUnitSystem(answers.unit_system))}` : "Not set"], ["BMI", answers.track_bmi === "Yes" ? "Estimated adult BMI enabled" : "Not displayed"],
     ["Primary eating style", answers.primary_eating_style || "Flexible"],
     ["Other eating styles", (answers.eating_styles || []).filter((style) => style !== answers.primary_eating_style).join(", ") || "None selected"],
