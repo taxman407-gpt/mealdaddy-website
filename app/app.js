@@ -589,32 +589,66 @@ function renderWeightChart(entries) {
   const trend = $("#weight-trend");
   const chart = $("#weight-chart");
   const line = $("#weight-chart-line");
+  const goalLine = $("#weight-goal-line");
+  const bmiLine = $("#weight-bmi-line");
   const pointsRoot = $("#weight-chart-points");
   const point = $("#weight-chart-point");
-  if (!trend || !chart || !line || !pointsRoot || !point || entries.length === 0) {
+  if (!trend || !chart || !line || !goalLine || !bmiLine || !pointsRoot || !point || entries.length === 0) {
     if (trend) trend.hidden = true;
     return;
   }
   trend.hidden = false;
+  const bmiValues = entries.map((entry) => estimatedAdultBmi({ weightKg: entry.weight_kg, heightCm: state.heightCm, age: state.age, enabled: state.trackBmi, override: entry.bmi_override })?.value ?? null);
+  const hasBmiTrend = bmiValues.filter((value) => Number.isFinite(value)).length >= 2;
+  $("#weight-bmi-legend").hidden = !hasBmiTrend;
+  $("#weight-goal-legend").hidden = !state.goalWeightKg;
   if (entries.length === 1) {
     line.setAttribute("points", "");
     pointsRoot.replaceChildren();
     point.setAttribute("cx", "300");
-    point.setAttribute("cy", "60");
-    point.hidden = false;
+    point.setAttribute("cy", "75");
+    goalLine.setAttribute("hidden", "");
+    bmiLine.setAttribute("hidden", "");
+    point.removeAttribute("hidden");
     $("#weight-trend-copy").textContent = "Starting point saved · add another weigh-in to see the trend";
     return;
   }
   const weights = entries.map((entry) => Number(entry.weight_kg));
-  const minimum = Math.min(...weights);
-  const maximum = Math.max(...weights);
+  const weightScaleValues = state.goalWeightKg ? [...weights, state.goalWeightKg] : weights;
+  const minimum = Math.min(...weightScaleValues);
+  const maximum = Math.max(...weightScaleValues);
   const spread = Math.max(maximum - minimum, 1);
   const points = entries.map((entry, index) => {
     const x = entries.length === 1 ? 300 : 12 + (index / (entries.length - 1)) * 576;
-    const y = 108 - ((Number(entry.weight_kg) - minimum) / spread) * 96;
+    const y = 136 - ((Number(entry.weight_kg) - minimum) / spread) * 122;
     return `${x.toFixed(1)},${y.toFixed(1)}`;
   }).join(" ");
   line.setAttribute("points", points);
+  if (state.goalWeightKg) {
+    const goalY = 136 - ((state.goalWeightKg - minimum) / spread) * 122;
+    goalLine.setAttribute("y1", goalY.toFixed(1));
+    goalLine.setAttribute("y2", goalY.toFixed(1));
+    goalLine.innerHTML = `<title>${escapeHtml(`Goal weight ${formatWeight(state.goalWeightKg, state.unitSystem)}`)}</title>`;
+    goalLine.removeAttribute("hidden");
+  } else goalLine.setAttribute("hidden", "");
+  if (hasBmiTrend) {
+    const finiteBmi = bmiValues.filter((value) => Number.isFinite(value));
+    const bmiMinimum = Math.min(...finiteBmi);
+    const bmiMaximum = Math.max(...finiteBmi);
+    const bmiSpread = Math.max(bmiMaximum - bmiMinimum, 0.5);
+    const bmiPoints = bmiValues.map((value, index) => {
+      if (!Number.isFinite(value)) return null;
+      const x = 12 + (index / (entries.length - 1)) * 576;
+      const y = 126 - ((value - bmiMinimum) / bmiSpread) * 102;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    }).filter(Boolean).join(" ");
+    bmiLine.setAttribute("points", bmiPoints);
+    bmiLine.innerHTML = `<title>${escapeHtml(`Estimated BMI trend ${finiteBmi[0].toFixed(1)} to ${finiteBmi.at(-1).toFixed(1)}`)}</title>`;
+    bmiLine.removeAttribute("hidden");
+  } else {
+    bmiLine.setAttribute("points", "");
+    bmiLine.setAttribute("hidden", "");
+  }
   pointsRoot.innerHTML = points.split(" ").map((coordinates, index) => {
     const [cx, cy] = coordinates.split(",");
     const displayWeight = Math.round(weightFromKg(entries[index].weight_kg, state.unitSystem) * 10) / 10;
@@ -624,8 +658,11 @@ function renderWeightChart(entries) {
   const [latestX, latestY] = points.split(" ").at(-1).split(",");
   point.setAttribute("cx", latestX);
   point.setAttribute("cy", latestY);
-  point.hidden = false;
-  $("#weight-trend-copy").textContent = `${entries.length} recent weigh-ins`;
+  point.removeAttribute("hidden");
+  const latestWeight = Number(entries.at(-1).weight_kg);
+  const goalCopy = state.goalWeightKg ? ` · ${formatWeight(Math.abs(latestWeight - state.goalWeightKg), state.unitSystem)} from goal` : "";
+  const bmiCopy = hasBmiTrend ? ` · BMI ${bmiValues[0].toFixed(1)} → ${bmiValues.at(-1).toFixed(1)}` : "";
+  $("#weight-trend-copy").textContent = `${entries.length} recent weigh-ins${goalCopy}${bmiCopy}`;
 }
 
 function renderWeightProgress() {
@@ -1709,19 +1746,22 @@ function reportLineChart(definition, dailySeries) {
     : "";
   const lastIndex = values.length - 1;
   const average = values.reduce((sum, value) => sum + value, 0) / values.length;
+  const excessPercent = hasGoal && average > goal ? Math.min(35, ((average - goal) / goal) * 100) : 0;
+  const goalPercent = hasGoal ? (average > goal ? 100 - excessPercent : Math.min(100, (average / goal) * 100)) : 0;
   const dateFormat = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
   const firstDate = dateFormat.format(new Date(`${dailySeries[0].date}T12:00:00`));
   const lastDate = dateFormat.format(new Date(`${dailySeries.at(-1).date}T12:00:00`));
   const spokenValues = values.map((value, index) => `${dailySeries[index].date}: ${Math.round(value)}${definition.unit}`).join(", ");
-  return `<article class="report-chart-card">
-    <div><strong>${definition.label}</strong><span>Avg ${Math.round(average).toLocaleString()}${definition.unit}${hasGoal ? ` · Goal ${Math.round(goal).toLocaleString()}${definition.unit}` : ""}</span></div>
+  return `<article class="report-chart-card ${hasGoal ? "has-goal" : "no-goal"}">
+    <div class="report-metric-heading"><strong>${definition.label}</strong><span>${Math.round(average).toLocaleString()}${definition.unit}${hasGoal ? ` / ${Math.round(goal).toLocaleString()}${definition.unit}` : " average"}</span></div>
+    ${hasGoal ? `<span class="report-average-track ${average > goal ? "is-over" : ""}" aria-label="Average ${Math.round(average)}${definition.unit} out of ${Math.round(goal)}${definition.unit}"><i class="report-average-fill" style="width:${goalPercent.toFixed(1)}%"></i><i class="report-average-excess" style="width:${excessPercent.toFixed(1)}%"></i></span>` : ""}
+    <div class="report-trend-label"><span>Daily progression</span><small>${escapeHtml(firstDate)}–${escapeHtml(lastDate)}</small></div>
     <svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" role="img" aria-label="${escapeHtml(`${definition.label} by logged day. ${spokenValues}`)}">
       <line class="report-chart-baseline" x1="${left}" y1="${height - bottom}" x2="${width - right}" y2="${height - bottom}"></line>
       ${targetLine}
       <polyline class="report-chart-line" points="${points}"></polyline>
       <circle class="report-chart-point" cx="${x(lastIndex).toFixed(1)}" cy="${y(values[lastIndex]).toFixed(1)}" r="4"></circle>
     </svg>
-    <small><span>${escapeHtml(firstDate)}</span><span>${escapeHtml(lastDate)}</span></small>
   </article>`;
 }
 
