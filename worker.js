@@ -1,4 +1,35 @@
-const release = "20260813-3";
+const release = "20261004-v95";
+
+const privatePathPrefixes = [
+  "/docs/",
+  "/tests/",
+  "/scripts/",
+  "/supabase/",
+  "/server/",
+  "/api/",
+  "/dist/",
+  "/assets/design-reference/",
+  "/.git",
+  "/.github",
+  "/.wrangler"
+];
+
+const privateRootFiles = new Set([
+  "/.assetsignore",
+  "/.env",
+  "/.env.example",
+  "/.gitignore",
+  "/AI_TEAM.md",
+  "/LAUNCH_RUNBOOK.md",
+  "/README.md",
+  "/netlify.toml",
+  "/package.json",
+  "/package-lock.json",
+  "/pnpm-lock.yaml",
+  "/pnpm-workspace.yaml",
+  "/wrangler.jsonc",
+  "/yarn.lock"
+]);
 
 const securityHeaders = {
   "Content-Security-Policy": "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' https://egbieqvbwniaxgqjzqkp.supabase.co wss://egbieqvbwniaxgqjzqkp.supabase.co; script-src 'self'; style-src 'self'; manifest-src 'self'; worker-src 'self' blob:",
@@ -18,6 +49,9 @@ function secured(response) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    if (privateRootFiles.has(url.pathname) || privatePathPrefixes.some((prefix) => url.pathname.startsWith(prefix))) {
+      return secured(new Response("Not found", { status: 404 }));
+    }
     const isAppEntry =
       request.method === "GET" &&
       (url.pathname === "/app/app" || url.pathname === "/app/app.html");

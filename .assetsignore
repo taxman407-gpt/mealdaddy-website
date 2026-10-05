@@ -33,6 +33,10 @@ pnpm-workspace.yaml
 netlify.toml
 dist
 dist/**
+docs
+docs/**
+assets/design-reference
+assets/design-reference/**
 app/sandbox.html
 app/sandbox.js
 app/v1-sandbox.html
