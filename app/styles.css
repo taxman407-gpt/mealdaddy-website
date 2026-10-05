@@ -923,6 +923,7 @@ html:has(.v1-live) { height: auto; min-height: 100%; overflow-y: auto !important
 .v1-live .star-rating legend,
 .v1-live .feedback-comment small,
 .v1-live #feedback-status,
+.v1-live .ledger-item small,
 .v1-live .ledger-actions > small,
 .v1-live .ledger-empty { color: var(--v1-muted); }
 .v1-live .coach-launcher .coach-action-form > label > strong,

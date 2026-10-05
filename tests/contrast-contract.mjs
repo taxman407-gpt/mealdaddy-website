@@ -16,6 +16,7 @@ assert.match(styles, /\.v1-live \.coach-launcher \.recipe-options label small,[\
 assert.match(styles, /\.v1-live #account-email \{ color: var\(--v1-muted\); \}/);
 assert.match(styles, /\.v1-live \.app-header \.text-button \{ color: var\(--v1-lime\); \}/);
 assert.match(styles, /\.v1-live \.ledger-icon \{ color: #071711; background: var\(--v1-lime\); \}/);
+assert.match(styles, /\.v1-live \.ledger-item small,[\s\S]*color: var\(--v1-muted\);/);
 assert.match(styles, /\.v1-live \.reports-heading > div > p:last-child,[\s\S]*\.v1-live \.report-completeness,[\s\S]*color: var\(--v1-muted\);/);
 assert.match(styles, /\.v1-live \.v1-plan-choices > #plan-dinner \{ color: var\(--v1-text\); background: var\(--v1-panel\); \}/);
 assert.match(styles, /\.v1-live \.metric-breakdown-panel,[\s\S]*\.v1-live \.leftover-adjustment-panel \{ color: var\(--ink\); \}/);
