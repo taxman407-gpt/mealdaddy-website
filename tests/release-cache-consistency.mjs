@@ -7,18 +7,18 @@ const shellMatch = serviceWorker.match(/const SHELL = (\[[^;]+\]);/);
 assert.ok(shellMatch, "The service-worker shell manifest must be readable.");
 const shell = JSON.parse(shellMatch[1]);
 
-assert.match(serviceWorker, /mealdaddy-shell-v96/);
-assert.match(read("worker.js"), /const release = "20261004-v96"/);
+assert.match(serviceWorker, /mealdaddy-shell-v98/);
+assert.match(read("worker.js"), /const release = "20261004-v98"/);
 
 for (const page of ["app/index.html", "app/auth.html", "app/app.html", "app/account.html", "app/setup.html"]) {
   const html = read(page);
   const stylesheet = html.match(/href="(\.\/styles\.css\?v=[^"]+)"/)?.[1];
-  assert.equal(stylesheet, "./styles.css?v=20261004-21", `${page} must use the v96 stylesheet.`);
+  assert.equal(stylesheet, "./styles.css?v=20261004-23", `${page} must use the v98 stylesheet.`);
 }
 
 for (const [page, expectedScript] of [
   ["app/auth.html", "./auth.js?v=20261004-1"],
-  ["app/app.html", "./app.js?v=20261004-30"],
+  ["app/app.html", "./app.js?v=20261004-31"],
   ["app/account.html", "./account.js?v=20261004-7"],
   ["app/setup.html", "./setup.js?v=20261004-8"]
 ]) {
@@ -28,7 +28,7 @@ for (const [page, expectedScript] of [
 }
 
 for (const asset of [
-  "./styles.css?v=20261004-21",
+  "./styles.css?v=20261004-23",
   "./saved-foods.js?v=20261004-11",
   "./restaurant-plan.js?v=20261004-1",
   "./private-image.js?v=20261004-1",
@@ -38,6 +38,11 @@ for (const asset of [
 }
 
 for (const staleVersion of [
+  "mealdaddy-shell-v97",
+  "styles.css?v=20261004-22",
+  "mealdaddy-shell-v96",
+  "styles.css?v=20261004-21",
+  "app.js?v=20261004-30",
   "mealdaddy-shell-v95",
   "styles.css?v=20261004-20",
   "auth.js?v=20260813-5",

@@ -43,9 +43,10 @@ Deno.serve(async (request) => {
   const {data:sharedHit}=await admin.from("shared_recipe_templates").select("recipe,use_count,expires_at").eq("cache_key",sharedKey).neq("beta_status","retired").maybeSingle();
   const sharedFresh=sharedHit&&(!sharedHit.expires_at||new Date(sharedHit.expires_at)>new Date());
   if(sharedFresh&&!hasSensitive&&!search){
-    const {data:saved}=await admin.from("saved_recipes").upsert({user_id:user.id,request_key:requestKey,source_description:source,detail_level:detail,recipe:sharedHit.recipe,shared_template_key:sharedKey,last_used_at:new Date().toISOString()},{onConflict:"user_id,request_key"}).select("id").single();
+    const {data:saved,error:saveError}=await admin.from("saved_recipes").upsert({user_id:user.id,request_key:requestKey,source_description:source,detail_level:detail,recipe:sharedHit.recipe,shared_template_key:sharedKey,last_used_at:new Date().toISOString()},{onConflict:"user_id,request_key"}).select("id").single();
+    if(saveError||!saved?.id) return json({error:"The recipe was found but could not be saved privately."},503);
     await admin.from("shared_recipe_templates").update({use_count:Number(sharedHit.use_count||0)+1}).eq("cache_key",sharedKey);
-    return json({ok:true,recipePlan:sharedHit.recipe,savedRecipeId:saved?.id,cache:"shared",aiCostMicros:0,beta:true});
+    return json({ok:true,recipePlan:sharedHit.recipe,savedRecipeId:saved.id,cache:"shared",aiCostMicros:0,beta:true});
   }
   const {data:membership}=await admin.from("subscriptions").select("plan_key,status").eq("user_id",user.id).maybeSingle();
   const {data:grant}=await admin.from("complimentary_access_grants").select("status").eq("user_id",user.id).maybeSingle();
@@ -67,6 +68,6 @@ Deno.serve(async (request) => {
   if(settleError)return json({error:"Recipe generated, but accounting needs attention."},503);
   if(!hasSensitive){await admin.from("shared_recipe_templates").upsert({cache_key:sharedKey,source_description:String(recipe.title||"Generic favorite meal").slice(0,500),detail_level:detail,recipe,source_checked_on:search?new Date().toISOString().slice(0,10):null,expires_at:search?new Date(Date.now()+30*86400000).toISOString():null,updated_at:new Date().toISOString()});}
   const {data:saved,error:saveError}=await admin.from("saved_recipes").upsert({user_id:user.id,request_key:requestKey,source_description:source,detail_level:detail,recipe,shared_template_key:hasSensitive?null:sharedKey,last_used_at:new Date().toISOString()},{onConflict:"user_id,request_key"}).select("id").single();
-  if(saveError)return json({error:"Recipe generated but could not be saved privately."},503);
+  if(saveError||!saved?.id)return json({error:"Recipe generated but could not be saved privately."},503);
   return json({ok:true,recipePlan:recipe,savedRecipeId:saved.id,cache:"generated",aiCostMicros:cost,beta:true});
 });

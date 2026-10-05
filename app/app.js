@@ -121,6 +121,7 @@ if (ledgerReviewDate) {
 const installDismissedKey = "mealdaddy-install-tip-dismissed";
 let deferredInstallPrompt = null;
 let latestReport = null;
+let recipePrintCleanup = null;
 document.body.classList.remove("auth-loading");
 $("#account-email").textContent = user.email || "Signed in";
 $("#greeting").textContent = `Welcome back${user.user_metadata?.first_name ? `, ${user.user_metadata.first_name}` : ""}.`;
@@ -1709,6 +1710,9 @@ function summarizeReport(entries) {
     sum.fat += Number(nutrition.fat_g || 0);
     sum.fiber += Number(nutrition.fiber_g || 0);
     sum.water += entry.kind === "hydration" ? Number(nutrition.ounces || 0) : Number(nutrition.hydration_ounces || 0);
+    if (typeof nutrition.sodium_mg === "number") sum.sodium = Number(sum.sodium || 0) + nutrition.sodium_mg;
+    if (typeof nutrition.added_sugar_g === "number") sum.addedSugar = Number(sum.addedSugar || 0) + nutrition.added_sugar_g;
+    if (typeof nutrition.saturated_fat_g === "number") sum.saturatedFat = Number(sum.saturatedFat || 0) + nutrition.saturated_fat_g;
     if (entry.kind === "meal") sum.meals += 1;
     if (entry.kind === "hydration") sum.hydrationEntries += 1;
     return sum;
@@ -1746,7 +1750,7 @@ function summarizeReport(entries) {
 const reportChartDefinitions = [
   { key: "calories", label: "Calories", unit: "", goal: () => state.calorieGoal },
   { key: "protein", label: "Protein", unit: "g", goal: () => state.proteinGoal },
-  { key: "carbs", label: "Total carbs", unit: "g", goal: () => null },
+  { key: "carbs", orderKey: "totalCarbs", label: "Total carbs", unit: "g", goal: () => null },
   { key: "netCarbs", label: "Net carbs", unit: "g", goal: () => state.netCarbGoal || null },
   { key: "fat", label: "Fat", unit: "g", goal: () => null },
   { key: "fiber", label: "Fiber", unit: "g", goal: () => state.fiberGoal },
@@ -1755,6 +1759,18 @@ const reportChartDefinitions = [
   ,{ key: "addedSugar", label: "Added sugar", unit: "g", goal: () => state.addedSugarGoal, optional: true }
   ,{ key: "saturatedFat", label: "Saturated fat", unit: "g", goal: () => state.saturatedFatGoal, optional: true }
 ];
+
+function orderReportMetrics(items) {
+  const ranks = new Map(state.metricOrder.map((key, index) => [key, index]));
+  return items
+    .map((item, index) => ({ item, index }))
+    .sort((left, right) => {
+      const leftRank = ranks.get(left.item.orderKey || left.item.key);
+      const rightRank = ranks.get(right.item.orderKey || right.item.key);
+      return (leftRank ?? state.metricOrder.length + left.index) - (rightRank ?? state.metricOrder.length + right.index);
+    })
+    .map(({ item }) => item);
+}
 
 function reportLineChart(definition, dailySeries) {
   if (!dailySeries.length) return "";
@@ -1800,9 +1816,11 @@ function reportLineChart(definition, dailySeries) {
 function renderReportCharts(dailySeries) {
   const root = $("#report-charts");
   if (!root) return;
+  const definitions = reportChartDefinitions.filter((definition) =>
+    !definition.optional || (state.optionalMetrics.includes(definition.key) && dailySeries.some((day) => day[definition.key] !== null))
+  );
   root.innerHTML = dailySeries.length
-    ? reportChartDefinitions
-      .filter((definition) => !definition.optional || (state.optionalMetrics.includes(definition.key) && dailySeries.some((day) => day[definition.key] !== null)))
+    ? orderReportMetrics(definitions)
       .map((definition) => reportLineChart(definition, dailySeries)).join("")
     : '<p class="report-chart-empty">Log at least one complete day to see progression lines.</p>';
 }
@@ -1847,22 +1865,23 @@ function renderReport(period, range, entries, weightEntries = state.weightEntrie
   const inflammationValue = inflammation.score === null
     ? "No scored meals"
     : `${inflammation.score.toFixed(1)}/10 · ${inflammationBand(inflammation.score).label}`;
-  const optionalReportMetrics = [
-    state.optionalMetrics.includes("sodium") ? [`Sodium${averageLabel}`, totals.sodium === null ? "Not estimated" : averageValue(totals.sodium, "mg")] : null,
-    state.optionalMetrics.includes("addedSugar") ? [`Added sugar${averageLabel}`, totals.addedSugar === null ? "Not estimated" : averageValue(totals.addedSugar, "g")] : null,
-    state.optionalMetrics.includes("saturatedFat") ? [`Saturated fat${averageLabel}`, totals.saturatedFat === null ? "Not estimated" : averageValue(totals.saturatedFat, "g")] : null
-  ].filter(Boolean);
+  const nutritionMetrics = orderReportMetrics([
+    { key: "calories", row: [`Calories${averageLabel}`, averageValue(totals.calories)] },
+    { key: "protein", row: [`Protein${averageLabel}`, averageValue(totals.protein, "g")] },
+    { key: "totalCarbs", row: [`Total carbs${averageLabel}`, averageValue(totals.carbs, "g")] },
+    { key: "netCarbs", row: [`Net carbs${averageLabel}`, averageValue(totals.netCarbs, "g")] },
+    { key: "fat", row: [`Fat${averageLabel}`, averageValue(totals.fat, "g")] },
+    { key: "fiber", row: [`Fiber${averageLabel}`, averageValue(totals.fiber, "g")] },
+    { key: "water", row: [`Hydration${averageLabel}`, averageValue(totals.water, "oz")] },
+    { key: "inflammation", row: ["Inflammation Score™ average/scored day", inflammationValue] },
+    ...(state.optionalMetrics.includes("sodium") ? [{ key: "sodium", row: [`Sodium${averageLabel}`, totals.sodium === null ? "Not estimated" : averageValue(totals.sodium, "mg")] }] : []),
+    ...(state.optionalMetrics.includes("addedSugar") ? [{ key: "addedSugar", row: [`Added sugar${averageLabel}`, totals.addedSugar === null ? "Not estimated" : averageValue(totals.addedSugar, "g")] }] : []),
+    ...(state.optionalMetrics.includes("saturatedFat") ? [{ key: "saturatedFat", row: [`Saturated fat${averageLabel}`, totals.saturatedFat === null ? "Not estimated" : averageValue(totals.saturatedFat, "g")] }] : [])
+  ]).map(({ row }) => row);
   const metrics = [
     ["Entries included", includedEntries.length.toLocaleString()],
     ["Days averaged", averagedDays.toLocaleString()],
-    [`Calories${averageLabel}`, averageValue(totals.calories)],
-    [`Protein${averageLabel}`, averageValue(totals.protein, "g")],
-    [`Total/net carbs${averageLabel}`, averagedDays ? `${Math.round(totals.carbs / divisor)}g/${Math.round(totals.netCarbs / divisor)}g` : "No data"],
-    [`Fat${averageLabel}`, averageValue(totals.fat, "g")],
-    [`Fiber${averageLabel}`, averageValue(totals.fiber, "g")],
-    [`Hydration${averageLabel}`, averageValue(totals.water, "oz")],
-    ["Inflammation Score™ average/scored day", inflammationValue],
-    ...optionalReportMetrics,
+    ...nutritionMetrics,
     ...weightSummary.metrics
   ];
   const inflammationCoverage = inflammation.scoredMeals
@@ -2154,6 +2173,7 @@ function renderRecipePlan(recipe, savedRecipeId, cache) {
     ${(recipe.personalization || []).length ? `<section><h4>How this supports your requirements</h4><ul>${recipe.personalization.map((item) => `<li>${escapeHtml(String(item))}</li>`).join("")}</ul></section>` : ""}
     <div class="recipe-meta"><span>${formatEstimateNumber(nutrition.calories)} cal</span><span>${formatEstimateNumber(nutrition.protein_g)}g protein</span><span>${formatEstimateNumber(nutrition.net_carbs_g)}g net carbs</span><span>Impact ${formatEstimateNumber(nutrition.inflammation_score)}/10</span></div>
     <p>${escapeHtml(String(recipe.source_note || "Nutrition is estimated."))}</p>
+    <div class="recipe-print-actions"><button class="button" type="button" data-print-recipe>Print / Save PDF</button><small>Use your device’s print dialog to print the recipe or save a PDF copy.</small></div>
     <form class="recipe-feedback"><strong>Help develop this Beta</strong><span>Please rate this recreation and tell us what would make it more useful.</span><div class="recipe-rating" role="group" aria-label="Recipe rating">${[1,2,3,4,5].map((rating) => `<button type="button" data-recipe-rating="${rating}">${rating}</button>`).join("")}</div><textarea maxlength="1500" placeholder="What worked? What should MealDaddy change?"></textarea><button class="button" type="submit">Send recipe feedback</button><p role="status"></p></form>
   </article>`;
   return true;
@@ -2204,12 +2224,30 @@ $("#personalize-feedback").addEventListener("click", () => {
 });
 $("#close-coach-action").addEventListener("click", () => {
   $("#coach-action-form").hidden = true;
+  $("#coach-action-result").hidden = true;
   clearCoachPhoto();
   clearRestaurantLocation();
   showAppView("plan");
 });
 
 $("#coach-action-result").addEventListener("click", async (event) => {
+  const printRecipeButton = event.target.closest("[data-print-recipe]");
+  if (printRecipeButton) {
+    recipePrintCleanup?.();
+    document.body.classList.add("recipe-print-mode");
+    let cleanupTimer;
+    const cleanup = () => {
+      document.body.classList.remove("recipe-print-mode");
+      window.removeEventListener("afterprint", cleanup);
+      window.clearTimeout(cleanupTimer);
+      if (recipePrintCleanup === cleanup) recipePrintCleanup = null;
+    };
+    recipePrintCleanup = cleanup;
+    window.addEventListener("afterprint", cleanup, { once: true });
+    cleanupTimer = window.setTimeout(cleanup, 120000);
+    window.print();
+    return;
+  }
   const ratingButton = event.target.closest("[data-recipe-rating]");
   if (ratingButton) {
     ratingButton.closest(".recipe-rating").querySelectorAll("button").forEach((button) => button.classList.toggle("is-active", button === ratingButton));

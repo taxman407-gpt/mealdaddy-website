@@ -21,6 +21,14 @@ for (const optionalMetric of ["sodium", "addedSugar", "saturatedFat"]) {
 for (const metric of ["calories", "protein", "carbs", "netCarbs", "fat", "fiber", "water"]) {
   assert.match(script, new RegExp(`key: "${metric}"`));
 }
+assert.match(script, /key: "carbs", orderKey: "totalCarbs"/);
+assert.match(script, /function orderReportMetrics\(items\)/);
+assert.match(script, /orderReportMetrics\(definitions\)[\s\S]*reportLineChart/);
+assert.match(script, /const nutritionMetrics = orderReportMetrics\(\[/);
+assert.doesNotMatch(script, /Total\/net carbs/);
+for (const optionalField of ["sodium_mg", "added_sugar_g", "saturated_fat_g"]) {
+  assert.ok((script.match(new RegExp(`typeof nutrition\\.${optionalField} === "number"`, "g")) || []).length >= 2, `${optionalField} must be accumulated for daily charts and summary averages.`);
+}
 assert.match(script, /renderReportCharts\(dailySeries\)/);
 assert.match(script, /state\.goalWeightKg[\s\S]*?goalLine\.setAttribute\("y1"/);
 assert.match(script, /let weightChartPeriod = "year"/);
