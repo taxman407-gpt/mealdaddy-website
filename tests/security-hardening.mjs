@@ -47,6 +47,8 @@ assert.match(appScript, /checkoutUrl\.protocol !== "https:"/);
 assert.match(appScript, /photoUploaded && !photoAttachedToEntry/);
 assert.match(appScript, /preparePrivateImage/);
 assert.match(assetExclusions, /app\/v1-sandbox\.html/);
+assert.match(netlifyBuild, /privateAssetDirectories = new Set\(\["design-reference"\]\)/);
+assert.match(netlifyBuild, /directory === "assets" && privateAssetDirectories\.has/);
 assert.match(assetExclusions, /app\/v1-sandbox\.js/);
 assert.match(assetExclusions, /app\/v1-sandbox\.css/);
 assert.match(assetExclusions, /docs\/\*\*/);

@@ -13,6 +13,7 @@ const testOnlyAppFiles = new Set([
   "v1-sandbox.js",
   "v1-sandbox.css"
 ]);
+const privateAssetDirectories = new Set(["design-reference"]);
 
 if (!existsSync(join(projectRoot, "app", "vendor", "supabase-js.js"))) {
   throw new Error("Missing bundled Supabase client. Run npm run build:vendor first.");
@@ -32,7 +33,12 @@ for (const directory of publicDirectories) {
   if (!existsSync(source)) throw new Error(`Missing required public directory: ${directory}`);
   cpSync(source, join(outputRoot, directory), {
     recursive: true,
-    filter: (candidate) => directory !== "app" || !testOnlyAppFiles.has(candidate.slice(source.length + 1).replaceAll("\\", "/"))
+    filter: (candidate) => {
+      const relative = candidate.slice(source.length + 1).replaceAll("\\", "/");
+      if (directory === "app" && testOnlyAppFiles.has(relative)) return false;
+      if (directory === "assets" && privateAssetDirectories.has(relative.split("/")[0])) return false;
+      return true;
+    }
   });
 }
 
