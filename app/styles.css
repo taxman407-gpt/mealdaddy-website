@@ -27,6 +27,7 @@ h2 { font-size: clamp(1.65rem, 3vw, 2.6rem); line-height: 1.06; letter-spacing: 
 .eyebrow { margin-bottom: 10px; color: var(--orange); font-size: .72rem; font-weight: 850; letter-spacing: .12em; text-transform: uppercase; }
 .brand { display: inline-flex; align-items: center; gap: 10px; color: inherit; font-weight: 850; text-decoration: none; }
 .brand-mark { display: grid; width: 36px; height: 36px; place-items: center; border-radius: 12px; color: var(--forest); background: var(--lime); }
+.brand sup { margin-left: 1px; font-size: .48em; line-height: 0; vertical-align: super; }
 .marketing-nav, .app-header { display: flex; align-items: center; justify-content: space-between; max-width: 1240px; margin: auto; padding: 20px clamp(18px, 4vw, 44px); }
 .text-link, .text-button { border: 0; color: var(--forest); background: transparent; font-weight: 750; }
 
@@ -82,6 +83,7 @@ h2 { font-size: clamp(1.65rem, 3vw, 2.6rem); line-height: 1.06; letter-spacing: 
 .tips-grid strong { color: var(--forest); font-size: .76rem; }.tips-grid p { margin: 5px 0 0; color: var(--muted); font-size: .72rem; line-height: 1.5; }
 .tips-grid .signature-tip { border-color: #c7d7ad; background: linear-gradient(145deg, #f5f9e9, #eef5ef); }
 .signature-tip > span { display: block; margin-bottom: 5px; color: #5f762f; font-size: .58rem; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; }
+.brand-notice { display: grid; gap: 5px; border: 1px solid var(--line); border-radius: 14px; padding: 13px 15px; color: var(--muted); background: var(--soft); font-size: .72rem; line-height: 1.5; }.brand-notice strong { color: var(--forest); font-size: .76rem; }
 .weight-launcher { margin: -8px 0 18px; }
 .weight-launcher[hidden] { display: none; }
 .weight-launch-button { width: 100%; min-height: 48px; border: 1px solid var(--forest); border-radius: 15px; padding: 0 18px; color: white; background: var(--forest); font-size: .82rem; font-weight: 830; cursor: pointer; }
