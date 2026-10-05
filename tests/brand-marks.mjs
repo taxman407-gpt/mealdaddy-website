@@ -5,11 +5,16 @@ const app = readFileSync(new URL("../app/app.html", import.meta.url), "utf8");
 const account = readFileSync(new URL("../app/account.html", import.meta.url), "utf8");
 const terms = readFileSync(new URL("../terms.html", import.meta.url), "utf8");
 
-for (const mark of ["Nutrition Tracking Engine™", "Adaptive Hydration™", "Inflammation Score™ System", "One Meal, One Entry™", "Goal-to-Table Loop™"]) {
+for (const mark of ["MealDaddy MealSight™", "One Meal, One Entry™", "MealDaddy GoalFlow™", "MealDaddy MenuVector™", "MealDaddy MealTrace™", "MealDaddy FavoriteForward™", "MealDaddy Hydration Guardrails™", "Inflammation Score™ System"]) {
   assert.ok(app.includes(mark), `${mark} should appear in the app`);
   assert.ok(account.includes(mark), `${mark} should appear in account information`);
-  assert.ok(terms.includes(mark), `${mark} should appear in the draft terms`);
+  assert.ok(terms.includes(mark), `${mark} should appear in the app-linked terms`);
 }
+assert.doesNotMatch(app + account, /Nutrition Tracking Engine™|Adaptive Hydration™|Goal-to-Table Loop™/);
+assert.match(app, /Your photograph and clarification belong together\./);
+assert.match(app, /Measurements, ingredients, and preparation notes clarify the pictured food rather than becoming additional entries\./);
+assert.match(app, /Set goals → Plan → Log → Review → Learn → Plan again/);
+assert.match(app, /href="\.\.\/instructions\.html#goalflow">→ Learn More<\/a>/);
 assert.doesNotMatch(app + account + terms, /®/);
 
 console.log("Brand-mark consistency checks passed.");

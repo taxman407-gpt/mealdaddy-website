@@ -7,6 +7,9 @@ const script = readFileSync(new URL("../app/app.js", import.meta.url), "utf8");
 assert.match(html, /id="report-charts"/);
 assert.match(html, /id="weight-chart-points"/);
 assert.match(html, /id="weight-goal-line"/);
+for (const period of ["week", "month", "year"]) assert.match(html, new RegExp(`data-weight-period="${period}"`));
+assert.match(html, /data-weight-period="year" aria-pressed="true"/);
+assert.match(html, /id="weight-chart-area"/);
 assert.doesNotMatch(html, /id="weight-bmi-line"/);
 assert.equal((html.match(/class="v1-over-track"/g) || []).length, 11);
 assert.match(html, /data-metric="inflammation"/);
@@ -20,6 +23,10 @@ for (const metric of ["calories", "protein", "carbs", "netCarbs", "fat", "fiber"
 }
 assert.match(script, /renderReportCharts\(dailySeries\)/);
 assert.match(script, /state\.goalWeightKg[\s\S]*?goalLine\.setAttribute\("y1"/);
+assert.match(script, /let weightChartPeriod = "year"/);
+assert.match(script, /period === "year"[\s\S]*?setFullYear\(cutoff\.getFullYear\(\) - 1\)[\s\S]*?cutoff\.setDate\(1\)/);
+assert.match(script, /period === "week" \? 7 : 30/);
+assert.match(script, /entryTimes\[index\] - firstTime\) \/ timeSpan/);
 assert.doesNotMatch(script, /hasBmiTrend|weight-bmi-line/);
 assert.match(script, /report-average-track/);
 

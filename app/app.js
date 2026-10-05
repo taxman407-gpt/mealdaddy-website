@@ -537,6 +537,7 @@ function localDateValue(date = new Date()) {
 }
 
 let weightPanelReturnFocus = null;
+let weightChartPeriod = "year";
 
 function weightTrackingEnabled() {
   return shouldEnableWeightTracking({ uses: state.uses, goals: state.goals });
@@ -587,14 +588,29 @@ function weightSourceLabel(source) {
   return ({ setup: "Setup", home: "Home", clinic: "Doctor or clinic", gym: "Gym", smart_scale: "Smart scale", other: "Other" })[source] || "Measurement";
 }
 
+function weightEntriesForPeriod(entries, period = weightChartPeriod) {
+  if (!entries.length) return [];
+  const latestDate = new Date(`${entries.at(-1).measured_on}T12:00:00`);
+  const cutoff = new Date(latestDate);
+  if (period === "year") {
+    cutoff.setFullYear(cutoff.getFullYear() - 1);
+    cutoff.setDate(1);
+  } else {
+    const days = period === "week" ? 7 : 30;
+    cutoff.setDate(cutoff.getDate() - (days - 1));
+  }
+  return entries.filter((entry) => new Date(`${entry.measured_on}T12:00:00`) >= cutoff);
+}
+
 function renderWeightChart(entries) {
   const trend = $("#weight-trend");
   const chart = $("#weight-chart");
   const line = $("#weight-chart-line");
+  const area = $("#weight-chart-area");
   const goalLine = $("#weight-goal-line");
   const pointsRoot = $("#weight-chart-points");
   const point = $("#weight-chart-point");
-  if (!trend || !chart || !line || !goalLine || !pointsRoot || !point || entries.length === 0) {
+  if (!trend || !chart || !line || !area || !goalLine || !pointsRoot || !point || entries.length === 0) {
     if (trend) trend.hidden = true;
     return;
   }
@@ -602,27 +618,36 @@ function renderWeightChart(entries) {
   $("#weight-goal-legend").hidden = !state.goalWeightKg;
   if (entries.length === 1) {
     line.setAttribute("points", "");
+    area.setAttribute("points", "");
     pointsRoot.replaceChildren();
     point.setAttribute("cx", "300");
-    point.setAttribute("cy", "75");
+    point.setAttribute("cy", "105");
     goalLine.setAttribute("hidden", "");
     point.removeAttribute("hidden");
-    $("#weight-trend-copy").textContent = "Starting point saved · add another weigh-in to see the trend";
+    $("#weight-trend-copy").textContent = `1 weigh-in in this ${weightChartPeriod}`;
     return;
   }
   const weights = entries.map((entry) => Number(entry.weight_kg));
   const weightScaleValues = state.goalWeightKg ? [...weights, state.goalWeightKg] : weights;
   const minimum = Math.min(...weightScaleValues);
   const maximum = Math.max(...weightScaleValues);
-  const spread = Math.max(maximum - minimum, 1);
+  const rawSpread = Math.max(maximum - minimum, 0.5);
+  const padding = Math.max(rawSpread * 0.12, 0.25);
+  const scaleMinimum = minimum - padding;
+  const scaleMaximum = maximum + padding;
+  const spread = scaleMaximum - scaleMinimum;
+  const entryTimes = entries.map((entry) => new Date(`${entry.measured_on}T12:00:00`).getTime());
+  const firstTime = entryTimes[0];
+  const timeSpan = Math.max(entryTimes.at(-1) - firstTime, 1);
   const points = entries.map((entry, index) => {
-    const x = entries.length === 1 ? 300 : 12 + (index / (entries.length - 1)) * 576;
-    const y = 136 - ((Number(entry.weight_kg) - minimum) / spread) * 122;
+    const x = 12 + ((entryTimes[index] - firstTime) / timeSpan) * 576;
+    const y = 186 - ((Number(entry.weight_kg) - scaleMinimum) / spread) * 162;
     return `${x.toFixed(1)},${y.toFixed(1)}`;
   }).join(" ");
   line.setAttribute("points", points);
+  area.setAttribute("points", `12,186 ${points} 588,186`);
   if (state.goalWeightKg) {
-    const goalY = 136 - ((state.goalWeightKg - minimum) / spread) * 122;
+    const goalY = 186 - ((state.goalWeightKg - scaleMinimum) / spread) * 162;
     goalLine.setAttribute("y1", goalY.toFixed(1));
     goalLine.setAttribute("y2", goalY.toFixed(1));
     goalLine.innerHTML = `<title>${escapeHtml(`Goal weight ${formatWeight(state.goalWeightKg, state.unitSystem)}`)}</title>`;
@@ -640,7 +665,9 @@ function renderWeightChart(entries) {
   point.removeAttribute("hidden");
   const latestWeight = Number(entries.at(-1).weight_kg);
   const goalCopy = state.goalWeightKg ? ` · ${formatWeight(Math.abs(latestWeight - state.goalWeightKg), state.unitSystem)} from goal` : "";
-  $("#weight-trend-copy").textContent = `${entries.length} recent weigh-ins${goalCopy}`;
+  const periodLabel = weightChartPeriod === "week" ? "past week" : weightChartPeriod === "month" ? "past month" : "past year";
+  $("#weight-trend-copy").textContent = `${entries.length} weigh-ins · ${periodLabel}${goalCopy}`;
+  chart.setAttribute("aria-label", `Weight trend for the ${periodLabel}`);
 }
 
 function renderWeightProgress() {
@@ -661,12 +688,22 @@ function renderWeightProgress() {
   $("#bmi-label").textContent = bmi?.source === "entered" ? "Entered BMI" : "Estimated BMI";
   $("#weight-bmi").textContent = bmi ? bmi.value.toFixed(1) : state.trackBmi && state.age && state.age < 20 ? "Adult view unavailable" : state.trackBmi ? "—" : "Off";
 
-  renderWeightChart(ordered.slice(-30));
+  renderWeightChart(weightEntriesForPeriod(ordered));
   const recent = ordered.slice(-5).reverse();
   $("#weight-history").hidden = recent.length === 0;
   $("#weight-history-list").innerHTML = recent.map((entry) => `<li><div><strong>${escapeHtml(formatWeight(entry.weight_kg, state.unitSystem))}</strong><span>${escapeHtml(entry.measured_on)} · ${escapeHtml(weightSourceLabel(entry.source))}${entry.bmi_override ? ` · entered BMI ${Number(entry.bmi_override).toFixed(1)}` : ""}</span></div><button type="button" data-delete-weight="${entry.id}" aria-label="Delete weight measurement from ${escapeHtml(entry.measured_on)}">Delete</button></li>`).join("");
   syncWeightLauncher();
 }
+
+$$('[data-weight-period]').forEach((button) => button.addEventListener("click", () => {
+  weightChartPeriod = button.dataset.weightPeriod;
+  $$('[data-weight-period]').forEach((choice) => {
+    const active = choice === button;
+    choice.classList.toggle("is-active", active);
+    choice.setAttribute("aria-pressed", String(active));
+  });
+  renderWeightProgress();
+}));
 
 async function loadWeightEntries() {
   const { data, error } = await supabase

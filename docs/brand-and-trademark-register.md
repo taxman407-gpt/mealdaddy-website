@@ -1,6 +1,6 @@
 # MealDaddy brand and trademark register
 
-Status: internal working register for counsel review. This document records intended brand use; it is not a legal clearance opinion or proof of registration.
+Status: owner-approved working register as of October 4, 2026, pending formal clearance and counsel review. This document records intended brand use; it is not a legal clearance opinion or proof of registration.
 
 ## Use rules
 
@@ -16,11 +16,35 @@ Status: internal working register for counsel review. This document records inte
 | --- | --- | --- | --- |
 | MealDaddy™ / MealDaddy.AI™ | House mark | First prominent brand display | Highest |
 | Meal Daddy Core™ | Subscription service | First prominent plan display | High |
-| Nutrition Tracking Engine™ | Nutrition calculation and tracking system | Signature-tool description | High |
-| Adaptive Hydration™ | Meal-aware hydration guidance | Signature-tool description | High; similar wording exists in skincare and needs counsel review |
 | Inflammation Score™ System | Meal-pattern scoring and trend system | Signature-tool description | High |
-| One Meal, One Entry™ | Photo plus clarification reconciliation process | Signature-process description | High; new working mark |
-| Goal-to-Table Loop™ | Preference, planning, logging, correction, reporting, and next-step cycle | Signature-process description | High; new working mark |
+| MealDaddy MealSight™ | Photo interpretation and written-entry creation | Signature-tool description | High; working mark pending clearance |
+| One Meal, One Entry™ | Principle that a meal photograph and its clarification form one written entry | Signature-process name and supporting message | High; owner-approved working mark pending clearance |
+| MealDaddy GoalFlow™ | Preference, planning, logging, correction, reporting, and next-step cycle | Signature-process description | High; working mark pending clearance |
+| MealDaddy MenuVector™ | Personalized restaurant discovery, meal guidance, and substitutions | Signature-tool description | High; working mark pending clearance |
+| MealDaddy MealTrace™ | Meal-by-meal sources behind nutrition and other displayed metrics | Signature-tool description | High; working mark pending clearance |
+| MealDaddy FavoriteForward™ | Controlled propagation of saved-favorite corrections to today's matching entries and future uses | Signature-process description | High; working mark pending clearance |
+| MealDaddy Hydration Guardrails™ | Meal-aware hydration guidance that respects user- or clinician-established limits | Signature-tool description | High; working mark pending clearance |
+
+## Retired or rejected working names
+
+- `Nutrition Tracking Engine™` is retired as a claimed mark. Nutrition calculation remains a product capability described in ordinary language.
+- `Adaptive Hydration™` is replaced by `MealDaddy Hydration Guardrails™`.
+- `Goal-to-Table Loop™` is replaced by `MealDaddy GoalFlow™`.
+
+### Approved GoalFlow presentation
+
+**MealDaddy GoalFlow™**
+
+Set goals → Plan → Log → Review → Learn → Plan again → Learn More
+- `MenuMotive`, `MealLedger`, and `PlateFuse` were screening candidates only. MealDaddy did not adopt or use them as product marks.
+
+## Approved presentation: One Meal, One Entry™
+
+**One Meal, One Entry™**
+
+Your photograph and clarification belong together.
+
+A meal photograph creates one written entry. Measurements, ingredients, and preparation notes clarify the pictured food rather than becoming additional entries.
 
 ## Descriptive labels currently left unclaimed
 

@@ -7,7 +7,7 @@
   <meta name="robots" content="noindex" />
   <title>Today - MealDaddy</title>
   <link rel="manifest" href="./manifest.webmanifest" />
-  <link rel="stylesheet" href="./styles.css?v=20261004-19" />
+  <link rel="stylesheet" href="./styles.css?v=20261004-20" />
 </head>
 <body class="app-page auth-loading v1-live" data-app-view="log">
   <header class="app-header">
@@ -37,13 +37,15 @@
           </div>
         </aside>
         <div class="tips-grid">
-          <article class="signature-tip"><span>Signature tool</span><strong>Nutrition Tracking Engine™</strong><p>Log the whole meal together—including drinks, quantities, brands, sauces, and additions—to improve calories and macro estimates.</p></article>
-          <article class="signature-tip"><span>Signature tool</span><strong>Adaptive Hydration™</strong><p>Include every drink and note salty restaurant foods so hydration guidance has the context it needs.</p></article>
+          <article class="signature-tip"><span>Signature tool</span><strong>MealDaddy MealSight™</strong><p>Turn a meal photograph into one complete written entry, using measurements and notes to clarify what is pictured.</p></article>
+          <article class="signature-tip"><span>Signature tool</span><strong>MealDaddy Hydration Guardrails™</strong><p>Personalized hydration guidance considers beverages, estimated meal hydration, and sodium while respecting your saved target.</p></article>
           <article class="signature-tip"><span>Signature tool</span><strong>Inflammation Score™ System</strong><p>Describe processing, cooking oils, sauces, added sugars, and alcohol so inflammation-aware guidance can identify useful patterns.</p></article>
-          <article class="signature-tip"><span>Signature process</span><strong>One Meal, One Entry™</strong><p>A meal photo creates one written entry. Measurements and notes clarify that same pictured meal instead of being counted again.</p></article>
-          <article><strong>Restaurant Mode</strong><p>Open it before ordering and name the restaurant. Meal Daddy checks current sources when available, presents A, B, and C choices with substitutions, and adds your chosen customized order to Today’s Entries. Save it as a favorite from the entry whenever you want.</p></article>
+          <article class="signature-tip"><span>Signature process</span><strong>One Meal, One Entry™</strong><p><b>Your photograph and clarification belong together.</b> A meal photograph creates one written entry. Measurements, ingredients, and preparation notes clarify the pictured food rather than becoming additional entries.</p></article>
+          <article class="signature-tip"><span>Signature tool</span><strong>MealDaddy MenuVector™</strong><p>Restaurant Mode checks current sources when available, presents personalized choices and substitutions, and can add your selected order to Today’s Entries.</p></article>
           <article><strong>Plan Your Next Meal</strong><p>Take a photo of your fridge or pantry, then add your available time, servings, equipment, and budget for practical ideas using what you already have.</p></article>
-          <article class="signature-tip"><span>Signature process</span><strong>Goal-to-Table Loop™</strong><p>Keep preferences current, plan the next choice, log what happened, correct estimates, and use Reports to improve the next recommendation.</p></article>
+          <article class="signature-tip"><span>Signature process</span><strong>MealDaddy GoalFlow™</strong><p class="goalflow-sequence">Set goals → Plan → Log → Review → Learn → Plan again <a href="../instructions.html#goalflow">→ Learn More</a></p></article>
+          <article class="signature-tip"><span>Signature tool</span><strong>MealDaddy MealTrace™</strong><p>Open any Today metric to see which meals and ingredients contributed to the displayed total.</p></article>
+          <article class="signature-tip"><span>Signature process</span><strong>MealDaddy FavoriteForward™</strong><p>Correct a saved favorite for today and future uses while preserving earlier history unless you choose otherwise.</p></article>
           <article><strong>Didn't finish the meal?</strong><p>Open Edit on the meal and choose Add after / leftover photo. Take a second photo of what remains, then review the estimated amount eaten before Meal Daddy updates only that entry.</p></article>
         </div>
       </div>
@@ -72,7 +74,7 @@
     <section class="coach-launcher" aria-label="Meal planning tools">
       <div class="coach-launcher-copy"><p class="eyebrow">Plan</p><h2>What should I eat next?</h2></div>
       <div class="v1-plan-choices">
-        <button id="restaurant-mode" type="button" aria-controls="coach-action-form"><span>R</span><span><strong>Restaurant Mode</strong><small>Current menu choices, nutrition, and substitutions</small></span></button>
+        <button id="restaurant-mode" type="button" aria-controls="coach-action-form"><span>R</span><span><strong>Restaurant Mode</strong><small>MealDaddy MenuVector™ · choices and substitutions</small></span></button>
         <button id="plan-dinner" type="button" aria-controls="coach-action-form"><span>K</span><span><strong>Plan from my kitchen</strong><small>Use what I have and today’s needs</small></span></button>
         <button id="recreate-favorite" type="button"><span aria-hidden="true">🍎</span><span><strong>Recreate a Favorite Meal <em class="beta-tag">Beta</em></strong><small>Turn a favorite meal into a personalized at-home recipe</small></span></button>
       </div>
@@ -124,7 +126,7 @@
             <button class="favorite-log-button" id="log-favorite-entry" type="submit" name="quick_action" value="favorite">Log &amp; save favorite</button>
           </div>
         </div>
-        <p class="quick-photo-purpose"><strong>One Meal, One Entry™:</strong> take a meal/before photo or scan a nutrition label. Meal Daddy writes the entry description from the photo. Optional typed measurements or details clarify the pictured food and are not counted again as separate items. If the details and photo appear different, Meal Daddy flags it for review. If you leave food, open Edit on the saved entry and add an after / leftover photo.</p>
+        <p class="quick-photo-purpose"><strong>MealDaddy MealSight™ · One Meal, One Entry™:</strong> Your photograph and clarification belong together. A meal photograph creates one written entry. Measurements, ingredients, and preparation notes clarify the pictured food rather than becoming additional entries. If the details and photo appear different, Meal Daddy flags it for review. If you leave food, open Edit on the saved entry and add an after / leftover photo.</p>
       </form>
       <aside class="quick-memory-prompt" id="saved-food-match-prompt" aria-live="polite" hidden>
         <div><span class="quick-memory-badge">Saved values found</span><strong id="saved-food-match-title">Use your saved food?</strong><p id="saved-food-match-copy"></p></div>
@@ -177,7 +179,7 @@
       <article class="metric-breakdown-panel" tabindex="-1">
         <div class="metric-breakdown-handle" aria-hidden="true"></div>
         <header>
-          <div><p class="eyebrow">Today’s estimated sources</p><h2 id="metric-breakdown-title">Nutrition breakdown</h2></div>
+          <div><p class="eyebrow">MealDaddy MealTrace™ · Today’s estimated sources</p><h2 id="metric-breakdown-title">Nutrition breakdown</h2></div>
           <button class="metric-breakdown-close" type="button" data-close-metric-breakdown>← Back to Today</button>
         </header>
         <p class="metric-breakdown-summary" id="metric-breakdown-summary"></p>
@@ -203,8 +205,13 @@
         </div>
         <div class="weight-trend" id="weight-trend" hidden>
           <div><strong>Weight trend</strong><span id="weight-trend-copy">Starting point saved</span></div>
+          <div class="weight-periods" role="group" aria-label="Weight graph period">
+            <button type="button" data-weight-period="week">Week</button>
+            <button type="button" data-weight-period="month">Month</button>
+            <button class="is-active" type="button" data-weight-period="year" aria-pressed="true">Year</button>
+          </div>
           <div class="weight-chart-legend"><span><i></i>Weight</span><span id="weight-goal-legend" hidden><i></i>Goal weight</span></div>
-          <svg class="weight-chart" id="weight-chart" role="img" aria-label="Weight trend" viewBox="0 0 600 150" preserveAspectRatio="none"><line id="weight-goal-line" class="weight-goal-line" x1="12" x2="588" hidden /><polyline id="weight-chart-line" points="" /><g id="weight-chart-points"></g><circle id="weight-chart-point" cx="300" cy="75" r="6" hidden /></svg>
+          <svg class="weight-chart" id="weight-chart" role="img" aria-label="Weight trend for the past year" viewBox="0 0 600 210" preserveAspectRatio="none"><defs><linearGradient id="weight-area-gradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#dff36b" stop-opacity=".48"/><stop offset="100%" stop-color="#dff36b" stop-opacity=".03"/></linearGradient></defs><line class="weight-grid-line" x1="12" x2="588" y1="24" y2="24"/><line class="weight-grid-line" x1="12" x2="588" y1="105" y2="105"/><line class="weight-grid-line" x1="12" x2="588" y1="186" y2="186"/><polygon id="weight-chart-area" points="" /><line id="weight-goal-line" class="weight-goal-line" x1="12" x2="588" hidden /><polyline id="weight-chart-line" points="" /><g id="weight-chart-points"></g><circle id="weight-chart-point" cx="300" cy="105" r="7" hidden /></svg>
         </div>
         <form class="weight-form" id="weight-form">
           <label><span>Date</span><input id="weight-date" type="date" required /></label>
@@ -222,7 +229,7 @@
     <section class="dashboard-grid">
       <article class="ledger-card"><div class="section-title"><div><p class="eyebrow">Entries · Last 7 days</p><h2 id="ledger-date-title">Today's entries</h2></div><button class="text-button" id="refresh-ledger" type="button">Refresh</button></div><label class="ledger-date-filter">Choose a day<input id="ledger-review-date" type="date" /></label><ul id="ledger-list" class="ledger-list"></ul></article>
       <aside class="coach-card" aria-live="polite">
-        <span class="coach-label">MealDaddy Goal-to-Table Loop™</span>
+        <span class="coach-label">MealDaddy GoalFlow™</span>
         <h2 id="coach-feedback-title">Ready when you are.</h2>
         <p id="coach-feedback-support">Log what you eat and drink, and I’ll help you see the day without judgment.</p>
         <p class="coach-suggestion"><strong>Suggestion</strong><span id="coach-feedback-suggestion">Start with your next meal or drink. Close enough is good enough.</span><button id="personalize-feedback" type="button" hidden>Make this specific</button></p>
@@ -336,7 +343,7 @@
           </fieldset>
           <p class="saved-food-review-storage-copy" id="saved-food-review-storage-copy"></p>
           <fieldset class="saved-food-review-storage" id="favorite-update-scope" hidden>
-            <legend>Which logged entries should use these changes?</legend>
+            <legend>MealDaddy FavoriteForward™ · Which logged entries should use these changes?</legend>
             <label><input type="radio" name="favorite_update_scope" value="today" checked /><span><strong>Future uses + today</strong><small>Correct every use of this favorite from today and use it going forward.</small></span></label>
             <label><input type="radio" name="favorite_update_scope" value="future" /><span><strong>Future uses only</strong><small>Keep all earlier entries exactly as they were logged.</small></span></label>
             <label><input type="radio" name="favorite_update_scope" value="all" /><span><strong>All linked entries</strong><small>Apply the correction throughout your history.</small></span></label>
@@ -411,7 +418,7 @@
     <div class="onboarding-panel"><div class="step-indicator"><span class="is-active"></span><span></span><span></span></div><p class="eyebrow">A few basics first</p><h1 id="onboarding-title">How do you like to eat?</h1><p>Choose the closest fit. You can adjust individual preferences anytime.</p><div class="choice-grid" id="diet-options"></div><label class="select-field">Coaching tone<select id="tone-options"><option value="supportive">Supportive</option><option value="direct">Direct</option><option value="data_focused">Data-focused</option><option value="playful">Playful</option></select></label><button class="button button-primary full-button" id="continue-onboarding" type="button" disabled>Save my starting plan</button><p class="privacy-line">These preferences are protected by row-level security and can only be accessed by your account.</p></div>
   </section>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="./app.js?v=20261004-28" type="module"></script>
+  <script src="./app.js?v=20261004-29" type="module"></script>
   <script src="./register-sw.js?v=20260930-1"></script>
 </body>
 </html>
