@@ -283,12 +283,14 @@ async function openBillingPortal(action) {
 }
 
 async function accountExport() {
-  const [profileResult, ledger, weights, savedFoods, deviceSavedFoods, feedback, feedbackHistory, contactPreference] = await Promise.all([
+  const [profileResult, ledger, weights, savedFoods, deviceSavedFoods, savedRecipes, recipeFeedback, feedback, feedbackHistory, contactPreference] = await Promise.all([
     supabase.from("profiles").select("*").eq("user_id", user.id).maybeSingle(),
     fetchAllRows("ledger_entries", "*", "occurred_at"),
     fetchAllRows("weight_entries", "*", "measured_on"),
     fetchAllRows("saved_foods", "*", "updated_at"),
     getDeviceSavedFoods(user.id).catch(() => []),
+    fetchAllRows("saved_recipes", "*", "updated_at"),
+    fetchAllRows("recipe_beta_feedback", "*", "created_at"),
     fetchAllRows("customer_feedback", "*", "updated_at"),
     fetchAllRows("customer_feedback_history", "*", "source_updated_at"),
     supabase.from("email_contact_preferences").select("email,opted_in,consent_source,consent_updated_at,created_at,updated_at").eq("user_id", user.id).maybeSingle()
@@ -328,6 +330,8 @@ async function accountExport() {
         retained_photo_present: photo_blob instanceof Blob
       }))
     },
+    saved_recipes: savedRecipes,
+    recipe_beta_feedback: recipeFeedback,
     feedback: {
       current: feedback,
       history: feedbackHistory

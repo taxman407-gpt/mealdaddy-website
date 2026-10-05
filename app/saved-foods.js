@@ -1132,6 +1132,12 @@ export async function initializeSavedFoods({
   function favoriteStatus(entry) {
     return favoriteStatusForEntry(state.foods, entry);
   }
+  function listRecipeFavorites() {
+    return state.foods
+      .filter((food) => ["home_meal", "restaurant_item"].includes(food.item_type))
+      .sort(favoriteSort)
+      .map((food) => ({ id: foodKey(food), label: displayName(food), description: [food.name, food.brand_or_restaurant, food.notes].filter(Boolean).join(" · ") }));
+  }
   return {
     favoriteStatus,
     findBestMatch,
@@ -1139,6 +1145,7 @@ export async function initializeSavedFoods({
     reviewDetectedFood,
     reviewEstimatedMeal,
     reviewRestaurantFood,
+    listRecipeFavorites,
     refresh: loadFoods
   };
 }

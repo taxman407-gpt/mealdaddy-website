@@ -30,6 +30,12 @@
 
     <p class="insights-status" id="insights-status" role="status" aria-live="polite">Loading protected feedback indicators...</p>
 
+    <section class="insights-card" id="ai-cost-section" aria-labelledby="ai-cost-title" hidden>
+      <div class="insights-card-heading"><div><p class="eyebrow">Operating expense</p><h2 id="ai-cost-title">AI cost by feature</h2><p>Estimated provider cost is tracked separately for each AI-use category. Recipe recreation has its own line.</p></div></div>
+      <div class="insight-metrics" id="ai-cost-categories"></div>
+      <p class="insight-note">These are application accounting estimates based on recorded tokens and tool calls; provider invoices remain authoritative.</p>
+    </section>
+
     <section class="insights-card family-access-card" id="family-access-section" aria-labelledby="family-access-title" hidden>
       <div class="insights-card-heading">
         <div>
@@ -112,7 +118,7 @@
       </details>
     </section>
   </main>
-  <script type="module" src="./feedback-insights.js?v=20260813-4"></script>
+  <script type="module" src="./feedback-insights.js?v=20261004-5"></script>
   <script src="./register-sw.js?v=20260813-4"></script>
 </body>
 </html>

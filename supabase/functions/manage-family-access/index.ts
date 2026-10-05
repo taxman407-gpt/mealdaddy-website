@@ -87,10 +87,27 @@ Deno.serve(async (request) => {
   } catch {
     return json({ error: "Invalid request." }, 400);
   }
-  if (!new Set(["authorize", "list", "grant", "revoke"]).has(action)) {
+  if (!new Set(["authorize", "list", "usage-summary", "grant", "revoke"]).has(action)) {
     return json({ error: "Unknown family access action." }, 400);
   }
   if (action === "authorize") return json({ ok: true });
+
+  if (action === "usage-summary") {
+    const monthStart = new Date();
+    monthStart.setUTCDate(1); monthStart.setUTCHours(0, 0, 0, 0);
+    const { data: events, error } = await admin.from("ai_usage_events").select("request_kind,estimated_cost_micros,created_at");
+    if (error) return json({ error: "AI expense categories could not be loaded." }, 500);
+    const categories: Record<string, { all_time_micros: number; month_micros: number; calls: number }> = {};
+    for (const event of events ?? []) {
+      const key = String(event.request_kind || "legacy");
+      categories[key] ??= { all_time_micros: 0, month_micros: 0, calls: 0 };
+      const cost = Math.max(0, Number(event.estimated_cost_micros || 0));
+      categories[key].all_time_micros += cost;
+      categories[key].calls += 1;
+      if (new Date(event.created_at) >= monthStart) categories[key].month_micros += cost;
+    }
+    return json({ ok: true, categories });
+  }
 
   if (action === "list") {
     const { data: grants, error } = await admin

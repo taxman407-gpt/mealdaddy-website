@@ -89,6 +89,26 @@ async function loadFamilyAccess() {
   renderFamilyAccess(Array.isArray(result.grants) ? result.grants : []);
 }
 
+async function loadAiCosts() {
+  const result = await familyAccessRequest("usage-summary");
+  const container = $("#ai-cost-categories");
+  container.replaceChildren();
+  const categories = Object.entries(result.categories || {}).sort(([a], [b]) => a.localeCompare(b));
+  for (const [name, values] of categories) {
+    const card = document.createElement("article");
+    const label = document.createElement("span");
+    const amount = document.createElement("strong");
+    const detail = document.createElement("small");
+    label.textContent = name.replaceAll("-", " ");
+    amount.textContent = `$${(Number(values.month_micros || 0) / 1_000_000).toFixed(2)}`;
+    detail.textContent = `${Number(values.calls || 0).toLocaleString()} all-time calls · $${(Number(values.all_time_micros || 0) / 1_000_000).toFixed(2)} all time`;
+    card.append(label, amount, detail);
+    container.append(card);
+  }
+  if (!categories.length) container.textContent = "No metered AI usage yet.";
+  $("#ai-cost-section").hidden = false;
+}
+
 async function updateFamilyAccess(action, email, userId, button) {
   button.disabled = true;
   setText(
@@ -318,3 +338,4 @@ loadInsights().catch(() => {
 loadFamilyAccess().catch(async (error) => {
   setText("#family-access-status", await functionPayloadError(error, "Family access management could not be loaded."));
 });
+loadAiCosts().catch(() => { $("#ai-cost-section").hidden = true; });

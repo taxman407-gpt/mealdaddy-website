@@ -2,7 +2,7 @@ import { invokeAuthenticated, supabase, requireSession } from "./supabase-client
 import { buildProteinGuidance } from "./feedback-guidance.js?v=20261004-1";
 import { entryDateDisplayLabel, localDateValue as localEntryDateValue, occurredAtForEntryDate, quickDateOptions } from "./entry-date.js?v=20260813-4";
 import { estimatedAdultBmi, formatWeight, formatWeightChange, normalizeUnitSystem, parseHeightCm, shouldEnableWeightTracking, weightFromKg, weightToKg } from "./health-metrics.js?v=20260813-4";
-import { initializeSavedFoods } from "./saved-foods.js?v=20261004-9";
+import { initializeSavedFoods } from "./saved-foods.js?v=20261004-10";
 import { normalizeRestaurantPlan, restaurantChoiceLetters, restaurantFitLabels, restaurantMapUrl, restaurantOptionToLedgerEntry, safeRestaurantSourceUrl } from "./restaurant-plan.js?v=20260813-4";
 import { estimateInflammationScore, inflammationBand, inflammationImpact, inflammationProgressBackgroundSize, summarizeInflammationEntries, summarizeInflammationReport, weightedInflammationScore } from "./inflammation-impact.js?v=20261004-4";
 import { resolvePrimaryEatingStyle } from "./profile-preferences.js?v=20260929-1";
@@ -74,10 +74,7 @@ document.querySelectorAll("[data-account-link]").forEach((link) => {
   });
 });
 
-document.querySelector("#recreate-favorite")?.addEventListener("click", () => {
-  showAppSubview("log", "foods");
-  document.querySelector("#saved-foods")?.setAttribute("open", "");
-});
+document.querySelector("#recreate-favorite")?.addEventListener("click", () => openCoachAction("recipe"));
 
 document.querySelector("#choose-favorite")?.addEventListener("click", () => {
   showAppSubview("log", "foods");
@@ -2028,22 +2025,56 @@ function openCoachAction(mode) {
   state.coachMode = mode;
   state.restaurantPlan = null;
   const restaurantMode = mode === "restaurant";
-  if (restaurantMode) clearCoachPhoto(); else clearRestaurantLocation();
-  $("#coach-action-title").textContent = restaurantMode ? "Restaurant Mode" : "Plan Your Next Meal";
+  const recipeMode = mode === "recipe";
+  if (restaurantMode || recipeMode) clearCoachPhoto(); else clearRestaurantLocation();
+  $("#coach-action-title").textContent = restaurantMode ? "Restaurant Mode" : recipeMode ? "Recreate a Favorite Meal · Beta" : "Plan Your Next Meal";
   $("#coach-action-prompt").textContent = restaurantMode
     ? "For local results, start with your ZIP or ZIP+4. Then enter a restaurant, menu item, or what you are considering ordering."
-    : "Describe what you have, or add a fridge or pantry photo. Include your available time or what sounds good.";
+    : recipeMode
+      ? "Enter the restaurant and meal name, paste a menu description, describe a favorite meal, or choose wording from a saved favorite."
+      : "Describe what you have, or add a fridge or pantry photo. Include your available time or what sounds good.";
   $("#coach-action-context").placeholder = restaurantMode
     ? "e.g. 46140-6509 Restaurant Name or meal description"
-    : "e.g. 30 minutes, cooking for two, something low carb";
-  $("#coach-photo-field").hidden = restaurantMode;
+    : recipeMode
+      ? "e.g. grilled chicken with garlic cream sauce and roasted vegetables"
+      : "e.g. 30 minutes, cooking for two, something low carb";
+  $("#coach-photo-field").hidden = restaurantMode || recipeMode;
   $("#restaurant-location-field").hidden = !restaurantMode;
-  $("#run-coach-action").textContent = restaurantMode ? "Get ordering guidance" : "Plan my meal";
+  $("#recipe-options").hidden = !recipeMode;
+  if (recipeMode) {
+    const favoriteSelect = $("#recipe-saved-favorite");
+    const favorites = state.savedFoodsApi?.listRecipeFavorites?.() || [];
+    favoriteSelect.replaceChildren(new Option("Describe or paste a meal instead", ""), ...favorites.map((food) => new Option(food.label, food.description)));
+  }
+  $("#run-coach-action").textContent = restaurantMode ? "Get ordering guidance" : recipeMode ? "Create my recipe" : "Plan my meal";
   $("#coach-action-form").hidden = false;
   $("#coach-action-status").hidden = true;
   $("#coach-action-result").hidden = true;
   $("#coach-action-result").replaceChildren();
   $("#coach-action-context").focus();
+}
+
+$("#recipe-saved-favorite").addEventListener("change", (event) => {
+  if (event.target.value) $("#coach-action-context").value = event.target.value;
+});
+
+function renderRecipePlan(recipe, savedRecipeId, cache) {
+  if (!recipe || !Array.isArray(recipe.ingredients) || !Array.isArray(recipe.instructions)) return false;
+  const result = $("#coach-action-result");
+  const nutrition = recipe.nutrition || {};
+  const cacheLabel = cache === "private" ? "Your saved recipe" : cache === "shared" ? "MealDaddy recipe library" : "Newly personalized";
+  result.innerHTML = `<article class="recipe-card" data-saved-recipe-id="${escapeHtml(String(savedRecipeId || ""))}">
+    <div><span class="beta-tag">Beta Test</span><h3>${escapeHtml(String(recipe.title || "Personalized favorite"))}</h3><p>${escapeHtml(String(recipe.summary || ""))}</p></div>
+    <div class="recipe-meta"><span>${escapeHtml(String(recipe.detail_level || "quick"))}</span><span>${escapeHtml(String(recipe.servings || 1))} servings</span><span>${escapeHtml(cacheLabel)}</span></div>
+    <div class="recipe-columns"><section><h4>Ingredients</h4><ul>${recipe.ingredients.map((item) => `<li><strong>${escapeHtml(String(item.amount || ""))}</strong> ${escapeHtml(String(item.item || ""))}</li>`).join("")}</ul></section><section><h4>Shopping list</h4>${(recipe.shopping_list || []).map((group) => `<p><strong>${escapeHtml(String(group.department || "Other"))}:</strong> ${escapeHtml((group.items || []).join(", "))}</p>`).join("")}</section></div>
+    <section><h4>Instructions</h4><ol>${recipe.instructions.map((step) => `<li>${escapeHtml(String(step))}</li>`).join("")}</ol></section>
+    ${(recipe.substitutions || []).length ? `<section><h4>Substitutions</h4><ul>${recipe.substitutions.map((item) => `<li>${escapeHtml(String(item))}</li>`).join("")}</ul></section>` : ""}
+    ${(recipe.personalization || []).length ? `<section><h4>How this supports your requirements</h4><ul>${recipe.personalization.map((item) => `<li>${escapeHtml(String(item))}</li>`).join("")}</ul></section>` : ""}
+    <div class="recipe-meta"><span>${formatEstimateNumber(nutrition.calories)} cal</span><span>${formatEstimateNumber(nutrition.protein_g)}g protein</span><span>${formatEstimateNumber(nutrition.net_carbs_g)}g net carbs</span><span>Impact ${formatEstimateNumber(nutrition.inflammation_score)}/10</span></div>
+    <p>${escapeHtml(String(recipe.source_note || "Nutrition is estimated."))}</p>
+    <form class="recipe-feedback"><strong>Help develop this Beta</strong><span>Please rate this recreation and tell us what would make it more useful.</span><div class="recipe-rating" role="group" aria-label="Recipe rating">${[1,2,3,4,5].map((rating) => `<button type="button" data-recipe-rating="${rating}">${rating}</button>`).join("")}</div><textarea maxlength="1500" placeholder="What worked? What should MealDaddy change?"></textarea><button class="button" type="submit">Send recipe feedback</button><p role="status"></p></form>
+  </article>`;
+  return true;
 }
 
 function renderRestaurantPlan(rawPlan) {
@@ -2097,6 +2128,12 @@ $("#close-coach-action").addEventListener("click", () => {
 });
 
 $("#coach-action-result").addEventListener("click", async (event) => {
+  const ratingButton = event.target.closest("[data-recipe-rating]");
+  if (ratingButton) {
+    ratingButton.closest(".recipe-rating").querySelectorAll("button").forEach((button) => button.classList.toggle("is-active", button === ratingButton));
+    ratingButton.closest(".recipe-feedback").dataset.rating = ratingButton.dataset.recipeRating;
+    return;
+  }
   const copyAddressButton = event.target.closest("[data-copy-restaurant-address]");
   if (copyAddressButton) {
     try {
@@ -2135,11 +2172,24 @@ $("#coach-action-result").addEventListener("click", async (event) => {
   toast(`${state.restaurantPlan.restaurant} option ${option.label} was added to Today’s Entries.`);
 });
 
+$("#coach-action-result").addEventListener("submit", async (event) => {
+  const form = event.target.closest(".recipe-feedback");
+  if (!form) return;
+  event.preventDefault();
+  const rating = Number(form.dataset.rating || 0);
+  const savedRecipeId = form.closest("[data-saved-recipe-id]")?.dataset.savedRecipeId || null;
+  const status = form.querySelector('[role="status"]');
+  if (!rating) { status.textContent = "Choose a rating from 1 to 5."; return; }
+  status.textContent = "Saving your beta feedback...";
+  const { error } = await supabase.from("recipe_beta_feedback").insert({ user_id: user.id, saved_recipe_id: savedRecipeId || null, rating, comment: form.querySelector("textarea").value.trim() });
+  status.textContent = error ? "Feedback could not be saved yet." : "Thank you—your feedback will help shape this feature.";
+});
+
 $("#coach-action-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const enteredContext = $("#coach-action-context").value.trim();
-  if (state.coachMode === "restaurant" && !enteredContext) {
-    toast("Enter a restaurant, type of food, or what you want help ordering.");
+  if (["restaurant", "recipe"].includes(state.coachMode) && !enteredContext) {
+    toast(state.coachMode === "recipe" ? "Describe the favorite meal you want to recreate." : "Enter a restaurant, type of food, or what you want help ordering.");
     return;
   }
   if (!enteredContext && !state.coachPhoto) {
@@ -2153,6 +2203,8 @@ $("#coach-action-form").addEventListener("submit", async (event) => {
   button.disabled = true;
   status.textContent = state.coachMode === "restaurant"
     ? "Reviewing your options..."
+    : state.coachMode === "recipe"
+      ? "Checking saved recipes and building your personalized recreation..."
     : state.coachPhoto
       ? "Reviewing your photo and building a practical meal..."
       : "Building a practical meal...";
@@ -2171,10 +2223,15 @@ $("#coach-action-form").addEventListener("submit", async (event) => {
         return;
       }
     }
-    const { data, error } = await invokeAuthenticated("coach-action", {
+    const recipeMode = state.coachMode === "recipe";
+    const detailLevel = document.querySelector('input[name="recipe_detail"]:checked')?.value || "quick";
+    const { data, error } = await invokeAuthenticated(recipeMode ? "recipe-recreation" : "coach-action", {
       body: {
         mode: state.coachMode,
         context,
+        source: recipeMode ? context : undefined,
+        detailLevel: recipeMode ? detailLevel : undefined,
+        searchCurrent: recipeMode ? $("#recipe-search-current").checked : undefined,
         photoPath,
         location: state.coachMode === "restaurant" ? state.restaurantLocation : null,
         nutritionContext: {
@@ -2186,7 +2243,7 @@ $("#coach-action-form").addEventListener("submit", async (event) => {
         }
       }
     });
-    if (error || (!data?.guidance && !data?.restaurantPlan)) {
+    if (error || (!data?.guidance && !data?.restaurantPlan && !data?.recipePlan)) {
       const failure = error ? await readFunctionFailure(error) : { message: "" };
       const baseMessage = data?.error || failure.message || error?.message || "Meal Daddy could not generate guidance right now.";
       status.textContent = state.coachMode === "restaurant"
@@ -2195,7 +2252,9 @@ $("#coach-action-form").addEventListener("submit", async (event) => {
       return;
     }
     status.hidden = true;
-    if (state.coachMode === "restaurant" && data.restaurantPlan) {
+    if (recipeMode && data.recipePlan) {
+      if (!renderRecipePlan(data.recipePlan, data.savedRecipeId, data.cache)) result.textContent = "MealDaddy could not format this recipe. Please try again.";
+    } else if (state.coachMode === "restaurant" && data.restaurantPlan) {
       if (!renderRestaurantPlan(data.restaurantPlan)) {
         result.textContent = data.guidance || "Meal Daddy could not format the restaurant choices. Please try again.";
       }
