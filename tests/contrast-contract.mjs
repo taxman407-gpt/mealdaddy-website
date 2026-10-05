@@ -19,7 +19,13 @@ assert.match(styles, /\.v1-live \.ledger-icon \{ color: #071711; background: var
 assert.match(styles, /\.v1-live \.ledger-item small,[\s\S]*color: var\(--v1-muted\);/);
 assert.match(styles, /\.v1-live \.reports-heading > div > p:last-child,[\s\S]*\.v1-live \.report-completeness,[\s\S]*color: var\(--v1-muted\);/);
 assert.match(styles, /\.v1-live \.v1-plan-choices > #plan-dinner \{ color: var\(--v1-text\); background: var\(--v1-panel\); \}/);
-assert.match(styles, /\.v1-live \.metric-breakdown-panel,[\s\S]*\.v1-live \.leftover-adjustment-panel \{ color: var\(--ink\); \}/);
+assert.match(styles, /\.v1-live \.metric-breakdown-panel,[\s\S]*\.v1-live \.saved-food-item \{ color: var\(--ink\); \}/);
+for (const lightSurface of ["onboarding-panel", "settings-preview", "pricing-card", "ledger-edit-form", "meal-impact-details", "saved-food-item"]) {
+  assert.match(styles, new RegExp(`\\.v1-live \\.${lightSurface}(?:,| \\{ color: var\\(--ink\\);)`), `Missing light-surface reset for ${lightSurface}.`);
+}
+assert.match(styles, /\.v1-live \.onboarding-panel \.eyebrow,[\s\S]*\.v1-live \.pricing-card \.eyebrow \{ color: #a44322; \}/);
+assert.match(styles, /\.v1-live \.subscription-section \.pricing-heading > p:last-child,[\s\S]*\.v1-live \.subscription-section \.pricing-note \{ color: var\(--v1-muted\); \}/);
+assert.match(styles, /\.v1-live \.subscription-section \.billing-status \{ color: var\(--v1-lime\); \}/);
 assert.match(styles, /\.v1-live \.today-heading \.eyebrow,[\s\S]*color: var\(--v1-accent\);/);
 assert.match(styles, /\.v1-live :where\(button, a\[href\], summary, input, select, textarea\):focus-visible/);
 

@@ -953,11 +953,25 @@ html:has(.v1-live) { height: auto; min-height: 100%; overflow-y: auto !important
 .v1-live .metric-breakdown-panel,
 .v1-live .weight-card,
 .v1-live .saved-food-editor-panel,
-.v1-live .leftover-adjustment-panel { color: var(--ink); }
+.v1-live .leftover-adjustment-panel,
+.v1-live .onboarding-panel,
+.v1-live .settings-preview,
+.v1-live .pricing-card,
+.v1-live .ledger-edit-form,
+.v1-live .meal-impact-details,
+.v1-live .saved-food-item { color: var(--ink); }
 .v1-live .metric-breakdown-panel .eyebrow,
 .v1-live .weight-card .eyebrow,
 .v1-live .saved-food-editor-panel .eyebrow,
-.v1-live .leftover-adjustment-panel .eyebrow { color: #a44322; }
+.v1-live .leftover-adjustment-panel .eyebrow,
+.v1-live .onboarding-panel .eyebrow,
+.v1-live .settings-preview .eyebrow,
+.v1-live .pricing-card .eyebrow { color: #a44322; }
+.v1-live .subscription-section .pricing-heading h2 { color: var(--v1-text); }
+.v1-live .subscription-section .pricing-heading .eyebrow { color: var(--v1-accent); }
+.v1-live .subscription-section .pricing-heading > p:last-child,
+.v1-live .subscription-section .pricing-note { color: var(--v1-muted); }
+.v1-live .subscription-section .billing-status { color: var(--v1-lime); }
 .v1-live :where(button, a[href], summary, input, select, textarea):focus-visible { outline: 3px solid var(--v1-focus); outline-offset: 3px; }
 .v1-live .today-status .metric-grid { display: grid; grid-template-columns: 1fr; gap: 7px; }
 .v1-live .today-status .metric-card {

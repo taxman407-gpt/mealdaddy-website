@@ -7,13 +7,13 @@ const shellMatch = serviceWorker.match(/const SHELL = (\[[^;]+\]);/);
 assert.ok(shellMatch, "The service-worker shell manifest must be readable.");
 const shell = JSON.parse(shellMatch[1]);
 
-assert.match(serviceWorker, /mealdaddy-shell-v99/);
-assert.match(read("worker.js"), /const release = "20261004-v99"/);
+assert.match(serviceWorker, /mealdaddy-shell-v100/);
+assert.match(read("worker.js"), /const release = "20261004-v100"/);
 
 for (const page of ["app/index.html", "app/auth.html", "app/app.html", "app/account.html", "app/setup.html"]) {
   const html = read(page);
   const stylesheet = html.match(/href="(\.\/styles\.css\?v=[^"]+)"/)?.[1];
-  assert.equal(stylesheet, "./styles.css?v=20261004-24", `${page} must use the v99 stylesheet.`);
+  assert.equal(stylesheet, "./styles.css?v=20261004-25", `${page} must use the v100 stylesheet.`);
 }
 
 for (const [page, expectedScript] of [
@@ -28,7 +28,7 @@ for (const [page, expectedScript] of [
 }
 
 for (const asset of [
-  "./styles.css?v=20261004-24",
+  "./styles.css?v=20261004-25",
   "./saved-foods.js?v=20261004-11",
   "./restaurant-plan.js?v=20261004-1",
   "./private-image.js?v=20261004-1",
@@ -38,6 +38,8 @@ for (const asset of [
 }
 
 for (const staleVersion of [
+  "mealdaddy-shell-v99",
+  "styles.css?v=20261004-24",
   "mealdaddy-shell-v98",
   "styles.css?v=20261004-23",
   "mealdaddy-shell-v97",
