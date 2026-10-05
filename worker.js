@@ -62,6 +62,12 @@ const securityHeaders = {
 function secured(response) {
   const copy = new Response(response.body, response);
   for (const [name, value] of Object.entries(securityHeaders)) copy.headers.set(name, value);
+  if (/^text\/html(?:;|$)/i.test(copy.headers.get("content-type") || "")) {
+    const cacheControl = copy.headers.get("cache-control") || "public";
+    if (!/(?:^|,)\s*no-transform\s*(?:,|$)/i.test(cacheControl)) {
+      copy.headers.set("Cache-Control", `${cacheControl}, no-transform`);
+    }
+  }
   return copy;
 }
 

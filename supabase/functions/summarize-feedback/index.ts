@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2.54.0";
+import { requireOwnerAuthorization } from "../_shared/owner-authorization.ts";
 
 const model = "gpt-5.6-luna";
 const feedbackReadLimit = 10_000;
@@ -260,10 +261,6 @@ Deno.serve(async (request) => {
   const secretKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ??
     namedKey("SUPABASE_SECRET_KEYS", "SUPABASE_SERVICE_ROLE_KEY");
   const openAiKey = Deno.env.get("OPENAI_API_KEY");
-  const allowedUserIds = (Deno.env.get("MEALDADDY_ADMIN_USER_IDS") ?? "")
-    .split(",")
-    .map((id) => id.trim())
-    .filter(Boolean);
   if (!supabaseUrl || !publishableKey || !secretKey) {
     return json({ error: "Feedback insights are not configured." }, 503);
   }
@@ -273,22 +270,10 @@ Deno.serve(async (request) => {
   });
   const { data: { user }, error: authError } = await authClient.auth.getUser();
   if (authError || !user) return json({ error: "Authentication required." }, 401);
-  if (!allowedUserIds.length) {
-    return json({ error: "Owner access is not configured in the feedback service." }, 503);
-  }
-  if (!allowedUserIds.includes(user.id)) {
-    return json({ error: "This account is not authorized to view feedback insights." }, 403);
-  }
-  try {
-    const encoded = authHeader.slice("Bearer ".length).split(".")[1];
-    const claims = JSON.parse(atob(encoded.replace(/-/g, "+").replace(/_/g, "/")));
-    if (claims.aal !== "aal2") return json({ error: "Owner multi-factor authentication is required for feedback insights." }, 403);
-  } catch {
-    return json({ error: "Owner authentication assurance could not be verified." }, 403);
-  }
-  const { data: factorData, error: factorError } = await authClient.auth.mfa.listFactors();
-  if (factorError || !(factorData?.totp ?? []).length) {
-    return json({ error: "A current owner authenticator is required for feedback insights." }, 403);
+  const admin = createClient(supabaseUrl, secretKey);
+  const ownerAuthorization = await requireOwnerAuthorization(admin, user, authHeader);
+  if (!ownerAuthorization.ok) {
+    return json({ error: ownerAuthorization.error }, ownerAuthorization.status);
   }
 
   let action = "latest";
@@ -299,7 +284,6 @@ Deno.serve(async (request) => {
     return json({ error: "Invalid request." }, 400);
   }
 
-  const admin = createClient(supabaseUrl, secretKey);
   const { count: totalAvailable, error: countError } = await admin
     .from("customer_feedback_history")
     .select("id", { count: "exact", head: true });

@@ -24,4 +24,14 @@ assert.equal(local.status, 200);
 assert.equal(await local.text(), "/health");
 assert.equal(local.headers.get("x-frame-options"), "DENY");
 
+const htmlEnv = {
+  ASSETS: {
+    fetch: async () => new Response("<!doctype html><title>MealDaddy</title>", {
+      headers: { "Content-Type": "text/html", "Cache-Control": "public, max-age=0" }
+    })
+  }
+};
+const html = await worker.fetch(new Request("https://www.mealdaddy.ai/privacy.html"), htmlEnv);
+assert.match(html.headers.get("cache-control"), /(?:^|,)\s*no-transform\s*(?:,|$)/i);
+
 console.log("Worker canonical-origin checks passed.");

@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2.54.0";
+import { requireOwnerAuthorization } from "../_shared/owner-authorization.ts";
 
 const corsHeaders = {
   "access-control-allow-origin": "*",
@@ -25,15 +26,6 @@ function normalizeEmail(value: unknown) {
   return typeof value === "string" ? value.trim().toLowerCase() : "";
 }
 
-function jwtAssuranceLevel(authHeader: string) {
-  try {
-    const payload = authHeader.slice("Bearer ".length).split(".")[1];
-    return JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/"))).aal ?? "aal1";
-  } catch {
-    return "aal1";
-  }
-}
-
 async function findUserByEmail(admin: ReturnType<typeof createClient>, email: string) {
   const pageSize = 200;
   for (let page = 1; page <= 100; page += 1) {
@@ -56,11 +48,7 @@ Deno.serve(async (request) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ??
     namedKey("SUPABASE_SECRET_KEYS", "SUPABASE_SERVICE_ROLE_KEY");
-  const allowedUserIds = (Deno.env.get("MEALDADDY_ADMIN_USER_IDS") ?? "")
-    .split(",")
-    .map((id) => id.trim())
-    .filter(Boolean);
-  if (!supabaseUrl || !serviceKey || !allowedUserIds.length) {
+  if (!supabaseUrl || !serviceKey) {
     return json({ error: "Owner access is not configured." }, 503);
   }
 
@@ -69,16 +57,9 @@ Deno.serve(async (request) => {
     authHeader.slice("Bearer ".length)
   );
   if (authError || !owner) return json({ error: "Authentication required." }, 401);
-  if (!allowedUserIds.includes(owner.id)) {
-    return json({ error: "This account is not authorized to manage family access." }, 403);
-  }
-  if (jwtAssuranceLevel(authHeader) !== "aal2") {
-    return json({ error: "Owner multi-factor authentication is required for family-access administration." }, 403);
-  }
-  const { data: factorData, error: factorError } = await admin.auth.admin.mfa.listFactors({ userId: owner.id });
-  const hasVerifiedFactor = (factorData?.factors ?? []).some((factor) => factor.status === "verified");
-  if (factorError || !hasVerifiedFactor) {
-    return json({ error: "A current owner authenticator is required for family-access administration." }, 403);
+  const ownerAuthorization = await requireOwnerAuthorization(admin, owner, authHeader);
+  if (!ownerAuthorization.ok) {
+    return json({ error: ownerAuthorization.error }, ownerAuthorization.status);
   }
 
   let action = "list";
