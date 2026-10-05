@@ -590,17 +590,13 @@ function renderWeightChart(entries) {
   const chart = $("#weight-chart");
   const line = $("#weight-chart-line");
   const goalLine = $("#weight-goal-line");
-  const bmiLine = $("#weight-bmi-line");
   const pointsRoot = $("#weight-chart-points");
   const point = $("#weight-chart-point");
-  if (!trend || !chart || !line || !goalLine || !bmiLine || !pointsRoot || !point || entries.length === 0) {
+  if (!trend || !chart || !line || !goalLine || !pointsRoot || !point || entries.length === 0) {
     if (trend) trend.hidden = true;
     return;
   }
   trend.hidden = false;
-  const bmiValues = entries.map((entry) => estimatedAdultBmi({ weightKg: entry.weight_kg, heightCm: state.heightCm, age: state.age, enabled: state.trackBmi, override: entry.bmi_override })?.value ?? null);
-  const hasBmiTrend = bmiValues.filter((value) => Number.isFinite(value)).length >= 2;
-  $("#weight-bmi-legend").hidden = !hasBmiTrend;
   $("#weight-goal-legend").hidden = !state.goalWeightKg;
   if (entries.length === 1) {
     line.setAttribute("points", "");
@@ -608,7 +604,6 @@ function renderWeightChart(entries) {
     point.setAttribute("cx", "300");
     point.setAttribute("cy", "75");
     goalLine.setAttribute("hidden", "");
-    bmiLine.setAttribute("hidden", "");
     point.removeAttribute("hidden");
     $("#weight-trend-copy").textContent = "Starting point saved · add another weigh-in to see the trend";
     return;
@@ -631,24 +626,6 @@ function renderWeightChart(entries) {
     goalLine.innerHTML = `<title>${escapeHtml(`Goal weight ${formatWeight(state.goalWeightKg, state.unitSystem)}`)}</title>`;
     goalLine.removeAttribute("hidden");
   } else goalLine.setAttribute("hidden", "");
-  if (hasBmiTrend) {
-    const finiteBmi = bmiValues.filter((value) => Number.isFinite(value));
-    const bmiMinimum = Math.min(...finiteBmi);
-    const bmiMaximum = Math.max(...finiteBmi);
-    const bmiSpread = Math.max(bmiMaximum - bmiMinimum, 0.5);
-    const bmiPoints = bmiValues.map((value, index) => {
-      if (!Number.isFinite(value)) return null;
-      const x = 12 + (index / (entries.length - 1)) * 576;
-      const y = 126 - ((value - bmiMinimum) / bmiSpread) * 102;
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
-    }).filter(Boolean).join(" ");
-    bmiLine.setAttribute("points", bmiPoints);
-    bmiLine.innerHTML = `<title>${escapeHtml(`Estimated BMI trend ${finiteBmi[0].toFixed(1)} to ${finiteBmi.at(-1).toFixed(1)}`)}</title>`;
-    bmiLine.removeAttribute("hidden");
-  } else {
-    bmiLine.setAttribute("points", "");
-    bmiLine.setAttribute("hidden", "");
-  }
   pointsRoot.innerHTML = points.split(" ").map((coordinates, index) => {
     const [cx, cy] = coordinates.split(",");
     const displayWeight = Math.round(weightFromKg(entries[index].weight_kg, state.unitSystem) * 10) / 10;
@@ -661,8 +638,7 @@ function renderWeightChart(entries) {
   point.removeAttribute("hidden");
   const latestWeight = Number(entries.at(-1).weight_kg);
   const goalCopy = state.goalWeightKg ? ` · ${formatWeight(Math.abs(latestWeight - state.goalWeightKg), state.unitSystem)} from goal` : "";
-  const bmiCopy = hasBmiTrend ? ` · BMI ${bmiValues[0].toFixed(1)} → ${bmiValues.at(-1).toFixed(1)}` : "";
-  $("#weight-trend-copy").textContent = `${entries.length} recent weigh-ins${goalCopy}${bmiCopy}`;
+  $("#weight-trend-copy").textContent = `${entries.length} recent weigh-ins${goalCopy}`;
 }
 
 function renderWeightProgress() {
