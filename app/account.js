@@ -2,6 +2,8 @@ import { invokeAuthenticated, supabase, requireSession } from "./supabase-client
 import { clearLocalSavedFoods, getDeviceSavedFoods } from "./saved-foods-store.js?v=20260929-1";
 import { metricLabel, normalizeMetricOrder, normalizeOptionalMetrics } from "./metric-order.js?v=20261004-3";
 
+import { createOwnerToolsController } from "./account-owner-tools.js?v=20261008-1";
+
 const $ = (selector) => document.querySelector(selector);
 const session = await requireSession();
 if (!session) throw new Error("Authentication required");
@@ -14,6 +16,7 @@ let mfaVerifiedFactors = [];
 let mfaCurrentLevel = null;
 let pendingMfaEnrollmentAfterChallenge = false;
 let mfaPhoneChallengeId = "";
+const ownerTools = createOwnerToolsController({ supabase, invokeAuthenticated, userId: user.id });
 
 function safeAppReturn(value) {
   if (!value) return "./app.html?view=more";
@@ -184,7 +187,7 @@ $("#mfa-reauth-form").addEventListener("submit", async (event) => {
   $("#mfa-reauth-form").reset();
   $("#mfa-reauth-form").hidden = true;
   mfaCurrentLevel = "aal1";
-  $("#owner-tools-link").hidden = true;
+  showOwnerToolsIfAuthorized().catch(() => {});
   $("#mfa-remove").hidden = true;
   $("#mfa-step-up").hidden = !mfaVerifiedFactors.length;
   updateDeleteButton();
@@ -363,7 +366,7 @@ $("#mfa-remove").addEventListener("click", async () => {
     setMfaMessage(error.message || "The authenticator could not be removed.");
     return;
   }
-  $("#owner-tools-link").hidden = true;
+  showOwnerToolsIfAuthorized().catch(() => {});
   const refreshResult = await supabase.auth.refreshSession();
   if (refreshResult.error) {
     setMfaMessage("The authenticator was removed. Sign in again to refresh this session securely.");
@@ -681,10 +684,7 @@ async function accountExport() {
 }
 
 async function showOwnerToolsIfAuthorized() {
-  const { data, error } = await invokeAuthenticated("manage-family-access", {
-    body: { action: "authorize" }
-  });
-  if (!error && data?.ok) $("#owner-tools-link").hidden = false;
+  return ownerTools.refresh();
 }
 
 function csvCell(value) {
