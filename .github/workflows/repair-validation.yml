@@ -1,0 +1,27 @@
+name: MealDaddy repair validation
+on:
+  push:
+    branches: [fix/mobile-owner-photo-20261016]
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Syntax checks
+        run: |
+          node --check app/entry-reliability.js
+          node --check app/supabase-client.js
+          node --check app/account-owner-tools.js
+          node --check app/service-worker.js
+          git diff --check
+      - name: Install locked build dependencies
+        run: npx --yes pnpm@10.11.0 install --frozen-lockfile --ignore-scripts
+      - name: Repository regression suite
+        run: node scripts/run-tests.mjs
+      - name: Public bundle build
+        run: npx --yes pnpm@10.11.0 run build
