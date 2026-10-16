@@ -202,7 +202,7 @@ export function initializeEntryFeedback() {
     submission = record;
     show(file ? "Preparing and uploading your private photo…" : "Saving your entry…", "loading");
     setTimeout(() => {
-      if (submission !== record) return;
+      if (submission !== record || !record.busy) return;
       // The legacy logger may pause for a saved-food choice or input validation.
       if (!logButton.disabled) { release(record); panel.hidden = true; return; }
       for (const control of form.querySelectorAll("input, select, textarea")) {
