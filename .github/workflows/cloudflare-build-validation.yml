@@ -1,0 +1,59 @@
+name: Cloudflare build compatibility
+on:
+  push:
+    branches: [main, fix/cloudflare-build-20261016]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  validate:
+    name: pnpm ${{ matrix.pnpm }} / Node 24.21.0
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        pnpm: ['9.10.0', '10.11.0']
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '24.21.0'
+          package-manager-cache: false
+      - name: Reproduce the original pnpm 9 workspace error in a disposable fixture
+        if: matrix.pnpm == '9.10.0'
+        run: |
+          fixture=$(mktemp -d)
+          printf '{"name":"workspace-regression-fixture","private":true}\n' > "$fixture/package.json"
+          printf 'allowBuilds:\n  esbuild: true\n' > "$fixture/pnpm-workspace.yaml"
+          if (cd "$fixture" && npx --yes pnpm@9.10.0 install --frozen-lockfile) > "$fixture/result.log" 2>&1; then
+            echo 'Expected the old pnpm 9 workspace configuration to be rejected.'
+            exit 1
+          fi
+          cat "$fixture/result.log"
+          grep -F 'packages field missing or empty' "$fixture/result.log"
+      - name: Install from the unchanged lockfile with the selected pnpm version
+        run: npx --yes pnpm@${{ matrix.pnpm }} install --frozen-lockfile
+      - name: Run every repository regression check
+        run: |
+          npm test
+          git diff --exit-code -- pnpm-lock.yaml
+          git diff --check
+      - name: Exercise Wrangler's automatic build without publishing
+        env:
+          WRANGLER_SEND_METRICS: 'false'
+          CI: 'true'
+        run: |
+          node -e "require('node:fs').rmSync('dist', { recursive: true, force: true })"
+          npx --yes wrangler@4.151.1 deploy --dry-run
+          test -s dist/app/app.html
+          test -s dist/app/entry-reliability.js
+          test -s dist/app/entry-reliability.css
+          test -s dist/app/account-owner-tools.js
+          test -s dist/app/vendor/supabase-js.js
+          for private_path in supabase server scripts tests docs .git .github; do
+            test ! -e "dist/$private_path"
+          done

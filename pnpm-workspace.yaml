@@ -1,2 +1,6 @@
+# Keep the single root package explicit for pnpm 9 build environments.
+packages:
+  - '.'
+
 allowBuilds:
   esbuild: true

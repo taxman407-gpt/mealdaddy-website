@@ -3,6 +3,9 @@
   "name": "mealdaddy-website",
   "main": "./worker.js",
   "compatibility_date": "2026-07-27",
+  "build": {
+    "command": "npm run build"
+  },
   "workers_dev": false,
   "preview_urls": false,
   "routes": [
