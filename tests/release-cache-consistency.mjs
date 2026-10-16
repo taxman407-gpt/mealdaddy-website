@@ -7,19 +7,19 @@ const shellMatch = serviceWorker.match(/const SHELL = (\[[^;]+\]);/);
 assert.ok(shellMatch, "The service-worker shell manifest must be readable.");
 const shell = JSON.parse(shellMatch[1]);
 
-assert.match(serviceWorker, /mealdaddy-shell-v96/);
-assert.match(read("worker.js"), /const release = "20261004-v96"/);
+assert.match(serviceWorker, /mealdaddy-shell-v97/);
+assert.match(read("worker.js"), /const release = "20261016-v97"/);
 
 for (const page of ["app/index.html", "app/auth.html", "app/app.html", "app/account.html", "app/setup.html"]) {
   const html = read(page);
   const stylesheet = html.match(/href="(\.\/styles\.css\?v=[^"]+)"/)?.[1];
-  assert.equal(stylesheet, "./styles.css?v=20261004-21", `${page} must use the v96 stylesheet.`);
+  assert.equal(stylesheet, "./styles.css?v=20261004-21", `${page} must use the unchanged base stylesheet.`);
 }
 
 for (const [page, expectedScript] of [
   ["app/auth.html", "./auth.js?v=20261004-1"],
   ["app/app.html", "./app.js?v=20261004-30"],
-  ["app/account.html", "./account.js?v=20261004-7"],
+  ["app/account.html", "./account.js?v=20261008-1"],
   ["app/setup.html", "./setup.js?v=20261004-8"]
 ]) {
   const html = read(page);
@@ -32,17 +32,23 @@ for (const asset of [
   "./saved-foods.js?v=20261004-11",
   "./restaurant-plan.js?v=20261004-1",
   "./private-image.js?v=20261004-1",
-  "./supabase-client.js?v=20261004-1"
+  "./supabase-client.js?v=20261004-1",
+  "./entry-reliability.js?v=20261016-1",
+  "./entry-reliability.css?v=20261016-1",
+  "./account-owner-tools.js?v=20261008-1"
 ]) {
   assert.ok(shell.includes(asset), `The service worker must cache ${asset}.`);
+  assert.ok(read(`app/${asset.slice(2).split("?")[0]}`).length, `The cached asset ${asset} must exist.`);
 }
 
 for (const staleVersion of [
   "mealdaddy-shell-v95",
+  "mealdaddy-shell-v96",
   "styles.css?v=20261004-20",
   "auth.js?v=20260813-5",
   "app.js?v=20261004-29",
   "account.js?v=20261004-6",
+  "account.js?v=20261004-7",
   "saved-foods.js?v=20261004-10",
   "restaurant-plan.js?v=20260813-4",
   "supabase-client.js?v=20260930-3"
@@ -50,4 +56,6 @@ for (const staleVersion of [
   assert.ok(!serviceWorker.includes(staleVersion), `The service worker still contains stale ${staleVersion}.`);
 }
 
+assert.match(read("app/supabase-client.js"), /entry-reliability\.js\?v=20261016-1/);
+assert.match(read("app/entry-reliability.js"), /entry-reliability\.css\?v=20261016-1/);
 console.log("Release cache-consistency checks passed.");

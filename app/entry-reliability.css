@@ -1,0 +1,56 @@
+/* Keep real content inside the metric rows; do not mask overflow on the page. */
+.v1-live .today-status,
+.v1-live #today-metrics,
+.v1-live #today-metrics .metric-card {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+}
+.v1-live #today-metrics { grid-template-columns: minmax(0, 1fr); }
+.v1-live #today-metrics .metric-card {
+  width: 100%;
+  min-height: 44px;
+  grid-template-columns: minmax(0, 6.75rem) minmax(0, 1fr) minmax(0, 8rem);
+}
+.v1-live #today-metrics .metric-card > span:first-child {
+  min-width: 0;
+  grid-row: 1;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.v1-live #today-metrics .metric-card > .v1-over-track { min-width: 0; grid-row: 1; }
+.v1-live #today-metrics .metric-card > strong {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  grid-row: 1;
+  justify-self: stretch;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: right;
+  line-height: 1.35;
+  font-variant-numeric: tabular-nums;
+}
+.v1-live #today-metrics .metric-card[hidden] { display: none; }
+@media (max-width: 560px) {
+  .v1-live #today-metrics .metric-card {
+    grid-template-columns: minmax(0, .95fr) minmax(0, 1.1fr) minmax(0, 1.05fr);
+    column-gap: 8px;
+  }
+}
+.quick-log-feedback {
+  margin-top: 16px;
+  padding: 14px;
+  border: 1px solid var(--v1-line, #b8c9c0);
+  border-radius: 12px;
+  overflow-wrap: anywhere;
+}
+.quick-log-feedback[hidden] { display: none; }
+.quick-log-feedback h3 { margin: 8px 0; font-size: 1rem; }
+.quick-log-feedback p { margin: 8px 0; line-height: 1.45; }
+.quick-log-feedback ul { padding-left: 22px; }
+.quick-log-feedback li { margin: 5px 0; }
+.quick-log-feedback .button { margin: 8px 8px 0 0; white-space: normal; }
+.quick-log-feedback [hidden] { display: none; }
+.quick-log-feedback[data-phase="error"] { border-style: dashed; border-width: 2px; }
+.quick-log-feedback[data-phase="loading"] > p { font-weight: 700; }
