@@ -1,0 +1,121 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { stripTypeScriptTypes } from "node:module";
+import vm from "node:vm";
+import { webcrypto } from "node:crypto";
+import { applyComponentTotals } from "../supabase/functions/_shared/nutrition-reconciliation.mjs";
+import * as contract from "../supabase/functions/_shared/estimate-edit-contract.mjs";
+
+const source = stripTypeScriptTypes(readFileSync(new URL('../supabase/functions/estimate-entry/index.ts', import.meta.url), 'utf8').replace(/^import .*;\n/gm, ''), { mode: 'strip' });
+const owner = '00000000-0000-4000-8000-000000000001';
+const baseNutrients = Object.fromEntries(contract.nutrientFields.map((field) => [field, 0]));
+function component(name, calories, extras = {}) { return { ...baseNutrients, name, calories, evidence_type: 'description_estimate', confidence: 'medium', inflammation_score: 3, inflammation_impact: 'neutral', inflammation_note: 'Test estimate.', ...extras }; }
+function answer(components) { return { ...baseNutrients, components, entry_description: 'Synthetic meal', photo_description: '', description_reconciliation_note: '', label_detected: false, label_food: {}, inflammation_score: 3, inflammation_summary: 'Test estimate.', confidence: 'medium', note: 'Synthetic fixture.' }; }
+async function exercise({ description = '1 oz vinaigrette', metadata = {}, kind = 'meal', status = 'pending_estimate', response = answer([component('1 oz vinaigrette', 45)]), stale = false, mfa = true, ownRow = true, body = {}, authorization = true } = {}) {
+  let handler;
+  let providerCalls = 0, photoDownloads = 0, writes = 0, settlements = 0;
+  let submitted;
+  const row = { id: 'fixture-entry', user_id: ownRow ? owner : 'unrelated-member', description, kind, status, nutrition_estimate: structuredClone(metadata) };
+  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  function builder(table) {
+    let patch = null;
+    const filters = [];
+    const q = {
+      select() { return q; },
+      update(value) { patch = value; return q; },
+      eq(key, value) { filters.push([key, key === 'nutrition_estimate' ? JSON.parse(value) : value]); return q; },
+      is(key, value) { filters.push([key, value]); return q; },
+      gte() { return q; },
+      then(resolve, reject) { return Promise.resolve(table === 'ai_usage_events' ? { data: [], error: null } : { data: null, error: null }).then(resolve, reject); },
+      async maybeSingle() {
+        if (table === 'subscriptions') return { data: { plan_key: 'core', status: 'active' }, error: null };
+        if (table === 'complimentary_access_grants') return { data: null, error: null };
+        if (table !== 'ledger_entries') throw new Error('Unexpected table: ' + table);
+        if (!filters.every(([key, value]) => same(row[key], value))) return { data: null, error: null };
+        if (patch) { Object.assign(row, structuredClone(patch)); writes += 1; return { data: { id: row.id }, error: null }; }
+        return { data: structuredClone(row), error: null };
+      }
+    };
+    return q;
+  }
+  const client = {
+    auth: { async getUser() { return { data: { user: { id: owner, email: 'synthetic@example.test' } }, error: null }; } },
+    from: builder,
+    storage: { from() { return { async download() { photoDownloads += 1; return { data: new Blob(['fixture'], { type: 'image/jpeg' }), error: null }; } }; } },
+    async rpc(name) {
+      if (name === 'reserve_ai_usage') return { data: [{ reservation_id: 'fixture-reservation' }], error: null };
+      if (name === 'settle_ai_usage') settlements += 1;
+      return { data: true, error: null };
+    }
+  };
+  const context = {
+    ...contract, applyComponentTotals,
+    createClient: () => client,
+    requireConditionalMfa: async () => mfa ? { ok: true } : { ok: false, status: 403, error: 'MFA required.' },
+    Deno: { env: { get(name) { return name === 'SUPABASE_URL' ? 'https://synthetic.example.test' : name === 'SUPABASE_PUBLISHABLE_KEYS' ? '{}' : 'test-value'; } }, serve(fn) { handler = fn; } },
+    crypto: webcrypto, TextEncoder, Uint8Array, Response, Request, Blob, URL, btoa, atob,
+    fetch: async (url, options) => {
+      assert.equal(url, 'https://api.openai.com/v1/responses');
+      providerCalls += 1;
+      submitted = JSON.parse(options.body);
+      if (stale) { row.description = 'A newer saved edit'; row.nutrition_estimate = { input_authority: 'edited_text', edit_revision: 'new-revision' }; }
+      return new Response(JSON.stringify({ usage: { input_tokens: 100, output_tokens: 100 }, output: [{ content: [{ type: 'output_text', text: JSON.stringify(response) }] }] }), { status: 200 });
+    }
+  };
+  vm.runInNewContext(source, context);
+  const result = await handler(new Request('https://synthetic.example.test/estimate-entry', { method: 'POST', headers: authorization ? { authorization: 'Bearer synthetic-not-a-real-token', 'content-type': 'application/json' } : { 'content-type': 'application/json' }, body: JSON.stringify({ entryId: row.id, ...body }) }));
+  return { status: result.status, payload: await result.json(), row, providerCalls, photoDownloads, writes, settlements, submitted };
+}
+
+let r = await exercise();
+assert.equal(r.status, 200);
+assert.equal(r.row.nutrition_estimate.calories, 45);
+assert.equal(r.row.nutrition_estimate.components.length, 1);
+assert.equal(r.photoDownloads, 0);
+assert.match(r.submitted.input[1].content[0].text, /No image was supplied/);
+assert.deepEqual(r.submitted.text.format.schema.components, undefined);
+assert.deepEqual(r.submitted.text.format.schema.properties.components.items.properties.evidence_type.enum, ['description_estimate']);
+assert.equal(r.row.description, '1 oz vinaigrette');
+
+r = await exercise({ description: '50% salad with chicken, no dressing', metadata: { input_authority: 'edited_text', edit_revision: 'edit-2', photo_path: `${owner}/old-photo.jpg`, calories: 999, components: [component('OLD dressing', 999)] }, response: answer([component('Greens', 100), component('Chicken', 300, { protein_g: 50 })]), body: { itemizeExisting: true } });
+assert.equal(r.status, 200);
+assert.equal(r.row.nutrition_estimate.calories, 200);
+assert.equal(r.row.nutrition_estimate.protein_g, 25);
+assert.equal(r.row.nutrition_estimate.components.length, 2);
+assert.equal(r.row.nutrition_estimate.edit_revision, 'edit-2');
+assert.equal(r.photoDownloads, 0);
+assert.ok(!JSON.stringify(r.submitted).includes('OLD dressing'));
+assert.ok(!r.submitted.input[1].content[0].text.includes('50%'));
+assert.equal(r.row.description, '50% salad with chicken, no dressing');
+
+r = await exercise({ stale: true });
+assert.equal(r.status, 409);
+assert.equal(r.payload.code, 'ENTRY_CHANGED');
+assert.equal(r.writes, 0);
+assert.equal(r.row.description, 'A newer saved edit');
+assert.equal(r.settlements, 1);
+
+r = await exercise({ response: { ...answer([component('Invented salad', 100, { evidence_type: 'photo_estimate' })]), photo_description: 'Salad is visible.' } });
+assert.equal(r.status, 502);
+assert.equal(r.writes, 0);
+assert.equal(r.row.status, 'pending_estimate');
+
+r = await exercise({ status: 'estimated', metadata: { calories: 123, source: 'saved_food' } });
+assert.equal(r.status, 200);
+assert.equal(r.payload.alreadyEstimated, true);
+assert.equal(r.payload.estimate.calories, 123);
+assert.equal(r.providerCalls, 0);
+
+r = await exercise({ description: 'Meal photo', metadata: { photo_path: `${owner}/photo.jpg` }, response: { ...answer([component('Visible meal', 400, { evidence_type: 'photo_estimate' })]), photo_description: 'A meal is visible.', entry_description: 'Visible meal' } });
+assert.equal(r.status, 200);
+assert.equal(r.photoDownloads, 1);
+assert.equal(r.row.description, 'Visible meal');
+assert.equal(r.submitted.input[1].content[1].type, 'input_image');
+
+for (const config of [{ mfa: false }, { ownRow: false }, { authorization: false }]) {
+  r = await exercise(config);
+  assert.equal(r.status, !config.authorization && config.authorization !== undefined ? 401 : config.mfa === false ? 403 : 404);
+  assert.equal(r.providerCalls, 0);
+  assert.equal(r.writes, 0);
+}
+console.log('Estimator runtime: nine isolated replacement, image-evidence, portion, concurrency, idempotency, and security scenarios passed.');

@@ -1,0 +1,46 @@
+name: Meal edit replacement validation
+on:
+  push:
+    branches: [main, fix/edited-meal-replacement-20261016]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17.6
+        env:
+          POSTGRES_PASSWORD: disposable-ci-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '24.21.0'
+          package-manager-cache: false
+      - name: Install locked dependencies
+        run: npx --yes pnpm@9.10.0 install --frozen-lockfile
+      - name: Full repository and estimator runtime regressions
+        run: npm test
+      - name: Syntax-check the deployable function and build the site
+        run: |
+          npx --no-install esbuild supabase/functions/estimate-entry/index.ts --bundle --format=esm --platform=neutral --external:npm:* --outfile=/tmp/estimate-entry.js
+          npm run build
+          git diff --exit-code -- pnpm-lock.yaml
+          git diff --check
+      - name: Test replacement trigger on isolated synthetic records
+        env:
+          PGPASSWORD: disposable-ci-only
+        run: psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f tests/sql/meal-edit-replacement-fixture.sql

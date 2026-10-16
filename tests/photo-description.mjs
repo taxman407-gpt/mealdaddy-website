@@ -11,7 +11,13 @@ assert.match(edge, /description_reconciliation_note/);
 assert.match(edge, /not a second meal and not automatically an additional component/);
 assert.match(edge, /Never count a pictured item once from the image and again from the typed clarification/);
 assert.match(edge, /applyComponentTotals/);
-assert.match(edge, /description: photoPath && generatedDescription/);
+// Initial photo analysis can describe the image, but an edited description and
+// explicit consumed percentage must remain authoritative and survive retries.
+assert.match(edge, /const photoPath = editedText \? null : retainedPhotoPath/);
+assert.match(edge, /const finalDescription = photoPath && generatedDescription && !portion\.explicit \? generatedDescription : entry\.description/);
+assert.match(edge, /description: finalDescription/);
+assert.match(edge, /entryDescription: finalDescription/);
+assert.match(edge, /unchangedEntryUpdate\(admin, user\.id, entry/);
 assert.match(edge, /needsPhotoDescription/);
 assert.match(app, /estimateData\?\.entryDescription/);
 assert.match(app, /entry\.description\.trim\(\)\.toLowerCase\(\) === "meal photo"/);
