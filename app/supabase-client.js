@@ -1,4 +1,5 @@
 import { createClient } from "./vendor/supabase-js.js?v=20260813-4";
+import { initializeEntryFeedback, observeEstimateRequest } from "./entry-reliability.js?v=20261016-1";
 
 const SUPABASE_URL = "https://egbieqvbwniaxgqjzqkp.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_fvCS-xqbn7q5hLUuqFxl5w_uac4cNmc";
@@ -31,10 +32,19 @@ export async function requireSession() {
     location.replace(`./auth.html?mfa=required&returnTo=${returnTo}`);
     return null;
   }
+  // Mount only when the Quick Log form exists. Other account screens are unchanged.
+  initializeEntryFeedback();
   return data.session;
 }
 
 export async function invokeAuthenticated(functionName, options = {}) {
+  if (functionName === "estimate-entry") {
+    return observeEstimateRequest(() => invokeAuthenticatedRequest(functionName, options), options.body);
+  }
+  return invokeAuthenticatedRequest(functionName, options);
+}
+
+async function invokeAuthenticatedRequest(functionName, options = {}) {
   const current = await supabase.auth.getSession();
   if (current.error) return { data: null, error: current.error };
   let session = current.data.session;

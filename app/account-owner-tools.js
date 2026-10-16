@@ -99,5 +99,7 @@ export function createOwnerToolsController({
       setTimeout(() => { refresh().catch(() => {}); }, 0);
     }
   });
+  // Do not wait for unrelated membership/profile requests at the end of account.js.
+  queueMicrotask(() => { refresh().catch(() => {}); });
   return { refresh };
 }
