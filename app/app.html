@@ -388,9 +388,13 @@
       <label>Model ID<input id="byok-model" required maxlength="120" placeholder="Enter the model ID from your provider account" /></label>
       <label>API key<input id="byok-key" type="password" autocomplete="off" spellcheck="false" required maxlength="512" /></label>
       <label><input id="byok-remember" type="checkbox" checked /> Remember on this device using encrypted browser storage</label>
-      <p>Your provider bills its API usage separately. The selected provider and model are used exactly as saved, with no automatic provider switch. Your key is sent securely with each request through MealDaddy to that provider; it is not saved to your MealDaddy account. Clearing browser data removes the device key.</p>
+      <label><input id="byok-cloud" type="checkbox" /> Save encrypted to my account instead (when available)</label>
+      <p>Your provider bills its API usage separately. The selected provider and model are used exactly as saved, with no automatic provider switch. Device storage keeps your encrypted key in this browser. Optional account storage encrypts the key on the server and requires explicit selection on each device. MealDaddy decrypts the selected key to send requests to your provider. Clearing browser data removes device keys; remove an account key separately. Saving to one location does not erase a copy in the other.</p>
       <button class="button button-primary" type="submit">Save provider connection</button>
       <button class="button button-quiet" type="button" id="byok-remove">Remove device key</button>
+      <button class="button button-quiet" type="button" id="byok-use-cloud">Use account connection on this device</button>
+      <button class="button button-quiet" type="button" id="byok-use-device">Use device connection</button>
+      <button class="button button-quiet" type="button" id="byok-remove-cloud">Remove account key</button>
       <p id="byok-status" role="status">No connection checked yet.</p>
     </form>
   </section>

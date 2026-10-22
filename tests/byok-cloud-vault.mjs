@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import {sealByokCredentials,openByokCredentials} from '../supabase/functions/_shared/byok-cloud-vault.mjs';
+const secret=btoa('x'.repeat(32));const value={provider:'anthropic',model:'explicit-model',key:'synthetic-provider-secret'};
+const encrypted=await sealByokCredentials('user-a',value,secret);
+assert(!JSON.stringify(encrypted).includes(value.key));assert.deepEqual(await openByokCredentials('user-a',encrypted,secret),value);
+await assert.rejects(openByokCredentials('user-b',encrypted,secret),/could not be opened/);
+await assert.rejects(openByokCredentials('user-a',encrypted,btoa('y'.repeat(32))),/could not be opened/);
+await assert.rejects(openByokCredentials('user-a',{...encrypted,provider:'openai'},secret),/could not be opened/);
+await assert.rejects(sealByokCredentials('user-a',value,'invalid'),/not configured/);
+console.log('Cloud BYOK vault: authenticated encryption, account binding, tamper/wrong-key rejection and no plaintext persistence passed.');

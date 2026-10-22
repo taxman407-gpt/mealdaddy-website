@@ -1,3 +1,4 @@
+import {sealByokCredentials, openByokCredentials} from "../supabase/functions/_shared/byok-cloud-vault.mjs";
 import { lifetimeAccess } from "../supabase/functions/_shared/membership-policy.mjs";
 import { validateByok, callByokProvider } from "../supabase/functions/_shared/byok-provider.mjs";
 import assert from "node:assert/strict";
@@ -14,7 +15,7 @@ const owner = '00000000-0000-4000-8000-000000000001';
 const baseNutrients = Object.fromEntries(contract.nutrientFields.map((field) => [field, 0]));
 function component(name, calories, extras = {}) { return { ...baseNutrients, name, calories, evidence_type: 'description_estimate', confidence: 'medium', inflammation_score: 3, inflammation_impact: 'neutral', inflammation_note: 'Test estimate.', ...extras }; }
 function answer(components) { return { ...baseNutrients, components, entry_description: 'Synthetic meal', photo_quality: { suitable: true, reason: '' }, photo_description: '', description_reconciliation_note: '', label_detected: false, label_food: {}, inflammation_score: 3, inflammation_summary: 'Test estimate.', confidence: 'medium', note: 'Synthetic fixture.' }; }
-async function exercise({ description = '1 oz vinaigrette', metadata = {}, kind = 'meal', status = 'pending_estimate', response = answer([component('1 oz vinaigrette', 45)]), stale = false, mfa = true, ownRow = true, body = {}, authorization = true, plan = "core", enableByok = false, hostedConfigured = true } = {}) {
+async function exercise({ description = '1 oz vinaigrette', metadata = {}, kind = 'meal', status = 'pending_estimate', response = answer([component('1 oz vinaigrette', 45)]), stale = false, mfa = true, ownRow = true, body = {}, authorization = true, plan = "core", enableByok = false, hostedConfigured = true, cloudEnabled = false, cloudRecord = null, masterSecret = "" } = {}) {
   let handler;
   let providerCalls = 0, photoDownloads = 0, writes = 0, settlements = 0;
   let submitted;
@@ -31,6 +32,7 @@ async function exercise({ description = '1 oz vinaigrette', metadata = {}, kind 
       gte() { return q; },
       then(resolve, reject) { return Promise.resolve(table === 'ai_usage_events' ? { data: [], error: null } : { data: null, error: null }).then(resolve, reject); },
       async maybeSingle() {
+        if (table === 'byok_cloud_credentials') return {data:cloudRecord,error:null};
         if (table === 'subscriptions') return { data: { plan_key: plan, status: 'active' }, error: null };
         if (table === 'complimentary_access_grants') return { data: null, error: null };
         if (table !== 'ledger_entries') throw new Error('Unexpected table: ' + table);
@@ -52,10 +54,10 @@ async function exercise({ description = '1 oz vinaigrette', metadata = {}, kind 
     }
   };
   const context = {
-    ...contract, applyComponentTotals, gatePhotoComponents, validateByok, callByokProvider, lifetimeAccess,
+    ...contract, applyComponentTotals, gatePhotoComponents, openByokCredentials, validateByok, callByokProvider, lifetimeAccess,
     createClient: () => client,
     requireConditionalMfa: async () => mfa ? { ok: true } : { ok: false, status: 403, error: 'MFA required.' },
-    Deno: { env: { get(name) { if(name === 'ENABLE_BYOK') return enableByok ? 'true' : 'false'; if(name === 'OPENAI_API_KEY' && !hostedConfigured) return undefined; return name === 'SUPABASE_URL' ? 'https://synthetic.example.test' : name === 'SUPABASE_PUBLISHABLE_KEYS' ? '{}' : 'test-value'; } }, serve(fn) { handler = fn; } },
+    Deno: { env: { get(name) { if(name === 'ENABLE_BYOK_CLOUD') return cloudEnabled ? 'true' : 'false'; if(name === 'BYOK_VAULT_MASTER_KEY') return masterSecret; if(name === 'ENABLE_BYOK') return enableByok ? 'true' : 'false'; if(name === 'OPENAI_API_KEY' && !hostedConfigured) return undefined; return name === 'SUPABASE_URL' ? 'https://synthetic.example.test' : name === 'SUPABASE_PUBLISHABLE_KEYS' ? '{}' : 'test-value'; } }, serve(fn) { handler = fn; } },
     AbortSignal, crypto: webcrypto, TextEncoder, Uint8Array, Response, Request, Blob, URL, btoa, atob,
     fetch: async (url, options) => {
       assert.equal(url, 'https://api.openai.com/v1/responses');
@@ -154,3 +156,18 @@ for (const config of [{ mfa: false }, { ownRow: false }, { authorization: false 
   assert.equal(r.writes, 0);
 }
 console.log('Estimator runtime: nine isolated replacement, image-evidence, portion, concurrency, idempotency, and security scenarios passed.');
+
+const masterSecret = btoa(String.fromCharCode(...new Uint8Array(32).fill(7)));
+const cloudRecord = await sealByokCredentials(owner, {provider:"openai",model:"synthetic-model",key:"synthetic-key-never-persist"}, masterSecret);
+r = await exercise({plan:"byo",enableByok:true,cloudEnabled:true,cloudRecord,masterSecret,hostedConfigured:false,body:{byok:{storage:"cloud"}}});
+assert.equal(r.status,200);
+assert.equal(r.providerCalls,1);
+assert.equal(r.submitted.model,"synthetic-model");
+assert.ok(!JSON.stringify(r.row).includes("synthetic-key-never-persist"));
+for (const options of [{cloudEnabled:false},{cloudRecord:null},{masterSecret:btoa("x".repeat(32))}]) {
+ r = await exercise({plan:"byo",enableByok:true,cloudEnabled:true,cloudRecord,masterSecret,hostedConfigured:false,body:{byok:{storage:"cloud"}},...options});
+ assert.ok([422,503].includes(r.status));
+ assert.equal(r.providerCalls,0);
+ assert.equal(r.writes,0);
+}
+console.log("Cloud estimator: selected encrypted key, missing/disabled/wrong-key rejection, no hosted fallback or key persistence passed.");

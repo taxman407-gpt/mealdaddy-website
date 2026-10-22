@@ -1,3 +1,4 @@
+import { openByokCredentials } from "../_shared/byok-cloud-vault.mjs";
 import { lifetimeAccess } from "../_shared/membership-policy.mjs";
 import { validateByok, callByokProvider } from "../_shared/byok-provider.mjs";
 import { createClient } from "npm:@supabase/supabase-js@2.54.0";
@@ -78,6 +79,7 @@ Deno.serve(async (request) => {
   let itemizeExisting = false;
   let saveFavorite = false;
   let byok: ReturnType<typeof validateByok> | null = null;
+  let cloudByok = false;
   try {
     const body = await request.json();
     entryId = typeof body.entryId === "string" ? body.entryId : "";
@@ -85,15 +87,18 @@ Deno.serve(async (request) => {
     saveFavorite = body.saveFavorite === true;
     if (body.byok !== undefined) {
       if (Deno.env.get("ENABLE_BYOK") !== "true") return json({ error: "BYOK is not enabled in this environment." }, 503);
-      try { byok = validateByok(body.byok); }
-      catch { return json({ error: "Choose a supported provider, model ID and valid API key." }, 400); }
+      if (body.byok?.storage === "cloud") cloudByok = true;
+      else {
+        try { byok = validateByok(body.byok); }
+        catch { return json({ error: "Choose a supported provider, model ID and valid API key." }, 400); }
+      }
     }
   } catch {
     return json({ error: "Invalid request." }, 400);
   }
   if (!entryId) return json({ error: "Entry ID is required." }, 400);
 
-  const model = byok?.model || defaultModel;
+  let model = byok?.model || defaultModel;
   const admin = createClient(supabaseUrl, serviceKey);
   const mfaResult = await requireConditionalMfa(admin, user.id, authHeader);
   if (!mfaResult.ok) return json({ error: mfaResult.error }, mfaResult.status);
@@ -162,6 +167,13 @@ Deno.serve(async (request) => {
   }
   if (!hasComplimentaryAccess && (!["core", "byo"].includes(membership?.plan_key) || !["trialing", "active"].includes(membership.status))) {
     return json({ error: "An active Meal Daddy membership is required." }, 402);
+  }
+  if (cloudByok) {
+    if (Deno.env.get("ENABLE_BYOK_CLOUD") !== "true") return json({error:"Encrypted account key use is not enabled. No alternate provider was used."},503);
+    const {data:connection,error:connectionError} = await admin.from("byok_cloud_credentials").select("version,provider,model,nonce,ciphertext").eq("user_id",user.id).maybeSingle();
+    if (connectionError || !connection) return json({error:"No encrypted account connection is available. Reconnect it before estimating."},422);
+    try { byok = await openByokCredentials(user.id,connection,Deno.env.get("BYOK_VAULT_MASTER_KEY")); model=byok.model; }
+    catch { return json({error:"The encrypted account connection could not be opened. Reconnect it; no alternate provider was used."},503); }
   }
   if (membership?.plan_key === "byo" && !byok && !hasComplimentaryAccess) return json({ error: "Choose your BYOK provider and connect its key on this device. Meal Daddy will not switch to a hosted provider.", code: "BYOK_REQUIRED" }, 422);
   if (!byok && !openAiKey) return json({ error: "Hosted nutrition estimation is not configured." }, 503);

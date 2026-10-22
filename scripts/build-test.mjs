@@ -10,7 +10,7 @@ let client = readFileSync(clientPath, 'utf8');
 client = client.replace(/const SUPABASE_URL = "[^"]+";/, `const SUPABASE_URL = ${JSON.stringify(config.supabaseUrl)};`)
   .replace(/const SUPABASE_PUBLISHABLE_KEY = "[^"]+";/, `const SUPABASE_PUBLISHABLE_KEY = ${JSON.stringify(config.publishableKey)};`)
   .replace('export async function invokeAuthenticated(functionName, options = {}) {', `export async function invokeAuthenticated(functionName, options = {}) {
-  if (functionName !== 'estimate-entry' && functionName !== 'owner-access-status' && functionName !== 'manage-referrals') {
+  if (functionName !== 'estimate-entry' && functionName !== 'owner-access-status' && functionName !== 'manage-referrals' && functionName !== 'manage-byok') {
     return { data: null, error: new Error('This feature is not connected in the isolated test environment. No payment or live AI request was made.') };
   }`);
 writeFileSync(clientPath, client);

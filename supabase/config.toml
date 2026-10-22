@@ -48,3 +48,6 @@ verify_jwt = true
 
 [functions.manage-referrals]
 verify_jwt = true
+
+[functions.manage-byok]
+verify_jwt = true

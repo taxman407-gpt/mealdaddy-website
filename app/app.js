@@ -362,7 +362,7 @@ async function handleEstimateFailure(error, subject, action = "saved", entryId =
 async function invokeMealEstimate(options = {}) {
   if (state.membershipPlan !== "byo") return invokeAuthenticated("estimate-entry", options);
   try {
-    const byok = await byokVault.read();
+    const byok = localStorage.getItem(`mealdaddy-byok-source:${user.id}`) === "cloud" ? {storage:"cloud"} : await byokVault.read();
     if (!byok) throw new Error("Connect your selected BYOK provider and API key on this device first.");
     return invokeAuthenticated("estimate-entry", { ...options, body: { ...options.body, byok } });
   } catch (error) {
@@ -371,9 +371,17 @@ async function invokeMealEstimate(options = {}) {
 }
 async function restoreByokSettings() {
   try {
-    const saved = await byokVault.read();
+    const cloud = localStorage.getItem(`mealdaddy-byok-source:${user.id}`) === "cloud";
+    let saved;
+    if (cloud) {
+      const {data,error} = await invokeAuthenticated("manage-byok", {body:{action:"status"}});
+      if (error) throw new Error("Account connection status is unavailable. No device connection was selected.");
+      saved = data?.connection;
+      if (!data?.enabled) throw new Error("Account key storage is not enabled. No device connection was selected.");
+    } else saved = await byokVault.read();
+    $("#byok-cloud").checked = cloud;
     if (saved) { $("#byok-provider").value = saved.provider; $("#byok-model").value = saved.model; }
-    $("#byok-status").textContent = saved ? `Device connection saved: ${saved.provider}, ${saved.model}. Credentials have not been validated by a live request.` : "No provider key saved on this device.";
+    $("#byok-status").textContent = saved ? `${cloud ? "Account" : "Device"} connection selected: ${saved.provider}, ${saved.model}. Credentials have not been validated by a live request.` : `No provider key available in selected ${cloud ? "account" : "device"} storage.`;
   } catch (error) { $("#byok-status").textContent = error.message; }
 }
 $("#byok-settings-form").addEventListener("submit", async (event) => {
@@ -381,7 +389,13 @@ $("#byok-settings-form").addEventListener("submit", async (event) => {
   const button = event.currentTarget.querySelector('button[type="submit"]');
   button.disabled = true;
   try {
-    await byokVault.save({ provider: $("#byok-provider").value, model: $("#byok-model").value, key: $("#byok-key").value }, {remember: $("#byok-remember").checked});
+    const credentials = {provider:$("#byok-provider").value, model:$("#byok-model").value, key:$("#byok-key").value};
+    const cloud = $("#byok-cloud").checked;
+    if (cloud) {
+      const {error} = await invokeAuthenticated("manage-byok", {body:{action:"save",credentials}});
+      if (error) throw new Error("Account connection could not be saved. Your current connection was not changed.");
+    } else await byokVault.save(credentials, {remember:$("#byok-remember").checked});
+    localStorage.setItem(`mealdaddy-byok-source:${user.id}`, cloud ? "cloud" : "device");
     $("#byok-key").value = "";
     await restoreByokSettings();
   } catch (error) { $("#byok-status").textContent = error.message; }
@@ -390,6 +404,24 @@ $("#byok-settings-form").addEventListener("submit", async (event) => {
 $("#byok-remove").addEventListener("click", async () => {
   try { await byokVault.remove(); $("#byok-key").value = ""; $("#byok-status").textContent = "Provider key removed from this device."; }
   catch (error) { $("#byok-status").textContent = error.message; }
+});
+
+for (const source of ["cloud", "device"]) {
+  $(`#byok-use-${source}`).addEventListener("click", async () => {
+    if (source === "cloud") {
+      const {data,error} = await invokeAuthenticated("manage-byok", {body:{action:"status"}});
+      if (error || !data?.enabled || !data?.connection) {
+        $("#byok-status").textContent = "No enabled account connection is available. Your selection was not changed.";
+        return;
+      }
+    }
+    localStorage.setItem(`mealdaddy-byok-source:${user.id}`, source);
+    await restoreByokSettings();
+  });
+}
+$("#byok-remove-cloud").addEventListener("click", async () => {
+  const {error} = await invokeAuthenticated("manage-byok", {body:{action:"remove"}});
+  $("#byok-status").textContent = error ? "Account connection could not be removed." : "Account key removed. Select or save a connection before using AI. Device keys were not selected automatically.";
 });
 
 async function retryEstimateEntry(entryId, { announceStart = true, announceSuccess = true } = {}) {
