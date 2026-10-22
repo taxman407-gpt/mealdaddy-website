@@ -16,13 +16,18 @@ client = client.replace(/const SUPABASE_URL = "[^"]+";/, `const SUPABASE_URL = $
 writeFileSync(clientPath, client);
 cpSync('app/october-test-controls.js', 'dist-test/app/october-test-controls.js');
 cpSync('app/october-test.css', 'dist-test/app/october-test.css');
+for (const file of ['test-lab.html', 'test-lab.js', 'test-lab.css']) cpSync(`app/${file}`, `dist-test/app/${file}`);
+let fixtures = readFileSync('supabase/test-functions/estimate-entry/fixtures.mjs', 'utf8').replace('../../functions/_shared/estimate-edit-contract.mjs', './test-estimate-contract.mjs').replace('../../functions/_shared/nutrition-reconciliation.mjs', './test-nutrition-reconciliation.mjs');
+writeFileSync('dist-test/app/test-fixtures.mjs', fixtures);
+cpSync('supabase/functions/_shared/estimate-edit-contract.mjs', 'dist-test/app/test-estimate-contract.mjs');
+cpSync('supabase/functions/_shared/nutrition-reconciliation.mjs', 'dist-test/app/test-nutrition-reconciliation.mjs');
 writeFileSync('dist-test/app/register-sw.js', '// Service worker disabled for isolated testing.\n');
 writeFileSync('dist-test/app/service-worker.js', "self.addEventListener('install', () => self.skipWaiting()); self.addEventListener('activate', event => event.waitUntil(self.registration.unregister()));\n");
 function prepare(directory) {
   for (const item of readdirSync(directory, { withFileTypes: true })) {
     const path = join(directory, item.name);
     if (item.isDirectory()) { prepare(path); continue; }
-    if (!/\.(html|js|css|json|webmanifest)$/.test(path)) continue;
+    if (!/\.(html|js|mjs|css|json|webmanifest)$/.test(path)) continue;
     let text = readFileSync(path, 'utf8');
     if (item.name.endsWith('.html')) {
       text = text.replace('</head>', '<link rel="stylesheet" href="/app/october-test.css"><script type="module" src="/app/october-test-controls.js"></script></head>');

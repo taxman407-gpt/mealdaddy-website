@@ -1,3 +1,5 @@
+import { createMealDrafts } from "./meal-drafts.js?v=20261021-1";
+import { splitMealPortion, mealDescriptionWithPortion } from "./meal-portion.js?v=20261021-1";
 import { invokeAuthenticated, supabase, requireSession } from "./supabase-client.js?v=20261004-1";
 import { buildProteinGuidance } from "./feedback-guidance.js?v=20261004-1";
 import { adaptiveHydrationGuidance } from "./adaptive-hydration.js?v=20261004-1";
@@ -96,6 +98,8 @@ document.querySelectorAll("[data-subview-back]").forEach((button) => {
 });
 
 const user = session.user;
+const mealDrafts = createMealDrafts(user.id);
+let restoringDraft = false;
 const allowedPlans = new Set(["core"]);
 const mealLabels = new Set(["Breakfast", "Brunch", "Lunch", "Dinner", "Snack"]);
 const entryCategories = [...mealLabels, "Hydration"];
@@ -902,6 +906,7 @@ export function estimateTrustDetails(entry) {
   const estimate = entry?.nutrition_estimate || {};
   if (entry?.kind !== "meal" || entry.status !== "estimated") return null;
   const sourceDetails = {
+    synthetic_test_fixture: ["Synthetic test fixture", "Fixed fictional values for testing the software; not live AI or food nutrition advice."],
     saved_food: ["Reviewed saved values", "Values came from a food or meal you previously reviewed."],
     restaurant_published: ["Restaurant-published", "The restaurant’s published information supports these values."],
     restaurant_estimate: ["Restaurant estimate", "The restaurant did not publish complete values for this customized order."],
@@ -970,7 +975,8 @@ function renderLedger() {
     const undoPortion = portionAdjusted ? `<button class="button button-quiet" type="button" data-undo-leftover="${entry.id}">Undo portion correction</button>` : "";
     const editor = `<form class="ledger-edit-form" data-edit-form="${entry.id}" hidden>
           <label><span>Log as</span><select name="entry_category">${entryCategories.map((option) => `<option${option === currentCategory ? " selected" : ""}>${option}</option>`).join("")}</select></label>
-          <label><span>Description</span><input name="description" value="${escapeHtml(entry.description)}" required maxlength="1200" /></label>
+          <label><span>Description</span><input name="description" value="${escapeHtml(entry.kind === "meal" ? splitMealPortion(entry.description).description : entry.description)}" required maxlength="1200" /></label>
+          <label${entry.kind === "meal" ? "" : " hidden"} data-meal-portion><span>% of meal consumed</span><input name="consumed_percentage" type="number" min="0" max="1000" step="0.1" value="${entry.kind === "meal" ? splitMealPortion(entry.description).percentage : 100}" /><small>100 = the full described meal. No photograph required.</small></label>
           <div><button class="button button-primary" type="submit">Save</button><button class="button button-quiet" type="button" data-cancel-edit="${entry.id}">Cancel</button>${adjustPortion}${undoPortion}<button class="button button-delete-entry" type="button" data-delete-entry="${entry.id}">Delete entry</button></div>
         </form>`;
     return `<li class="ledger-item">
@@ -2018,7 +2024,7 @@ function startVoiceCapture() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) { toast("Voice entry is not supported in this browser. You can type instead."); return; }
   const recognition = new SpeechRecognition(); recognition.lang = "en-US"; recognition.interimResults = false;
-  recognition.onresult = (event) => { $("#quick-entry").value = event.results[0][0].transcript; };
+  recognition.onresult = (event) => { $("#quick-entry").value = event.results[0][0].transcript; saveQuickDraft(); };
   recognition.onerror = () => toast("Voice entry could not start. You can type instead.");
   recognition.start(); toast("Listening...");
 }
@@ -2675,12 +2681,24 @@ $("#ledger-list").addEventListener("click", async (event) => {
     toast("Original meal estimate restored.");
   }
   if (editButton) {
-    $(`[data-edit-form="${editButton.dataset.editEntry}"]`).hidden = false;
+    const editForm = $(`[data-edit-form="${editButton.dataset.editEntry}"]`);
+    editForm.hidden = false;
+    const draft = await mealDrafts.read(`edit:${editButton.dataset.editEntry}`);
+    const entry = entryById(editButton.dataset.editEntry);
+    if (draft && draft.originalDescription === entry?.description) {
+      editForm.elements.description.value = draft.description;
+      editForm.elements.entry_category.value = draft.category;
+      editForm.elements.consumed_percentage.value = draft.percentage;
+      editForm.querySelector("[data-meal-portion]").hidden = draft.category === "Hydration";
+    }
+    editForm.elements.description.focus();
     editButton.hidden = true;
   }
   if (cancelButton) {
+    await mealDrafts.remove(`edit:${cancelButton.dataset.cancelEdit}`);
     $(`[data-edit-form="${cancelButton.dataset.cancelEdit}"]`).hidden = true;
     $(`[data-edit-entry="${cancelButton.dataset.cancelEdit}"]`).hidden = false;
+    renderLedger();
   }
   if (deleteButton) {
     const entry = entryById(deleteButton.dataset.deleteEntry);
@@ -2714,6 +2732,13 @@ $("#ledger-list").addEventListener("click", async (event) => {
   }
 });
 
+$("#ledger-list").addEventListener("change", (event) => {
+  if (event.target.name === "entry_category") {
+    const form = event.target.closest("[data-edit-form]");
+    if (form) form.querySelector("[data-meal-portion]").hidden = event.target.value === "Hydration";
+  }
+});
+
 $("#ledger-list").addEventListener("submit", async (event) => {
   const form = event.target.closest("[data-edit-form]");
   if (!form) return;
@@ -2721,13 +2746,17 @@ $("#ledger-list").addEventListener("submit", async (event) => {
   const entry = entryById(form.dataset.editForm);
   if (!entry) return;
   const formData = new FormData(form);
-  const description = String(formData.get("description") || "").trim();
+  let description = String(formData.get("description") || "").trim();
   const category = String(formData.get("entry_category") || "");
   if (!description || !entryCategories.includes(category)) {
     toast("Choose an entry category and enter a description.");
     return;
   }
   const targetKind = category === "Hydration" ? "hydration" : "meal";
+  if (targetKind === "meal") {
+    try { description = mealDescriptionWithPortion(description, formData.get("consumed_percentage")); }
+    catch (error) { toast(error.message); return; }
+  }
   const ounces = targetKind === "hydration" ? hydrationOunces(description) : null;
   if (targetKind === "hydration" && ounces === null) {
     toast("Include a fluid amount, such as 16 oz, 2 cups, 500 ml, or 1 liter.");
@@ -2769,6 +2798,7 @@ $("#ledger-list").addEventListener("submit", async (event) => {
     saveButton.disabled = false;
     return;
   }
+  await mealDrafts.remove(`edit:${entry.id}`);
   await loadLedger();
   if ((targetKind === "meal" && (descriptionChanged || kindChanged)) || estimateHydration) {
     toast(targetKind === "hydration" ? "Drink updated. Estimating its nutrition..." : "Meal updated. Recalculating nutrition...");
@@ -2822,6 +2852,7 @@ $("#use-saved-food-match").addEventListener("click", async () => {
       occurredAtForEntryDate(pending.selectedDate),
       entryDateDisplayLabel(pending.selectedDate)
     );
+    await mealDrafts.remove("quick");
     $("#quick-entry").value = "";
     $("#meal-label").value = defaultMealLabel();
     resetQuickEntryDate();
@@ -2935,6 +2966,7 @@ $("#entry-form").addEventListener("submit", async (event) => {
     // Once the ledger insert succeeds, this is an attached private photo rather than an orphan.
     // Estimate retries and after-meal comparisons rely on the retained path.
     photoAttachedToEntry = Boolean(photoPath);
+    await mealDrafts.remove("quick");
     input.value = "";
     state.photo = null;
     $("#photo-input").value = "";
@@ -3088,7 +3120,39 @@ $("#refresh-ledger").addEventListener("click", () => loadLedger().catch((error) 
 $("#sign-out").addEventListener("click", async () => { await supabase.auth.signOut(); location.replace("./auth.html"); });
 supabase.auth.onAuthStateChange((event) => { if (event === "SIGNED_OUT") location.replace("./auth.html"); });
 
+
+function saveQuickDraft() {
+  if (restoringDraft) return;
+  if (!$("#quick-entry").value.trim() && !state.photo) { void mealDrafts.remove("quick"); return; }
+  void mealDrafts.save("quick", { description: $("#quick-entry").value, category: $("#meal-label").value, date: selectedQuickEntryDate(), photo: state.photo }).catch(() => toast("Draft could not be fully saved. Keep this page open to preserve your photo."));
+}
+function saveOpenEditDrafts() {
+  for (const form of document.querySelectorAll("[data-edit-form]:not([hidden])")) {
+    const entry = entryById(form.dataset.editForm);
+    if (!entry) continue;
+    void mealDrafts.save(`edit:${entry.id}`, { originalDescription: entry.description, description: form.elements.description.value, category: form.elements.entry_category.value, percentage: form.elements.consumed_percentage.value }).catch(() => toast("This edit draft could not be saved on your device."));
+  }
+}
+$("#entry-form").addEventListener("input", saveQuickDraft);
+$("#entry-form").addEventListener("change", saveQuickDraft);
+$("#ledger-list").addEventListener("input", saveOpenEditDrafts);
+$("#ledger-list").addEventListener("change", saveOpenEditDrafts);
+window.addEventListener("pagehide", () => { saveQuickDraft(); saveOpenEditDrafts(); });
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") { saveQuickDraft(); saveOpenEditDrafts(); } });
+async function restoreQuickDraft() {
+  const draft = await mealDrafts.read("quick");
+  if (!draft || $("#quick-entry").value || state.photo) return;
+  restoringDraft = true;
+  $("#quick-entry").value = draft.description || "";
+  if (entryCategories.includes(draft.category)) $("#meal-label").value = draft.category;
+  if (draft.date && draft.date <= localEntryDateValue()) setQuickEntryDate(draft.date);
+  state.photo = draft.photo || null;
+  restoringDraft = false;
+  toast(state.photo ? "Your unfinished draft and photo were restored. Nothing was submitted." : "Your unfinished draft was restored. Nothing was submitted.");
+}
+
 try {
+  await restoreQuickDraft();
   await loadProfile();
   await Promise.all([loadLedger(), loadMembership(), loadFeedback(), loadWeightEntries()]);
   state.savedFoodsApi = await initializeSavedFoods({

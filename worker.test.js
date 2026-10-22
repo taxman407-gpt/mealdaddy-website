@@ -13,7 +13,7 @@ export default {
     const url = new URL(request.url);
     if (url.hostname !== config.host && !['localhost', '127.0.0.1'].includes(url.hostname)) return secure(new Response('Test host only', { status: 421 }));
     if (url.pathname === '/health') return secure(Response.json({ environment: config.environment, projectRef: config.projectRef, productionConnected: false, ai: 'sample-fixtures-only', billing: 'disabled' }));
-    if (url.pathname === '/') return secure(Response.redirect(new URL('/app/auth.html', url), 302));
+    if (url.pathname === '/') return secure(Response.redirect(new URL('/app/test-lab.html', url), 302));
     if (!['GET', 'HEAD'].includes(request.method)) return secure(new Response('Method not allowed', { status: 405 }));
     if (!/^\/(?:app\/|assets\/|(?:privacy|terms|health-disclaimer)\.html$)/.test(url.pathname) || url.pathname.includes('..') || url.pathname.endsWith('.map')) return secure(new Response('Not found', { status: 404 }));
     if (!env?.ASSETS) return secure(new Response('Isolated test assets are unavailable.', { status: 503 }));

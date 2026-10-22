@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import { splitMealPortion, mealDescriptionWithPortion } from '../app/meal-portion.js';
+assert.deepEqual(splitMealPortion('50% Test pizza'), { description:'Test pizza',percentage:50 });
+assert.equal(mealDescriptionWithPortion('Test pizza',50),'50% Test pizza');
+assert.equal(mealDescriptionWithPortion('50% Test pizza',50),'50% Test pizza');
+assert.equal(mealDescriptionWithPortion('Test pizza',100),'Test pizza');
+assert.equal(mealDescriptionWithPortion('Test pizza',0),'0% Test pizza');
+assert.equal(mealDescriptionWithPortion('1 oz dressing (one third of a 3 oz cup)',100),'1 oz dressing (one third of a 3 oz cup)');
+assert.throws(() => mealDescriptionWithPortion('25% Test pizza',50));
+for (const value of ['',-1,1001,NaN,Infinity]) assert.throws(() => mealDescriptionWithPortion('Test pizza',value));
+console.log('Direct meal percent: parsing, serialization, no double scaling, conflicts and bounds passed.');
