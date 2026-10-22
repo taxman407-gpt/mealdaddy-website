@@ -30,6 +30,7 @@ function render() {
   }
   $('#totals').textContent=`${entries.length} sample meal${entries.length===1?'':'s'} · ${totals.calories} calories · ${totals.carbs_g} g carbs · ${totals.fiber_g} g fiber · ${totals.net_carbs_g} g net carbs`;
   $('#totals').className='metrics';
+  if (entries.length && $('#status').textContent === 'No sample meals saved yet.') announce('Saved sample meals restored from this browser.');
 }
 for (const description of fixtureDescriptions) {const button=document.createElement('button');button.type='button';button.textContent=description;button.addEventListener('click',()=>{$('#description').value=description;$('#description').focus();void autosave();});$('#samples').append(button);}
 $('#sample-form').addEventListener('input',()=>void autosave());

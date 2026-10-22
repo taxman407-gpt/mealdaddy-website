@@ -100,6 +100,7 @@ document.querySelectorAll("[data-subview-back]").forEach((button) => {
 const user = session.user;
 const mealDrafts = createMealDrafts(user.id);
 let restoringDraft = false;
+let quickRequestId = crypto.randomUUID();
 const allowedPlans = new Set(["core"]);
 const mealLabels = new Set(["Breakfast", "Brunch", "Lunch", "Dinner", "Snack"]);
 const entryCategories = [...mealLabels, "Hydration"];
@@ -2853,6 +2854,7 @@ $("#use-saved-food-match").addEventListener("click", async () => {
       entryDateDisplayLabel(pending.selectedDate)
     );
     await mealDrafts.remove("quick");
+    quickRequestId = crypto.randomUUID();
     $("#quick-entry").value = "";
     $("#meal-label").value = defaultMealLabel();
     resetQuickEntryDate();
@@ -2958,15 +2960,28 @@ $("#entry-form").addEventListener("submit", async (event) => {
     const estimateHydration = kind === "hydration" && hydrationNeedsNutritionEstimate(description);
     const nutrition = kind === "hydration" ? { ounces } : photoPath ? { photo_path: photoPath } : null;
     const mealLabel = mealLabels.has(selectedCategory) ? selectedCategory : defaultMealLabel();
-    const { data: savedEntry, error } = await supabase.from("ledger_entries")
-      .insert({ user_id: user.id, client_request_id: crypto.randomUUID(), kind, occurred_at: occurredAt, description, meal_label: kind === "meal" ? mealLabel : null, nutrition_estimate: nutrition, status: kind === "hydration" && !estimateHydration ? "estimated" : "pending_estimate" })
+    let { data: savedEntry, error } = await supabase.from("ledger_entries")
+      .insert({ user_id: user.id, client_request_id: quickRequestId, kind, occurred_at: occurredAt, description, meal_label: kind === "meal" ? mealLabel : null, nutrition_estimate: nutrition, status: kind === "hydration" && !estimateHydration ? "estimated" : "pending_estimate" })
       .select("id")
       .single();
+    if (error?.code === "23505") {
+      const previous = await supabase.from("ledger_entries").select("id,description,kind,nutrition_estimate").eq("user_id", user.id).eq("client_request_id", quickRequestId).maybeSingle();
+      if (!previous.error && previous.data?.description === description && previous.data?.kind === kind) {
+        if (photoUploaded && photoPath && photoPath !== previous.data.nutrition_estimate?.photo_path) {
+          await supabase.storage.from("meal-photos").remove([photoPath]);
+          photoUploaded = false;
+        }
+        photoPath = previous.data.nutrition_estimate?.photo_path || null;
+        savedEntry = previous.data;
+        error = null;
+      }
+    }
     if (error || !savedEntry?.id) throw error || new Error("The meal entry was not saved.");
     // Once the ledger insert succeeds, this is an attached private photo rather than an orphan.
     // Estimate retries and after-meal comparisons rely on the retained path.
     photoAttachedToEntry = Boolean(photoPath);
     await mealDrafts.remove("quick");
+    quickRequestId = crypto.randomUUID();
     input.value = "";
     state.photo = null;
     $("#photo-input").value = "";
@@ -3124,7 +3139,7 @@ supabase.auth.onAuthStateChange((event) => { if (event === "SIGNED_OUT") locatio
 function saveQuickDraft() {
   if (restoringDraft) return;
   if (!$("#quick-entry").value.trim() && !state.photo) { void mealDrafts.remove("quick"); return; }
-  void mealDrafts.save("quick", { description: $("#quick-entry").value, category: $("#meal-label").value, date: selectedQuickEntryDate(), photo: state.photo }).catch(() => toast("Draft could not be fully saved. Keep this page open to preserve your photo."));
+  void mealDrafts.save("quick", { description: $("#quick-entry").value, category: $("#meal-label").value, date: selectedQuickEntryDate(), photo: state.photo, requestId: quickRequestId }).catch(() => toast("Draft could not be fully saved. Keep this page open to preserve your photo."));
 }
 function saveOpenEditDrafts() {
   for (const form of document.querySelectorAll("[data-edit-form]:not([hidden])")) {
@@ -3147,6 +3162,7 @@ async function restoreQuickDraft() {
   if (entryCategories.includes(draft.category)) $("#meal-label").value = draft.category;
   if (draft.date && draft.date <= localEntryDateValue()) setQuickEntryDate(draft.date);
   state.photo = draft.photo || null;
+  if (typeof draft.requestId === "string" && /^[a-f0-9-]{36}$/i.test(draft.requestId)) quickRequestId = draft.requestId;
   restoringDraft = false;
   toast(state.photo ? "Your unfinished draft and photo were restored. Nothing was submitted." : "Your unfinished draft was restored. Nothing was submitted.");
 }
