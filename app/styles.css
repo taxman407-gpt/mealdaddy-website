@@ -985,3 +985,7 @@ html:has(.v1-live) { height: auto; min-height: 100%; overflow-y: auto !important
   .v1-live .ledger-card, .v1-live .coach-card, .v1-live .reports-card,
   .v1-live .rating-card { border-radius: 18px; }
 }
+
+.conversion-report-table-wrap { max-width: 100%; overflow-x: auto; }
+.conversion-report-table-wrap table { border-collapse: collapse; font-size: .85rem; }
+.conversion-report-table-wrap th, .conversion-report-table-wrap td { padding: .65rem; border-bottom: 1px solid var(--line, #ddd); text-align: left; white-space: nowrap; }

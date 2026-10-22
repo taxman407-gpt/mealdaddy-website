@@ -1,5 +1,5 @@
 # Automated verified-registration welcome email — October upgrade
-Status: Source implemented on the October branch; sending remains disabled. Test SQL acceptance is pending restoration of the database connector.
+Status: Implemented and deployed in the isolated test project with sending disabled. Synthetic SQL and worker/runtime checks pass.
 
 ## Trigger
 Send exactly one welcome email after successful email verification of a newly registered MealDaddy account. Do not trigger merely on sign-up form submission, checkout attempt, or repeat sign-in. Historical users must not be bulk-mailed on feature activation.
@@ -41,3 +41,5 @@ The Resend adapter is optional source code, not a provisioned account. No creden
 Owner report monitoring shows failed/review-required deliveries and sent timestamps through the same owner+MFA authorization and access audit. Trial start remains unknown where not recorded.
 
 Provider references: https://resend.com/changelog/idempotency-keys and https://resend.com/docs/dashboard/emails/send-test-emails . Stripe Directory documentation lookup was unavailable; its CLI was not retried after the earlier telemetry approval rejection. No vendor purchase or provisioning occurred.
+
+The connector recovered when the migration was split into outbox and report-column migrations: 20261022223106 and 20261022223111. Installed SQL acceptance passed with all fixtures rolled back. process-welcome-email v1 and welcome-aware owner-conversion-report v2 are deployed with JWT checks. Verified database defaults: enabled=false, started_at=null, zero delivery records. No cron or credentials were configured and no message was sent.

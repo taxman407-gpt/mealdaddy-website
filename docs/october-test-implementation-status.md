@@ -1,3 +1,23 @@
+# Deployment isolation restored — 22 October 2026
+
+Using the owner's signed-in Chrome through the Browser extension, restored mealdaddy-website from feature version a2553dec to the last accepted main version 4466ebda (commit 364f18d5ac4238d2dae0525c299d0d4297d6f7a4). Cloudflare shows 4466ebda as the active deployment. A read-only public asset check returned HTTP 200 and byte-for-byte equality between https://www.mealdaddy.ai/app/app.js and origin/main:app/app.js (166939 bytes, SHA256 2db5820ef26d77b8fdd6aea8f769ee3976295415e9c86813cd53a59b8e23e9b2).
+
+Saved the live project's branch/build controls: production branch main; non-production/preview branch builds OFF. After saving, Cloudflare's new Preview Base panel shows preview builds OFF and preview command npx wrangler preview. Production remains npx wrangler deploy. The prior legacy non-production command was npx wrangler deploy, which caused the unintended live frontend deployments.
+
+Verified the separate mealdaddy-october-test project still targets feature/october-2026-upgrade, runs npm run build and deploys with npx wrangler deploy --config wrangler.test.jsonc. Test service version 0e8002c4 was retained during rollback. No production database record or Stripe transaction was queried or changed.
+
+Deployed test API acceptance passed with two synthetic accounts: disabled BYOK defaults, metadata-only account status, owner/MFA denial for report view/export/monitor, service-only email worker, sensitive table/RPC denial and anonymous denial. Sessions were signed out; test accounts and temporary credential file were removed. Welcome remains OFF with zero deliveries.
+
+# Current acceptance checkpoint — 22 October 2026
+
+The Cloudflare test site is available at https://mealdaddy-october-test.taxman407.workers.dev/app/test-lab . The latest served meal-app files match the source build. The full local test suite and synthetic database checks pass.
+
+Implemented source: corrected meal/portion/photo drafts and Back handling; all member AI routes with explicit device/account BYOK; exact monthly/lifetime price policy and maintenance; affiliate/subscriber referral ledgers and invoice credits; audited owner registration report; verified-registration welcome outbox and monitoring.
+
+Deployed test services: fixture-only estimator, owner authorization, referrals, disabled account BYOK storage, owner registration/monitoring report, and disabled service-only welcome worker. The test estimator still never calls a paid AI provider. Billing, referral programs, encrypted account keys and email sending remain unactivated.
+
+Remaining acceptance dependencies: test-only AI/provider keys and capped live-image checks; Stripe sandbox connection/prices/webhooks (the connected account is live and was not used); verified sender/test email credentials and approved activation; owner MFA/browser acceptance and Android hardware Back checks. These are not replaced by mocks. Production rollout/main merge is not approved.
+
 # October 21 isolated test implementation
 
 ## Implemented and verified
@@ -84,3 +104,9 @@ Implementation references: https://docs.stripe.com/api/invoice-payment/list, htt
 - Owner registration/conversion migration 20261022154758 and owner-conversion-report v1 are deployed in the test project; synthetic SQL and runtime/CSV checks pass. Report access and export are owner+MFA gated and audited; payment evidence requires a real positive, owned, succeeded payment, not just active subscription status.
 - Welcome outbox/processor/monitoring source is committed, disabled by default. Local adapter/worker tests pass. The test migration and redeployment of welcome-aware report v2 remain pending because the Supabase connector returned invalid request state/internal errors on write attempts. No welcome tables, scheduler, credentials or sends were activated.
 - The migration CLI attempted unsolicited PostHog telemetry and automatic approval review rejected it. It was not retried. Source creation continued, and connector-based database work was attempted separately.
+
+## Welcome test deployment completed
+- Split migration application succeeded: 20261022223106 installs the disabled outbox and verification trigger; 20261022223111 adds welcome delivery dates to the server-only owner report.
+- Installed SQL tests passed for disabled/new/historical/unverified accounts, repeat verification, exclusive delivery leases, idempotency-window review, client permission denial and account deletion. All synthetic fixtures rolled back.
+- Deployed process-welcome-email v1 and owner-conversion-report v2 with JWT validation. Defaults remain disabled with no activation cutoff and zero deliveries. No provider account, sender credentials, scheduler or mail send was created.
+- A 31a4793 Cloudflare test build and GitHub verification check succeeded; served app file hash verification passes. The other Cloudflare project also reports a version build for the branch; that does not establish a production traffic deployment. No main merge or production database write was performed.

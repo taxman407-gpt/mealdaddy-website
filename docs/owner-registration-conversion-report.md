@@ -44,5 +44,5 @@ Owner Tools > User Management > Registration & Conversion. Keep entry only on Ac
 - Every view/export must write an owner audit record before returning any rows.
 - A positive-payment evidence collector runs only after verified Stripe webhooks, subscription/customer linkage, and succeeded PaymentIntent allocation checks, behind ENABLE_OWNER_CONVERSION_REPORT. It is source-only and disabled in test.
 - Synthetic SQL tests cover registration, trial, unproven active membership, positive payment, repeated checkout rows, unknown consent, filters and pagination; transactions roll back.
-- Trial start and welcome-delivery date are explicitly not recorded yet. Historical missing payment evidence remains unknown; no live customer data was inspected or backfilled.
+- Trial start is explicitly not recorded; welcome sent time is now joined from the delivery ledger. Historical missing payment evidence remains unknown; no live customer data was inspected or backfilled.
 - Report view deliberately uses a privileged narrow projection of auth.users, granted only to service_role. No auth.users table access is granted to client or service roles by this migration.

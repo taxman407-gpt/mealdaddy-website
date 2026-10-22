@@ -7,7 +7,7 @@ assert.equal(config.host, 'mealdaddy-october-test.taxman407.workers.dev');
 assert.equal(config.projectRef, 'dkirmzthyynogkkaacmj');
 const origin = `https://${config.host}`;
 const hash = value => createHash('sha256').update(value).digest('hex');
-const files = ['app/app.js', 'app/account.js', 'app/byok-vault.js', 'app/membership-policy.mjs', 'app/draft-navigation.js', 'app/meal-drafts.js', 'app/photo-review.js', 'app/test-lab.js'];
+const files = ['app/app.js', 'app/account.js', 'app/byok-vault.js', 'app/membership-policy.mjs', 'app/draft-navigation.js', 'app/meal-drafts.js', 'app/photo-review.js', 'app/test-lab.js', 'app/app.html', 'app/conversion-report.html', 'app/conversion-report.js', 'app/report-csv.js', 'app/referrals.js', 'app/referral-client.js'];
 const expected = files.map(path => ({path, digest: hash(readFileSync(`dist-test/${path}`))}));
 const deadline = Date.now() + (process.argv.includes('--wait') ? 180000 : 0);
 let passed = false;
