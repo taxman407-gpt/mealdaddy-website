@@ -43,3 +43,10 @@ Ten INFO advisor notices for RLS-enabled server-only tables without direct polic
 - Ordinary meal/hydration edits and undo-portion saves now compare the original description and estimate before updating. A stale save reports the conflict and preserves the device draft instead of overwriting another tab's work.
 - Executed the transactional RLS test against the isolated test project: current snapshot update succeeded, stale description and stale estimate updates affected zero rows, original timestamp preserved; cross-account checks also passed. All synthetic rows rolled back.
 - Browser acceptance found an asynchronous draft-restoration race that could replace a percentage typed immediately after opening Edit. Added a touched-input guard to the full app and sample lab; retesting this before marking browser acceptance passed.
+
+- Added `npm run test:deployment` (optional `-- --wait`) to compare SHA-256 hashes of the locally built test JavaScript against the actual test domain, and verify the health endpoint remains fixture-only with billing disabled. A green GitHub check alone is not deployment acceptance.
+
+## Deployed acceptance — d9507b0
+- Cloudflare test assets now match the local build byte-for-byte for app.js, draft-navigation.js, meal-drafts.js, photo-review.js and test-lab.js; health remained isolated/fixture-only with billing disabled.
+- Live browser: opened the existing salad sample, rapidly entered 50% and notes, pressed browser Back, reopened Edit. The percentage and notes were restored. Ledger remained one meal at 240 calories, with the original ID and timestamp. No save/submission occurred.
+- The draft-restoration race found during the first browser pass is fixed and retested. This establishes desktop browser history behavior using the shared controller; it does not establish actual Android hardware or gesture acceptance, nor live image inference.
