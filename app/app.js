@@ -1,3 +1,5 @@
+import { lifetimeAccess } from "./membership-policy.mjs?v=20261022-1";
+import { createByokVault } from "./byok-vault.js?v=20261022-1";
 import { createDraftNavigation } from "./draft-navigation.js?v=20261022-1";
 import { reviewedPhotoDescription } from "./photo-review.js?v=20261022-1";
 import { createMealDrafts } from "./meal-drafts.js?v=20261021-1";
@@ -100,11 +102,12 @@ document.querySelectorAll("[data-subview-back]").forEach((button) => {
 });
 
 const user = session.user;
+const byokVault = createByokVault(user.id);
 const mealDrafts = createMealDrafts(user.id);
 const draftNavigation = createDraftNavigation();
 let restoringDraft = false;
 let quickRequestId = crypto.randomUUID();
-const allowedPlans = new Set(["core"]);
+const allowedPlans = new Set(["core", "byo", "core_lifetime", "byo_lifetime"]);
 const mealLabels = new Set(["Breakfast", "Brunch", "Lunch", "Dinner", "Snack"]);
 const entryCategories = [...mealLabels, "Hydration"];
 const supportedMealPhotoTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
@@ -345,11 +348,48 @@ async function handleEstimateFailure(error, subject, action = "saved", entryId =
     toast(`${subject} ${action}. ${message}`);
     return message;
   }
+  if (failure.status === 422 || failure.status === 503) {
+    const message = failure.message || "The selected provider connection is not ready.";
+    rememberEstimateFailure(entryId, message); toast(message); return message;
+  }
   const message = "The estimate needs another try. This entry is not included in totals yet.";
   rememberEstimateFailure(entryId, message);
   toast(`${subject} ${action}, but the nutrition estimate could not finish. Use Retry estimate on the entry.`);
   return message;
 }
+
+async function invokeMealEstimate(options = {}) {
+  if (state.membershipPlan !== "byo") return invokeAuthenticated("estimate-entry", options);
+  try {
+    const byok = await byokVault.read();
+    if (!byok) throw new Error("Connect your selected BYOK provider and API key on this device first.");
+    return invokeAuthenticated("estimate-entry", { ...options, body: { ...options.body, byok } });
+  } catch (error) {
+    return { data: null, error: Object.assign(new Error(error.message), { context: new Response(JSON.stringify({ error: error.message }), {status:422}) }) };
+  }
+}
+async function restoreByokSettings() {
+  try {
+    const saved = await byokVault.read();
+    if (saved) { $("#byok-provider").value = saved.provider; $("#byok-model").value = saved.model; }
+    $("#byok-status").textContent = saved ? `Device connection saved: ${saved.provider}, ${saved.model}. Credentials have not been validated by a live request.` : "No provider key saved on this device.";
+  } catch (error) { $("#byok-status").textContent = error.message; }
+}
+$("#byok-settings-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const button = event.currentTarget.querySelector('button[type="submit"]');
+  button.disabled = true;
+  try {
+    await byokVault.save({ provider: $("#byok-provider").value, model: $("#byok-model").value, key: $("#byok-key").value }, {remember: $("#byok-remember").checked});
+    $("#byok-key").value = "";
+    await restoreByokSettings();
+  } catch (error) { $("#byok-status").textContent = error.message; }
+  finally { button.disabled = false; }
+});
+$("#byok-remove").addEventListener("click", async () => {
+  try { await byokVault.remove(); $("#byok-key").value = ""; $("#byok-status").textContent = "Provider key removed from this device."; }
+  catch (error) { $("#byok-status").textContent = error.message; }
+});
 
 async function retryEstimateEntry(entryId, { announceStart = true, announceSuccess = true } = {}) {
   const entry = entryById(entryId);
@@ -360,7 +400,7 @@ async function retryEstimateEntry(entryId, { announceStart = true, announceSucce
   renderLedger();
   if (announceStart) toast(`Retrying the ${subject.toLowerCase()} estimate...`);
   try {
-    const { data, error } = await invokeAuthenticated("estimate-entry", { body: { entryId } });
+    const { data, error } = await invokeMealEstimate( { body: { entryId } });
     if (error) {
       await handleEstimateFailure(error, subject, "saved", entryId);
       return false;
@@ -391,7 +431,7 @@ async function addMealImpactDetails(entryId, { announceStart = true, announceSuc
   renderLedger();
   if (announceStart) toast("Adding food impact details and the Inflammation Score...");
   try {
-    const { error } = await invokeAuthenticated("estimate-entry", { body: { entryId, itemizeExisting: true } });
+    const { error } = await invokeMealEstimate( { body: { entryId, itemizeExisting: true } });
     if (error) {
       const failure = await readFunctionFailure(error);
       if (failure.status === 402 && state.membershipAccess === "family") {
@@ -424,7 +464,7 @@ async function startCheckout(plan) {
   buttons.forEach((button) => { button.disabled = true; });
   status.textContent = "Opening secure Stripe Checkout...";
   try {
-    const { data, error } = await invokeAuthenticated("create-checkout", { body: { plan } });
+    const { data, error } = await invokeAuthenticated(plan.endsWith("_lifetime") ? "create-license-checkout" : "create-checkout", { body: { plan } });
     if (error) throw error;
     const checkoutUrl = data?.url ? new URL(data.url) : null;
     if (!checkoutUrl || checkoutUrl.protocol !== "https:" || checkoutUrl.hostname !== "checkout.stripe.com") {
@@ -739,7 +779,7 @@ async function loadWeightEntries() {
 }
 
 async function loadMembership() {
-  const [subscriptionResult, grantResult] = await Promise.all([
+  const [subscriptionResult, grantResult, licenseResult] = await Promise.all([
     supabase
       .from("subscriptions")
       .select("plan_key,status,trial_ends_at,current_period_ends_at,cancel_at_period_end")
@@ -749,10 +789,27 @@ async function loadMembership() {
       .from("complimentary_access_grants")
       .select("access_type,status")
       .eq("user_id", user.id)
-      .maybeSingle()
+      .maybeSingle(),
+    supabase.from("lifetime_licenses").select("plan_key,status,purchased_at,maintenance_paid_through").eq("user_id", user.id).maybeSingle()
   ]);
   if (subscriptionResult.error) throw subscriptionResult.error;
   if (grantResult.error) throw grantResult.error;
+  if (licenseResult.error && !["42P01", "PGRST205"].includes(licenseResult.error.code)) throw licenseResult.error;
+  const license = licenseResult.data;
+  const access = lifetimeAccess(license);
+  if (access.licenseValid) {
+    state.membershipPlan = access.plan;
+    state.membershipStatus = access.active ? "active" : "maintenance_due";
+    state.membershipAccess = "lifetime";
+    $("#subscription").hidden = access.active;
+    $("#plan-options").hidden = true;
+    $("#trial-note").hidden = true;
+    $("#provider-settings").hidden = access.plan !== "byo";
+    $("#subscription-title").textContent = "Founding Member Lifetime License";
+    $("#subscription-copy").textContent = access.active ? `Maintenance included or paid through ${new Date(access.accessThrough).toLocaleDateString()}.` : "Your lifetime license remains valid. Renew maintenance to reactivate; skipped years carry no back fees.";
+    $("#billing-status").textContent = access.active ? "Lifetime access active" : "Maintenance renewal required in Account & Privacy.";
+    return;
+  }
   const data = subscriptionResult.data;
   const currentStripeMembership = data && ["trialing", "active", "past_due", "unpaid"].includes(data.status);
   const familyAccess = !currentStripeMembership &&
@@ -930,7 +987,9 @@ export function estimateTrustDetails(entry) {
     else if (estimate.source === "saved_food") uncertainty = "These values are reliable only while the saved recipe and serving remain unchanged.";
     else uncertainty = "Unstated serving size, ingredients, oils, and sauces can change the result.";
   }
-  return { label, explanation, confidence, uncertainty };
+  const providerDisclosure = estimate.ai_provider && estimate.ai_model
+    ? ` Processed by ${estimate.ai_provider} (${estimate.ai_model}).${estimate.ai_billing === "user_provider_account" ? " API usage is billed to your provider account." : ""}` : "";
+  return { label, explanation: explanation + providerDisclosure, confidence, uncertainty };
 }
 
 function renderLedger() {
@@ -3081,7 +3140,7 @@ $("#entry-form").addEventListener("submit", async (event) => {
       let estimateData = null;
       let estimateError = null;
       try {
-        const result = await invokeAuthenticated("estimate-entry", {
+        const result = await invokeMealEstimate( {
           body: { entryId: savedEntry.id, saveFavorite: wantsFavorite }
         });
         estimateData = result.data;
@@ -3157,7 +3216,7 @@ async function itemizeCurrentEntries() {
         break;
       }
     } else {
-      const { error } = await invokeAuthenticated("estimate-entry", { body: { entryId: entry.id, itemizeExisting: true } });
+      const { error } = await invokeMealEstimate( { body: { entryId: entry.id, itemizeExisting: true } });
       if (error) {
         ingredientItemizationFailed = true;
         break;
@@ -3305,6 +3364,7 @@ try {
   await restoreQuickDraft();
   await loadProfile();
   await Promise.all([loadLedger(), loadMembership(), loadFeedback(), loadWeightEntries()]);
+  await restoreByokSettings();
   state.savedFoodsApi = await initializeSavedFoods({
     supabase,
     invokeAuthenticated,

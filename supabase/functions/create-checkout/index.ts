@@ -1,4 +1,5 @@
-import Stripe from "npm:stripe@18.5.0";
+import { membershipPlans, assertPlanPrice } from "../_shared/membership-policy.mjs";
+import Stripe from "npm:stripe@22.6.0";
 import { createClient } from "npm:@supabase/supabase-js@2.54.0";
 import { requireConditionalMfa } from "../_shared/conditional-mfa.ts";
 
@@ -86,11 +87,9 @@ Deno.serve(async (request) => {
   }
 
   const plan = payload.plan ?? "";
-  if (plan === "byo") {
-    return json({ error: "Bring Your Own API is coming soon and cannot be purchased yet." }, 409);
-  }
-  if (plan !== "core") return json({ error: "Unknown subscription plan." }, 400);
-  const price = Deno.env.get("STRIPE_CORE_PRICE_ID");
+  if (!["core", "byo"].includes(plan)) return json({ error: "Unknown subscription plan." }, 400);
+  if (plan === "byo" && Deno.env.get("ENABLE_BYOK") !== "true") return json({ error: "BYOK checkout is not enabled in this environment." }, 503);
+  const price = Deno.env.get(membershipPlans[plan].priceVariable);
   if (!price) return json({ error: "Checkout is not configured for this plan." }, 503);
 
   const admin = createClient(supabaseUrl, serviceKey);
@@ -114,22 +113,30 @@ Deno.serve(async (request) => {
   if (existingMembership && ["trialing", "active", "past_due", "unpaid", "paused", "incomplete"].includes(existingMembership.status)) {
     return json({ error: "This account already has a current membership. Use Manage billing instead of starting another checkout.", existingMembership: true }, 409);
   }
-  const { data: reservationRows, error: reserveError } = await admin.rpc(
+  if (Deno.env.get("ENABLE_LIFETIME_BILLING") === "true") {
+    const {data: license, error: licenseError} = await admin.from("lifetime_licenses").select("status").eq("user_id",user.id).maybeSingle();
+    if (licenseError) return json({error:"Lifetime membership could not be checked."},503);
+    if (license && ["paid","reconciliation_required"].includes(license.status)) return json({error:"A lifetime license already exists. Use maintenance renewal instead of creating a second membership."},409);
+  }
+  const stripe = new Stripe(stripeKey, { apiVersion: "2026-08-26.dahlia" });
+  try { assertPlanPrice(plan, await stripe.prices.retrieve(price)); }
+  catch { return json({ error: "The configured billing price does not match the advertised plan. No checkout was created." }, 503); }
+  const { data: reservationRows, error: reserveError } = plan === "core" ? await admin.rpc(
     "reserve_weekly_subscription_trial",
     {
       requested_user_id: user.id,
       requested_week_start: easternWeekStart(),
       requested_weekly_limit: 2000
     }
-  );
+  ) : {data:[{eligible:false}],error:null};
   if (reserveError) return json({ error: "Trial availability could not be checked." }, 500);
 
   const reservation = reservationRows?.[0];
   const eligible = Boolean(reservation?.eligible && reservation?.reservation_id);
-  const stripe = new Stripe(stripeKey);
 
   try {
     const session = await stripe.checkout.sessions.create({
+      integration_identifier: "mealdaddy_october_hkqzpmte",
       mode: "subscription",
       line_items: [{ price, quantity: 1 }],
       ...(existingMembership?.stripe_customer_id
@@ -153,7 +160,7 @@ Deno.serve(async (request) => {
           }
         } : {})
       }
-    }, { idempotencyKey: `mealdaddy-core-${user.id}-${easternWeekStart()}` });
+    }, { idempotencyKey: `mealdaddy-${plan}-${user.id}-${easternWeekStart()}` });
 
     const { error: checkoutTrackingError } = await admin
       .from("stripe_checkout_sessions")

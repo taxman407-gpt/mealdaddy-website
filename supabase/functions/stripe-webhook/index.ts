@@ -1,3 +1,4 @@
+import { fulfillLifetimeCheckout } from "../_shared/lifetime-fulfillment.mjs";
 import Stripe from "npm:stripe@18.5.0";
 import { createClient } from "npm:@supabase/supabase-js@2.54.0";
 
@@ -83,7 +84,14 @@ Deno.serve(async (request) => {
   };
 
   try {
-    if (event.type === "checkout.session.completed") {
+    if (["checkout.session.completed", "checkout.session.async_payment_succeeded"].includes(event.type)) {
+      const session = event.data.object as Stripe.Checkout.Session;
+      if (session.mode === "payment" && session.metadata?.billing_purpose === "lifetime_license") {
+        if (Deno.env.get("ENABLE_LIFETIME_BILLING") !== "true") throw new Error("Lifetime fulfillment is disabled");
+        await fulfillLifetimeCheckout({ session, admin, stripe, paidAt: new Date(event.created * 1000).toISOString() });
+      }
+    }
+    if (event.type === "checkout.session.completed" && (event.data.object as Stripe.Checkout.Session).mode !== "payment") {
       const session = event.data.object as Stripe.Checkout.Session;
       const userId = session.metadata?.user_id ?? session.client_reference_id;
       if (!userId) throw new Error("Checkout session is missing its Meal Daddy user reference");
@@ -165,6 +173,23 @@ Deno.serve(async (request) => {
       );
     }
 
+    if (event.type === "checkout.session.async_payment_failed") {
+      const session = event.data.object as Stripe.Checkout.Session;
+      if (session.mode === "payment" && session.metadata?.billing_purpose === "lifetime_license") {
+        const userId = session.metadata.user_id;
+        if (!userId || session.client_reference_id !== userId) throw new Error("Failed lifetime checkout ownership mismatch");
+        const {error: failedCheckoutError} = await admin.from("stripe_checkout_sessions").update({status:"failed",updated_at:new Date().toISOString()}).eq("checkout_session_id",session.id).eq("user_id",userId);
+        if (failedCheckoutError) throw new Error("Failed lifetime payment could not be reconciled");
+      }
+    }
+    if (event.type === "charge.refunded" && Deno.env.get("ENABLE_LIFETIME_BILLING") === "true") {
+      const charge = event.data.object as Stripe.Charge;
+      const paymentIntent = typeof charge.payment_intent === "string" ? charge.payment_intent : charge.payment_intent?.id;
+      if (paymentIntent) {
+        const {error: refundError} = await admin.rpc("record_lifetime_refund", {requested_payment_intent_id: paymentIntent, requested_refunded_cents: charge.amount_refunded});
+        if (refundError) throw new Error("Lifetime refund reconciliation failed");
+      }
+    }
     const { data: completed, error: completeError } = await admin.rpc("complete_stripe_webhook_event", {
       requested_event_id: event.id,
       requested_claim_token: claimToken

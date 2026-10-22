@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import {createByokVault} from '../app/byok-vault.js';
+const values=new Map();const store={async run(action,key,value){if(action==='get')return values.get(key);if(action==='delete')return values.delete(key);values.set(key,structuredClone(value));}};
+const a=createByokVault('synthetic-a',{store});const b=createByokVault('synthetic-b',{store});
+await a.save({provider:'openai',model:'explicit-model',key:'synthetic-provider-key'});
+assert.equal((await a.read()).key,'synthetic-provider-key');assert.equal(await b.read(),null);
+assert(!JSON.stringify(values.get('synthetic-a')).includes('synthetic-provider-key'));
+assert.equal(values.get('synthetic-a').wrappingKey.extractable,false);
+values.set('synthetic-b',values.get('synthetic-a'));await assert.rejects(b.read(),/could not be opened/);
+await a.save({provider:'gemini',model:'chosen-model',key:'session-key'},{remember:false});assert(!values.has('synthetic-a'));assert.equal((await a.read()).provider,'gemini');
+await a.remove();assert.equal(await a.read(),null);
+const broken=createByokVault('failed',{store:{async run(){throw new Error('Blocked storage');}}});await assert.rejects(broken.save({provider:'openai',model:'explicit-model',key:'fake-key'}),/Blocked storage/);
+console.log('BYOK vault: account separation, encrypted device storage, nonexportable key, session-only mode, remove and storage failure passed.');

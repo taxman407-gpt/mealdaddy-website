@@ -47,4 +47,5 @@ for (const directory of publicDirectories) {
   });
 }
 
+cpSync(join(projectRoot, "supabase/functions/_shared/membership-policy.mjs"), join(outputRoot, "app/membership-policy.mjs"));
 console.log("Prepared the Netlify public bundle in dist/.");

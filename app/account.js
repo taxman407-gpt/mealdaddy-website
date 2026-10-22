@@ -1,3 +1,5 @@
+import { createByokVault } from "./byok-vault.js?v=20261022-1";
+import { lifetimeAccess } from "./membership-policy.mjs?v=20261022-1";
 import { invokeAuthenticated, supabase, requireSession } from "./supabase-client.js?v=20261004-1";
 import { clearLocalSavedFoods, getDeviceSavedFoods } from "./saved-foods-store.js?v=20260929-1";
 import { metricLabel, normalizeMetricOrder, normalizeOptionalMetrics } from "./metric-order.js?v=20261004-3";
@@ -514,7 +516,7 @@ async function fetchAllRows(table, columns = "*", orderColumn = null) {
 }
 
 async function loadMembership() {
-  const [subscriptionResult, grantResult] = await Promise.all([
+  const [subscriptionResult, grantResult, licenseResult] = await Promise.all([
     supabase
       .from("subscriptions")
       .select("plan_key,status,trial_ends_at,current_period_ends_at,cancel_at_period_end,updated_at")
@@ -524,10 +526,26 @@ async function loadMembership() {
       .from("complimentary_access_grants")
       .select("access_type,status,granted_at,updated_at")
       .eq("user_id", user.id)
-      .maybeSingle()
+      .maybeSingle(),
+    supabase.from("lifetime_licenses").select("plan_key,status,purchased_at,maintenance_paid_through").eq("user_id", user.id).maybeSingle()
   ]);
   if (subscriptionResult.error) throw subscriptionResult.error;
   if (grantResult.error) throw grantResult.error;
+  if (licenseResult.error && !["42P01", "PGRST205"].includes(licenseResult.error.code)) throw licenseResult.error;
+  const access = lifetimeAccess(licenseResult.data);
+  if (access.licenseValid) {
+    membership = { ...licenseResult.data, access_source: "lifetime" };
+    $("#membership-title").textContent = `${access.plan === "byo" ? "BYOK" : "Standard"} Founding Member Lifetime`;
+    $("#membership-copy").textContent = "Your lifetime license remains permanent. Maintenance covers ongoing access and support; skipped renewal years have no back fees.";
+    $("#membership-status").textContent = access.active ? "Active" : "Maintenance due";
+    $("#membership-date-label").textContent = "Maintenance through";
+    $("#membership-date").textContent = formatDate(access.accessThrough);
+    $("#membership-date-row").hidden = false;
+    $("#billing-actions").hidden = true;
+    $("#lifetime-renewal").hidden = false;
+    $("#membership-explainer").textContent = "The first three years include maintenance. Initial Year 4 annual maintenance is Standard $60 or BYOK $36; reasonable changes require 60 days advance notice. Renewal is optional and is not an automatic charge.";
+    return;
+  }
   const data = subscriptionResult.data;
   const currentStripeMembership = data && ["trialing", "active", "past_due", "unpaid"].includes(data.status);
   const familyGrant = !currentStripeMembership &&
@@ -892,6 +910,7 @@ $("#delete-account").addEventListener("click", async () => {
     });
     if (error) throw error;
     if (!data?.ok) throw new Error("Account deletion was not confirmed.");
+    await createByokVault(user.id).remove().catch(() => {});
     await clearLocalSavedFoods(user.id).catch(() => {});
     await supabase.auth.signOut({ scope: "local" });
     location.replace("./auth.html?account=deleted");
@@ -950,3 +969,14 @@ try {
 }
 
 showOwnerToolsIfAuthorized().catch(() => {});
+
+$("#renew-lifetime-maintenance").addEventListener("click", async () => {
+  const button = $("#renew-lifetime-maintenance"); button.disabled = true;
+  try {
+    const {data,error} = await invokeAuthenticated("create-license-checkout", {body:{plan:`${membership.plan_key}_lifetime`,kind:"maintenance"}});
+    if(error) throw error;
+    const checkout=new URL(data.url);
+    if(checkout.protocol!=="https:"||checkout.hostname!=="checkout.stripe.com")throw new Error("Invalid checkout address.");
+    location.assign(checkout.href);
+  } catch(error) { $("#billing-message").textContent = error.message || "Maintenance checkout is unavailable."; button.disabled=false; }
+});

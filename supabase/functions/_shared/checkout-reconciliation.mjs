@@ -60,7 +60,7 @@ export async function reconcileCheckoutSessionsForDeletion({
       expand: ["subscription"]
     });
     assertCheckoutOwner(session, userId);
-    if (session.mode && session.mode !== "subscription") {
+    if (session.mode && !["subscription", "payment"].includes(session.mode)) {
       throw new Error("An unexpected Checkout Session mode could not be reconciled.");
     }
 
@@ -101,7 +101,7 @@ export async function reconcileCheckoutSessionsForDeletion({
       );
     }
 
-    if (session.status === "complete" && !sessionSubscriptionId && !trackedSubscriptionId) {
+    if (session.status === "complete" && session.mode !== "payment" && !sessionSubscriptionId && !trackedSubscriptionId) {
       throw new Error("A completed Checkout Session was missing its subscription.");
     }
 

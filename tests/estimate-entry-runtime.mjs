@@ -1,3 +1,5 @@
+import { lifetimeAccess } from "../supabase/functions/_shared/membership-policy.mjs";
+import { validateByok, callByokProvider } from "../supabase/functions/_shared/byok-provider.mjs";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
@@ -12,7 +14,7 @@ const owner = '00000000-0000-4000-8000-000000000001';
 const baseNutrients = Object.fromEntries(contract.nutrientFields.map((field) => [field, 0]));
 function component(name, calories, extras = {}) { return { ...baseNutrients, name, calories, evidence_type: 'description_estimate', confidence: 'medium', inflammation_score: 3, inflammation_impact: 'neutral', inflammation_note: 'Test estimate.', ...extras }; }
 function answer(components) { return { ...baseNutrients, components, entry_description: 'Synthetic meal', photo_quality: { suitable: true, reason: '' }, photo_description: '', description_reconciliation_note: '', label_detected: false, label_food: {}, inflammation_score: 3, inflammation_summary: 'Test estimate.', confidence: 'medium', note: 'Synthetic fixture.' }; }
-async function exercise({ description = '1 oz vinaigrette', metadata = {}, kind = 'meal', status = 'pending_estimate', response = answer([component('1 oz vinaigrette', 45)]), stale = false, mfa = true, ownRow = true, body = {}, authorization = true } = {}) {
+async function exercise({ description = '1 oz vinaigrette', metadata = {}, kind = 'meal', status = 'pending_estimate', response = answer([component('1 oz vinaigrette', 45)]), stale = false, mfa = true, ownRow = true, body = {}, authorization = true, plan = "core", enableByok = false, hostedConfigured = true } = {}) {
   let handler;
   let providerCalls = 0, photoDownloads = 0, writes = 0, settlements = 0;
   let submitted;
@@ -29,7 +31,7 @@ async function exercise({ description = '1 oz vinaigrette', metadata = {}, kind 
       gte() { return q; },
       then(resolve, reject) { return Promise.resolve(table === 'ai_usage_events' ? { data: [], error: null } : { data: null, error: null }).then(resolve, reject); },
       async maybeSingle() {
-        if (table === 'subscriptions') return { data: { plan_key: 'core', status: 'active' }, error: null };
+        if (table === 'subscriptions') return { data: { plan_key: plan, status: 'active' }, error: null };
         if (table === 'complimentary_access_grants') return { data: null, error: null };
         if (table !== 'ledger_entries') throw new Error('Unexpected table: ' + table);
         if (!filters.every(([key, value]) => same(row[key], value))) return { data: null, error: null };
@@ -50,11 +52,11 @@ async function exercise({ description = '1 oz vinaigrette', metadata = {}, kind 
     }
   };
   const context = {
-    ...contract, applyComponentTotals, gatePhotoComponents,
+    ...contract, applyComponentTotals, gatePhotoComponents, validateByok, callByokProvider, lifetimeAccess,
     createClient: () => client,
     requireConditionalMfa: async () => mfa ? { ok: true } : { ok: false, status: 403, error: 'MFA required.' },
-    Deno: { env: { get(name) { return name === 'SUPABASE_URL' ? 'https://synthetic.example.test' : name === 'SUPABASE_PUBLISHABLE_KEYS' ? '{}' : 'test-value'; } }, serve(fn) { handler = fn; } },
-    crypto: webcrypto, TextEncoder, Uint8Array, Response, Request, Blob, URL, btoa, atob,
+    Deno: { env: { get(name) { if(name === 'ENABLE_BYOK') return enableByok ? 'true' : 'false'; if(name === 'OPENAI_API_KEY' && !hostedConfigured) return undefined; return name === 'SUPABASE_URL' ? 'https://synthetic.example.test' : name === 'SUPABASE_PUBLISHABLE_KEYS' ? '{}' : 'test-value'; } }, serve(fn) { handler = fn; } },
+    AbortSignal, crypto: webcrypto, TextEncoder, Uint8Array, Response, Request, Blob, URL, btoa, atob,
     fetch: async (url, options) => {
       assert.equal(url, 'https://api.openai.com/v1/responses');
       providerCalls += 1;
@@ -63,6 +65,7 @@ async function exercise({ description = '1 oz vinaigrette', metadata = {}, kind 
       return new Response(JSON.stringify({ usage: { input_tokens: 100, output_tokens: 100 }, output: [{ content: [{ type: 'output_text', text: JSON.stringify(response) }] }] }), { status: 200 });
     }
   };
+  context.callByokProvider = (credentials, request) => callByokProvider(credentials, request, context.fetch);
   vm.runInNewContext(source, context);
   const result = await handler(new Request('https://synthetic.example.test/estimate-entry', { method: 'POST', headers: authorization ? { authorization: 'Bearer synthetic-not-a-real-token', 'content-type': 'application/json' } : { 'content-type': 'application/json' }, body: JSON.stringify({ entryId: row.id, ...body }) }));
   return { status: result.status, payload: await result.json(), row, providerCalls, photoDownloads, writes, settlements, submitted };
@@ -130,6 +133,19 @@ assert.equal(r.status, 422);
 assert.equal(r.payload.code, 'PHOTO_UNSUITABLE');
 assert.equal(r.writes, 0);
 assert.equal(r.settlements, 1);
+
+r = await exercise({plan:'byo',enableByok:true,hostedConfigured:false,body:{byok:{provider:'openai',model:'explicit-test-model',key:'synthetic-key-no-secret'}}});
+assert.equal(r.status,200);
+assert.equal(r.row.nutrition_estimate.ai_provider,'openai');
+assert.equal(r.row.nutrition_estimate.ai_model,'explicit-test-model');
+assert.equal(r.row.nutrition_estimate.ai_billing,'user_provider_account');
+assert(!JSON.stringify(r.row).includes('synthetic-key-no-secret'));
+r = await exercise({plan:'byo',enableByok:true});
+assert.equal(r.status,422);assert.equal(r.providerCalls,0);
+r = await exercise({plan:'byo',enableByok:false,body:{byok:{provider:'openai',model:'explicit-test-model',key:'synthetic-key-no-secret'}}});
+assert.equal(r.status,503);assert.equal(r.providerCalls,0);
+r = await exercise({plan:'byo',enableByok:true,body:{byok:{provider:'best_value',model:'explicit-test-model',key:'synthetic-key-no-secret'}}});
+assert.equal(r.status,400);assert.equal(r.providerCalls,0);
 
 for (const config of [{ mfa: false }, { ownRow: false }, { authorization: false }]) {
   r = await exercise(config);

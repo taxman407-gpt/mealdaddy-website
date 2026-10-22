@@ -383,12 +383,16 @@
   </section>
   <section class="settings-preview" id="provider-settings" aria-labelledby="provider-title" hidden>
     <div><p class="eyebrow">AI preferences</p><h2 id="provider-title">Choose who processes AI requests</h2><p>Bring Your Own API members can choose which supported AI service processes their requests. Account and ledger data remain in MealDaddy's data system.</p></div>
-    <div class="provider-options" role="radiogroup" aria-label="AI provider preference">
-      <label><input type="radio" name="provider" value="best_value" checked /><span><strong>Best value</strong><small>MealDaddy selects a lower-cost approved model and discloses the choice.</small></span></label>
-      <label><input type="radio" name="provider" value="openai" /><span><strong>OpenAI</strong><small>Supported requests are processed by OpenAI.</small></span></label>
-      <label><input type="radio" name="provider" value="anthropic" /><span><strong>Anthropic</strong><small>Supported requests are processed by Anthropic.</small></span></label>
-    </div>
-    <p class="privacy-line">A more capable approved model may be used when needed for reliability or safety. Provider connections remain disabled until server credentials are approved.</p>
+    <form id="byok-settings-form">
+      <label>Provider<select id="byok-provider"><option value="openai">OpenAI</option><option value="anthropic">Anthropic</option><option value="gemini">Gemini</option></select></label>
+      <label>Model ID<input id="byok-model" required maxlength="120" placeholder="Enter the model ID from your provider account" /></label>
+      <label>API key<input id="byok-key" type="password" autocomplete="off" spellcheck="false" required maxlength="512" /></label>
+      <label><input id="byok-remember" type="checkbox" checked /> Remember on this device using encrypted browser storage</label>
+      <p>Your provider bills its API usage separately. The selected provider and model are used exactly as saved, with no automatic provider switch. Your key is sent securely with each request through MealDaddy to that provider; it is not saved to your MealDaddy account. Clearing browser data removes the device key.</p>
+      <button class="button button-primary" type="submit">Save provider connection</button>
+      <button class="button button-quiet" type="button" id="byok-remove">Remove device key</button>
+      <p id="byok-status" role="status">No connection checked yet.</p>
+    </form>
   </section>
   <section class="subscription-section" id="subscription" aria-labelledby="subscription-title" hidden>
     <div class="pricing-heading">
@@ -403,15 +407,17 @@
         <p class="pricing-price"><strong>$9.99</strong><span>/month</span></p>
         <button class="button button-primary full-button" data-plan="core" type="button">Continue with Core</button>
       </article>
-      <article class="pricing-card pricing-card-coming-soon">
-        <span class="plan-label">Coming soon</span>
+      <article class="pricing-card">
+        <span class="plan-label">Your provider, your API usage</span>
         <h3>Bring Your Own API</h3>
-        <p class="pricing-price"><strong>$6.99</strong><span>/month when available</span></p>
-        <p class="coming-soon-copy">In development. No charge and no ordering at present.</p>
-        <span class="button button-quiet full-button coming-soon-button" aria-disabled="true">Coming soon</span>
+        <p class="pricing-price"><strong>$6.99</strong><span>/month</span></p>
+        <p>Your AI provider bills usage separately. Connect a supported provider key on each device.</p>
+        <button class="button button-quiet full-button" data-plan="byo" type="button">Continue with BYOK</button>
       </article>
-    </div>
-    <p class="pricing-note" id="trial-note">Meal Daddy Core: eligible new customers receive 7 days free, limited to the first 2,000 eligible starts each week. A payment method is required. Cancel before the trial ends to avoid the monthly charge. Bring Your Own API is not currently available for purchase.</p>
+    <article class="pricing-card"><span class="plan-label">Founding Member Lifetime License</span><h3>Standard Lifetime</h3><p class="pricing-price"><strong>$350</strong><span>one time</span></p><p>First three years of maintenance included. From Year 4, initially $60/year when you choose to renew. The license remains permanent; skip years and reactivate without back fees. Reasonable maintenance-price changes require 60 days advance notice.</p><button class="button button-primary full-button" data-plan="core_lifetime" type="button">Review lifetime checkout</button></article>
+<article class="pricing-card"><span class="plan-label">Founding Member Lifetime License</span><h3>BYOK Lifetime</h3><p class="pricing-price"><strong>$250</strong><span>one time</span></p><p>First three years of maintenance included. From Year 4, initially $36/year when you choose to renew. The license remains permanent; skip years and reactivate without back fees. Reasonable maintenance-price changes require 60 days advance notice.</p><button class="button button-primary full-button" data-plan="byo_lifetime" type="button">Review lifetime checkout</button></article>
+</div>
+    <p class="pricing-note" id="trial-note">Meal Daddy Core: eligible new customers receive 7 days free, limited to the first 2,000 eligible starts each week. A payment method is required. Cancel before the trial ends to avoid the monthly charge. BYOK is available only where provider connections and billing have been enabled. API usage is billed separately by your provider.</p>
     <p class="billing-status" id="billing-status" role="status" aria-live="polite"></p>
   </section>
   <section class="onboarding" id="onboarding" role="dialog" aria-modal="true" aria-labelledby="onboarding-title" hidden>
