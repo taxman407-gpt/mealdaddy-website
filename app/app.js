@@ -1,3 +1,4 @@
+import { reviewedPhotoDescription } from "./photo-review.js?v=20261022-1";
 import { createMealDrafts } from "./meal-drafts.js?v=20261021-1";
 import { splitMealPortion, mealDescriptionWithPortion } from "./meal-portion.js?v=20261021-1";
 import { invokeAuthenticated, supabase, requireSession } from "./supabase-client.js?v=20261004-1";
@@ -974,6 +975,8 @@ function renderLedger() {
       : "";
     const adjustPortion = canAdjustPortion ? `<button class="button button-quiet ledger-after-photo-button" type="button" data-adjust-leftovers="${entry.id}">Add after / leftover photo</button>` : "";
     const undoPortion = portionAdjusted ? `<button class="button button-quiet" type="button" data-undo-leftover="${entry.id}">Undo portion correction</button>` : "";
+    const photoReview = Array.isArray(estimate.photo_review) && estimate.photo_review.length
+      ? `<form class="ledger-edit-form" data-photo-review="${entry.id}"><p><strong>Confirm suspected photo items</strong> These items are uncertain and are excluded from nutrition totals until you add them.</p>${estimate.photo_review.map((item, index) => `<fieldset><legend>Possibly ${escapeHtml(item.name)}</legend><p>${escapeHtml(item.reason)}</p><label>Include this item?<select name="choice_${index}" required><option value="">Choose…</option><option value="add">Add</option><option value="exclude">Exclude</option><option value="correct">Correct</option></select></label><label>Corrected food or drink and amount<input name="correction_${index}" maxlength="300" /></label></fieldset>`).join("")}<button class="button button-primary" type="submit">Add Corrected Entry</button><p role="status" data-review-status></p></form>` : "";
     const editor = `<form class="ledger-edit-form" data-edit-form="${entry.id}" hidden>
           <label><span>Log as</span><select name="entry_category">${entryCategories.map((option) => `<option${option === currentCategory ? " selected" : ""}>${option}</option>`).join("")}</select></label>
           <label><span>Description</span><input name="description" value="${escapeHtml(entry.kind === "meal" ? splitMealPortion(entry.description).description : entry.description)}" required maxlength="1200" /></label>
@@ -986,6 +989,7 @@ function renderLedger() {
       <span class="ledger-actions"><small>${meta}</small>${sourceBadge}${favoriteControl}${edit}</span>
       ${retryEstimate}
       ${trustDetails}
+      ${photoReview}
       ${mealImpactDetails(entry)}
       ${editor}
     </li>`;
@@ -2393,8 +2397,9 @@ function originalEstimateForAdjustment(estimate = {}) {
   return copy;
 }
 
-function closeLeftoverAdjustment() {
+function closeLeftoverAdjustment(preserveDraft = true) {
   if ($("#leftover-adjustment").hidden) return;
+  if (preserveDraft) saveLeftoverDraft();
   $("#leftover-adjustment").hidden = true;
   document.body.classList.remove("modal-open");
   $("#leftover-analysis-form").reset();
@@ -2412,7 +2417,7 @@ function closeLeftoverAdjustment() {
   state.leftoverReturnFocus = null;
 }
 
-function openLeftoverAdjustment(entry, trigger) {
+async function openLeftoverAdjustment(entry, trigger) {
   if (!hasCurrentCoreMembership()) {
     toast("Second-photo portion correction is included with Meal Daddy Core.");
     return;
@@ -2435,6 +2440,23 @@ function openLeftoverAdjustment(entry, trigger) {
   $("#leftover-adjustment").hidden = false;
   document.body.classList.add("modal-open");
   $("#leftover-photo-input").focus();
+  const draft = await mealDrafts.read(`leftover:${entry.id}`);
+  if (state.leftoverEntryId !== entry.id || $("#leftover-adjustment").hidden) return;
+  if (draft && draft.originalEstimate === JSON.stringify(entry.nutrition_estimate)) {
+    state.leftoverPhoto = draft.photo || null;
+    $("#leftover-context").value = draft.context || "";
+    $("#leftover-photo-name").textContent = state.leftoverPhoto ? `${state.leftoverPhoto.name} restored` : "No photo selected.";
+    if (draft.analysis) {
+      state.leftoverAnalysis = draft.analysis;
+      renderLeftoverReview(entry, draft.analysis);
+      $("#leftover-overall-percent").value = draft.percentage;
+      for (const input of document.querySelectorAll("[data-leftover-component]")) {
+        const saved = draft.componentPercentages?.[input.dataset.leftoverComponent];
+        if (saved !== undefined) input.value = saved;
+      }
+    }
+    toast("Your unfinished portion review was restored. Nothing was applied.");
+  }
 }
 
 function renderLeftoverReview(entry, analysis) {
@@ -2467,10 +2489,11 @@ $("#leftover-photo-input").addEventListener("change", (event) => {
     return;
   }
   state.leftoverPhoto = file;
+  saveLeftoverDraft();
   $("#leftover-photo-name").textContent = state.leftoverPhoto ? `${state.leftoverPhoto.name || "After-meal photo"} ready` : "No photo selected.";
 });
 
-document.querySelectorAll("[data-close-leftover-adjustment]").forEach((button) => button.addEventListener("click", closeLeftoverAdjustment));
+document.querySelectorAll("[data-close-leftover-adjustment]").forEach((button) => button.addEventListener("click", () => closeLeftoverAdjustment()));
 
 $("#leftover-review-back").addEventListener("click", () => {
   state.leftoverAnalysis = null;
@@ -2516,6 +2539,7 @@ $("#leftover-analysis-form").addEventListener("submit", async (event) => {
     }
     state.leftoverAnalysis = data.analysis;
     renderLeftoverReview(entry, data.analysis);
+    saveLeftoverDraft();
   } catch (error) {
     if (error.status === 402) {
       $("#leftover-analysis-status").textContent = "An active Meal Daddy Core membership is required.";
@@ -2586,17 +2610,20 @@ $("#leftover-review-form").addEventListener("submit", async (event) => {
   const saveButton = event.currentTarget.querySelector('button[type="submit"]');
   saveButton.disabled = true;
   $("#leftover-review-status").textContent = "Applying your reviewed portions...";
-  const { error } = await supabase
+  const { data: updatedPortion, error } = await supabase
     .from("ledger_entries")
     .update({ nutrition_estimate: adjusted, status: "estimated" })
     .eq("id", entry.id)
-    .eq("user_id", user.id);
+    .eq("user_id", user.id)
+    .eq("nutrition_estimate", JSON.stringify(entry.nutrition_estimate))
+    .eq("description", entry.description).select("id").maybeSingle();
   saveButton.disabled = false;
-  if (error) {
-    $("#leftover-review-status").textContent = error.message;
+  if (error || !updatedPortion) {
+    $("#leftover-review-status").textContent = error?.message || "This meal changed during the portion review. Reload it before applying your changes.";
     return;
   }
-  closeLeftoverAdjustment();
+  await mealDrafts.remove(`leftover:${entry.id}`);
+  closeLeftoverAdjustment(false);
   await loadLedger();
   toast("Meal updated to the amount you ate. Open Edit to review or undo the correction.");
 });
@@ -2741,6 +2768,37 @@ $("#ledger-list").addEventListener("change", (event) => {
 });
 
 $("#ledger-list").addEventListener("submit", async (event) => {
+  const review = event.target.closest("[data-photo-review]");
+  if (!review) return;
+  event.preventDefault();
+  const entry = entryById(review.dataset.photoReview);
+  if (!entry) return;
+  const button = review.querySelector('button[type="submit"]');
+  const status = review.querySelector('[data-review-status]');
+  try {
+    const decisions = entry.nutrition_estimate.photo_review.map((item, index) => ({
+      name: item.name, choice: review.elements[`choice_${index}`].value,
+      correction: review.elements[`correction_${index}`].value
+    }));
+    const description = reviewedPhotoDescription(entry.description, decisions);
+    button.disabled = true;
+    const nutrition_estimate = {
+      input_authority: "edited_text", edit_revision: crypto.randomUUID(),
+      ...(entry.nutrition_estimate.photo_path ? { photo_path: entry.nutrition_estimate.photo_path } : {}),
+      photo_decisions: decisions
+    };
+    // Compare-and-swap also prevents a second click or another tab from replacing a newer edit.
+    const { data, error } = await supabase.from("ledger_entries")
+      .update({ description, nutrition_estimate, status: "pending_estimate" })
+      .eq("id", entry.id).eq("user_id", user.id).eq("description", entry.description)
+      .eq("nutrition_estimate", JSON.stringify(entry.nutrition_estimate)).select("id").maybeSingle();
+    if (error || !data) throw new Error(error?.message || "This meal changed. Reload it before applying the correction.");
+    await loadLedger();
+    await retryEstimateEntry(entry.id, { announceStart: false });
+  } catch (error) { status.textContent = error.message; button.disabled = false; }
+});
+
+$("#ledger-list").addEventListener("submit", async (event) => {
   const form = event.target.closest("[data-edit-form]");
   if (!form) return;
   event.preventDefault();
@@ -2788,6 +2846,8 @@ $("#ledger-list").addEventListener("submit", async (event) => {
         : null
     );
     changes.nutrition_estimate = {
+      input_authority: "edited_text",
+      edit_revision: crypto.randomUUID(),
       ...(retainedPhotoPath ? { photo_path: retainedPhotoPath } : {}),
       ...(favoriteOrigin ? { favorite_origin: favoriteOrigin } : {})
     };
@@ -3141,7 +3201,20 @@ function saveQuickDraft() {
   if (!$("#quick-entry").value.trim() && !state.photo) { void mealDrafts.remove("quick"); return; }
   void mealDrafts.save("quick", { description: $("#quick-entry").value, category: $("#meal-label").value, date: selectedQuickEntryDate(), photo: state.photo, requestId: quickRequestId }).catch(() => toast("Draft could not be fully saved. Keep this page open to preserve your photo."));
 }
+function saveLeftoverDraft() {
+  const entry = entryById(state.leftoverEntryId);
+  if (!entry || $("#leftover-adjustment").hidden) return;
+  void mealDrafts.save(`leftover:${entry.id}`, {
+    originalEstimate: JSON.stringify(entry.nutrition_estimate),
+    photo: state.leftoverPhoto, context: $("#leftover-context").value,
+    analysis: state.leftoverAnalysis, percentage: $("#leftover-overall-percent").value,
+    componentPercentages: Object.fromEntries([...document.querySelectorAll("[data-leftover-component]")].map((input) => [input.dataset.leftoverComponent, input.value]))
+  }).catch(() => toast("This portion draft could not be fully saved. Keep this page open to preserve the photo."));
+}
+$("#leftover-adjustment").addEventListener("input", saveLeftoverDraft);
+$("#leftover-adjustment").addEventListener("change", saveLeftoverDraft);
 function saveOpenEditDrafts() {
+  saveLeftoverDraft();
   for (const form of document.querySelectorAll("[data-edit-form]:not([hidden])")) {
     const entry = entryById(form.dataset.editForm);
     if (!entry) continue;

@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import vm from "node:vm";
 import { webcrypto } from "node:crypto";
+import { gatePhotoComponents } from "../supabase/functions/_shared/photo-review.mjs";
 import { applyComponentTotals } from "../supabase/functions/_shared/nutrition-reconciliation.mjs";
 import * as contract from "../supabase/functions/_shared/estimate-edit-contract.mjs";
 
@@ -10,7 +11,7 @@ const source = stripTypeScriptTypes(readFileSync(new URL('../supabase/functions/
 const owner = '00000000-0000-4000-8000-000000000001';
 const baseNutrients = Object.fromEntries(contract.nutrientFields.map((field) => [field, 0]));
 function component(name, calories, extras = {}) { return { ...baseNutrients, name, calories, evidence_type: 'description_estimate', confidence: 'medium', inflammation_score: 3, inflammation_impact: 'neutral', inflammation_note: 'Test estimate.', ...extras }; }
-function answer(components) { return { ...baseNutrients, components, entry_description: 'Synthetic meal', photo_description: '', description_reconciliation_note: '', label_detected: false, label_food: {}, inflammation_score: 3, inflammation_summary: 'Test estimate.', confidence: 'medium', note: 'Synthetic fixture.' }; }
+function answer(components) { return { ...baseNutrients, components, entry_description: 'Synthetic meal', photo_quality: { suitable: true, reason: '' }, photo_description: '', description_reconciliation_note: '', label_detected: false, label_food: {}, inflammation_score: 3, inflammation_summary: 'Test estimate.', confidence: 'medium', note: 'Synthetic fixture.' }; }
 async function exercise({ description = '1 oz vinaigrette', metadata = {}, kind = 'meal', status = 'pending_estimate', response = answer([component('1 oz vinaigrette', 45)]), stale = false, mfa = true, ownRow = true, body = {}, authorization = true } = {}) {
   let handler;
   let providerCalls = 0, photoDownloads = 0, writes = 0, settlements = 0;
@@ -49,7 +50,7 @@ async function exercise({ description = '1 oz vinaigrette', metadata = {}, kind 
     }
   };
   const context = {
-    ...contract, applyComponentTotals,
+    ...contract, applyComponentTotals, gatePhotoComponents,
     createClient: () => client,
     requireConditionalMfa: async () => mfa ? { ok: true } : { ok: false, status: 403, error: 'MFA required.' },
     Deno: { env: { get(name) { return name === 'SUPABASE_URL' ? 'https://synthetic.example.test' : name === 'SUPABASE_PUBLISHABLE_KEYS' ? '{}' : 'test-value'; } }, serve(fn) { handler = fn; } },
@@ -109,8 +110,26 @@ assert.equal(r.providerCalls, 0);
 r = await exercise({ description: 'Meal photo', metadata: { photo_path: `${owner}/photo.jpg` }, response: { ...answer([component('Visible meal', 400, { evidence_type: 'photo_estimate' })]), photo_description: 'A meal is visible.', entry_description: 'Visible meal' } });
 assert.equal(r.status, 200);
 assert.equal(r.photoDownloads, 1);
-assert.equal(r.row.description, 'Visible meal');
+assert.equal(r.row.description, 'Meal photo');
+assert.equal(r.row.nutrition_estimate.calories, 0);
+assert.equal(r.row.nutrition_estimate.photo_review[0].name, 'Visible meal');
 assert.equal(r.submitted.input[1].content[1].type, 'input_image');
+
+r = await exercise({ description: '3 eggs', metadata: { photo_path: `${owner}/photo.jpg` }, response: { ...answer([component('3 eggs', 210, { confirmation_required: false }), component('Sweet tea', 180, { evidence_type: 'photo_estimate', confirmation_required: true })]), photo_description: 'Eggs and a possible drink.', entry_description: 'Eggs and sweet tea' } });
+assert.equal(r.status, 200);
+assert.equal(r.row.description, '3 eggs');
+assert.equal(r.row.nutrition_estimate.calories, 210);
+assert.equal(r.row.nutrition_estimate.photo_review[0].name, 'Sweet tea');
+r = await exercise({ description: '3 eggs; Diet Dr Pepper, 2 oz', metadata: { input_authority: 'edited_text', edit_revision: 'reviewed', photo_path: `${owner}/photo.jpg` }, response: answer([component('3 eggs', 210), component('Diet Dr Pepper, 2 oz', 0)]) });
+assert.equal(r.photoDownloads, 0);
+assert.equal(r.row.nutrition_estimate.calories, 210);
+assert.equal(r.row.description, '3 eggs; Diet Dr Pepper, 2 oz');
+
+r = await exercise({ description: 'Meal photo', metadata: { photo_path: `${owner}/blurred.jpg` }, response: { ...answer([component('Unknown food', 400)]), photo_quality: { suitable: false, reason: 'Retake this blurred photo in brighter light.' } } });
+assert.equal(r.status, 422);
+assert.equal(r.payload.code, 'PHOTO_UNSUITABLE');
+assert.equal(r.writes, 0);
+assert.equal(r.settlements, 1);
 
 for (const config of [{ mfa: false }, { ownRow: false }, { authorization: false }]) {
   r = await exercise(config);

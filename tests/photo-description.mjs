@@ -14,7 +14,7 @@ assert.match(edge, /applyComponentTotals/);
 // Initial photo analysis can describe the image, but an edited description and
 // explicit consumed percentage must remain authoritative and survive retries.
 assert.match(edge, /const photoPath = editedText \? null : retainedPhotoPath/);
-assert.match(edge, /const finalDescription = photoPath && generatedDescription && !portion\.explicit \? generatedDescription : entry\.description/);
+assert.match(edge, /const finalDescription = photoPath && generatedDescription && !portion\.explicit && !hasUserDescription/);
 assert.match(edge, /description: finalDescription/);
 assert.match(edge, /entryDescription: finalDescription/);
 assert.match(edge, /unchangedEntryUpdate\(admin, user\.id, entry/);

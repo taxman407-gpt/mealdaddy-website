@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import { gatePhotoComponents } from '../supabase/functions/_shared/photo-review.mjs';
+import { applyComponentTotals } from '../supabase/functions/_shared/nutrition-reconciliation.mjs';
+import { reviewedPhotoDescription } from '../app/photo-review.js';
+const egg = { name: '3 eggs', calories: 210, confirmation_required: false };
+const tea = { name: 'Sweet tea', calories: 180, confirmation_required: true };
+const result = gatePhotoComponents({ components: [egg, tea], inflammation_score: 7 }, true);
+applyComponentTotals(result);
+assert.equal(result.calories, 210);
+assert.equal(result.photo_review[0].name, 'Sweet tea');
+assert.equal(result.inflammation_score, undefined);
+assert.equal(reviewedPhotoDescription('3 eggs', [{ name: 'Sweet tea', choice: 'correct', correction: 'Diet Dr Pepper, 2 oz' }]), '3 eggs; Diet Dr Pepper, 2 oz');
+assert.equal(reviewedPhotoDescription('3 eggs', [{ name: 'Sweet tea', choice: 'exclude' }]), '3 eggs');
+assert.equal(reviewedPhotoDescription('Meal photo', [{ name: '3 eggs', choice: 'add' }, { name: '3 eggs', choice: 'add' }]), '3 eggs');
+assert.throws(() => reviewedPhotoDescription('3 eggs', [{ choice: '' }]));
+assert.throws(() => reviewedPhotoDescription('3 eggs', [{ choice: 'correct', correction: '' }]));
+assert.equal(gatePhotoComponents({ components: [{ name: 'Unknown drink', calories: 180 }] }, true).components.length, 0);
+console.log('Photo review: unconfirmed nutrients excluded; correction, exclusion, deduplication and missing classification passed.');
