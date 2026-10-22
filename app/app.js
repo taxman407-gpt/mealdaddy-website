@@ -2702,13 +2702,15 @@ $("#ledger-list").addEventListener("click", async (event) => {
     const original = entry?.nutrition_estimate?.leftover_adjustment?.original_estimate;
     if (!entry || !original || !window.confirm("Undo the after-meal portion correction and restore the original estimate?")) return;
     undoButton.disabled = true;
-    const { error } = await supabase
+    const { data: restoredPortion, error } = await supabase
       .from("ledger_entries")
       .update({ nutrition_estimate: original, status: "estimated" })
       .eq("id", entry.id)
-      .eq("user_id", user.id);
-    if (error) {
-      toast(error.message);
+      .eq("user_id", user.id)
+      .eq("description", entry.description)
+      .eq("nutrition_estimate", JSON.stringify(entry.nutrition_estimate)).select("id").maybeSingle();
+    if (error || !restoredPortion) {
+      toast(error?.message || "This meal changed. Reload it before undoing the portion correction.");
       undoButton.disabled = false;
       return;
     }
@@ -2722,11 +2724,12 @@ $("#ledger-list").addEventListener("click", async (event) => {
       editForm.hidden = true;
       editButton.hidden = false;
     });
+    delete editForm.dataset.draftTouched;
     editForm.hidden = false;
     const draft = await mealDrafts.read(`edit:${editButton.dataset.editEntry}`);
     const entry = entryById(editButton.dataset.editEntry);
     if (!editForm.isConnected || editForm.hidden) return;
-    if (draft && draft.originalDescription === entry?.description) {
+    if (draft && !editForm.dataset.draftTouched && draft.originalDescription === entry?.description) {
       editForm.elements.description.value = draft.description;
       editForm.elements.entry_category.value = draft.category;
       editForm.elements.consumed_percentage.value = draft.percentage;
@@ -2868,9 +2871,16 @@ $("#ledger-list").addEventListener("submit", async (event) => {
     };
     changes.status = "pending_estimate";
   }
-  const { error } = await supabase.from("ledger_entries").update(changes).eq("id", entry.id).eq("user_id", user.id);
-  if (error) {
-    toast(error.message);
+  let editUpdate = supabase.from("ledger_entries").update(changes)
+    .eq("id", entry.id).eq("user_id", user.id)
+    .eq("description", entry.description).eq("status", entry.status).eq("kind", entry.kind);
+  editUpdate = entry.nutrition_estimate == null
+    ? editUpdate.is("nutrition_estimate", null)
+    : editUpdate.eq("nutrition_estimate", JSON.stringify(entry.nutrition_estimate));
+  const { data: editedRow, error } = await editUpdate.select("id").maybeSingle();
+  if (error || !editedRow) {
+    toast(error?.message || "This entry changed in another tab or while calculating. Your draft is preserved; reload the latest meal before saving.");
+    saveOpenEditDrafts();
     saveButton.disabled = false;
     return;
   }
@@ -3256,11 +3266,11 @@ function savePhotoReviewDrafts() {
   }
 }
 $("#ledger-list").addEventListener("input", (event) => {
-  const review = event.target.closest("[data-photo-review]");
+  const review = event.target.closest("[data-photo-review], [data-edit-form]");
   if (review) review.dataset.draftTouched = "true";
 });
 $("#ledger-list").addEventListener("change", (event) => {
-  const review = event.target.closest("[data-photo-review]");
+  const review = event.target.closest("[data-photo-review], [data-edit-form]");
   if (review) review.dataset.draftTouched = "true";
 });
 function saveOpenEditDrafts() {

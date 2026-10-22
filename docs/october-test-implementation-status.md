@@ -38,3 +38,8 @@ Ten INFO advisor notices for RLS-enabled server-only tables without direct polic
 - Fixed draft-storage error reporting: text can survive an IndexedDB failure, while failed photo storage and fully blocked storage produce explicit warnings.
 - Added a plain-language composition-versus-portion explanation. A uniform 50% portion retains the composition score and halves nutrient quantities; 0% consumed and unresolved photo reviews do not display a completed composition score. Fictional fixtures never receive a health score.
 - Added the same navigation controller to the no-login lab for browser acceptance of Back/restore. Full build, repository tests and JavaScript syntax checks pass; unit tests cover Back, Save/Cancel, switching editors, storage failures and score presentation. Actual Android hardware/gesture acceptance remains outstanding.
+
+## Concurrent edit verification
+- Ordinary meal/hydration edits and undo-portion saves now compare the original description and estimate before updating. A stale save reports the conflict and preserves the device draft instead of overwriting another tab's work.
+- Executed the transactional RLS test against the isolated test project: current snapshot update succeeded, stale description and stale estimate updates affected zero rows, original timestamp preserved; cross-account checks also passed. All synthetic rows rolled back.
+- Browser acceptance found an asynchronous draft-restoration race that could replace a percentage typed immediately after opening Edit. Added a touched-input guard to the full app and sample lab; retesting this before marking browser acceptance passed.

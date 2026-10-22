@@ -9,7 +9,7 @@ const ledgerKey = 'mealdaddy-synthetic-lab-ledger-v1';
 let entries = [];
 try { entries = JSON.parse(localStorage.getItem(ledgerKey) || '[]'); } catch {}
 if (!Array.isArray(entries)) entries = [];
-let editingId = null, photo = null, requestId = crypto.randomUUID();
+let editingId = null, photo = null, requestId = crypto.randomUUID(), editTouched = false;
 function snapshot() { return { description:$('#description').value, percentage:$('#percentage').value, notes:$('#notes').value, photo, editingId, requestId, originalDescription: entries.find(entry=>entry.id===editingId)?.description || null }; }
 function announce(message) { $('#status').textContent = message; }
 function autosave() { return drafts.save('meal',snapshot()).then(() => {$('#draft-state').textContent='Draft saved on this device.';}, () => {$('#draft-state').textContent='Draft could not be fully saved. Keep this page open.';}); }
@@ -30,12 +30,12 @@ function render() {
     const edit=document.createElement('button');edit.type='button';edit.textContent='Edit meal';edit.addEventListener('click',async()=>{
       draftNavigation.open('sample-edit',()=>{void autosave();reset();announce('Edit saved as a draft. Your saved meal and totals are unchanged.');});
       const portion=splitMealPortion(entry.description);
-      editingId=entry.id;requestId=entry.id;
+      editingId=entry.id;requestId=entry.id;editTouched=false;
       $('#description').value=portion.description;$('#percentage').value=portion.percentage;$('#notes').value=entry.notes||'';
       photo=null;$('#photo').value='';$('#photo-state').textContent='No draft photo.';$('#cancel-edit').hidden=false;
       const draft=await drafts.read('meal');
       if(editingId!==entry.id)return;
-      if(draft?.editingId===entry.id && draft.originalDescription===entry.description){
+      if(!editTouched && draft?.editingId===entry.id && draft.originalDescription===entry.description){
         $('#description').value=draft.description;$('#percentage').value=draft.percentage;$('#notes').value=draft.notes||'';photo=draft.photo||null;
         $('#photo-state').textContent=photo?`Restored draft photo: ${photo.name}. No image analysis.`:'No draft photo.';
       }
@@ -48,7 +48,7 @@ function render() {
   if (entries.length && $('#status').textContent === 'No sample meals saved yet.') announce('Saved sample meals restored from this browser.');
 }
 for (const description of fixtureDescriptions) {const button=document.createElement('button');button.type='button';button.textContent=description;button.addEventListener('click',()=>{$('#description').value=description;$('#description').focus();void autosave();});$('#samples').append(button);}
-$('#sample-form').addEventListener('input',()=>void autosave());
+$('#sample-form').addEventListener('input',()=>{editTouched=true;void autosave();});
 $('#photo').addEventListener('change',()=>{photo=$('#photo').files[0]||null;$('#photo-state').textContent=photo?`Draft photo: ${photo.name}. Preserved locally; no image analysis is performed.`:'No draft photo.';void autosave();});
 $('#sample-form').addEventListener('submit',async event=>{event.preventDefault();try{const description=mealDescriptionWithPortion($('#description').value,$('#percentage').value);const previous=entries.find(item=>item.id===editingId);const entry={id:editingId||requestId,description,notes:$('#notes').value,occurredAt:previous?.occurredAt||new Date().toISOString()};const index=entries.findIndex(item=>item.id===entry.id);if(index>=0)entries[index]=entry;else entries.push(entry);localStorage.setItem(ledgerKey,JSON.stringify(entries));draftNavigation.close('sample-edit');await drafts.remove('meal');reset();render();$('#draft-state').textContent='';announce('Sample saved. Edits replace the same row and preserve its timestamp. Draft photo was not added to the ledger.');}catch(error){announce(error.message);}});
 $('#discard-draft').addEventListener('click',async()=>{draftNavigation.close('sample-edit');await drafts.remove('meal');reset();$('#draft-state').textContent='Draft discarded.';});

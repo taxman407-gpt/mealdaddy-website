@@ -19,6 +19,17 @@ DO $$ DECLARE n integer; BEGIN
  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
  UPDATE public.ledger_entries SET description='own edit'; GET DIAGNOSTICS n=ROW_COUNT; IF n<>1 THEN RAISE EXCEPTION 'Own edit failed'; END IF;
 END $$;
+DO $$ DECLARE n integer; original_time timestamptz; BEGIN
+ SELECT occurred_at INTO original_time FROM public.ledger_entries WHERE description='own edit';
+ UPDATE public.ledger_entries SET nutrition_estimate='{"edit_revision":"v1"}'::jsonb WHERE description='own edit';
+ UPDATE public.ledger_entries SET description='newer edit',nutrition_estimate='{"edit_revision":"v2"}'::jsonb WHERE description='own edit' AND nutrition_estimate='{"edit_revision":"v1"}'::jsonb;
+ GET DIAGNOSTICS n=ROW_COUNT; IF n<>1 THEN RAISE EXCEPTION 'Current snapshot update failed'; END IF;
+ UPDATE public.ledger_entries SET description='stale edit' WHERE description='own edit' AND nutrition_estimate='{"edit_revision":"v1"}'::jsonb;
+ GET DIAGNOSTICS n=ROW_COUNT; IF n<>0 THEN RAISE EXCEPTION 'Stale description update succeeded'; END IF;
+ UPDATE public.ledger_entries SET description='stale metadata edit' WHERE description='newer edit' AND nutrition_estimate='{"edit_revision":"v1"}'::jsonb;
+ GET DIAGNOSTICS n=ROW_COUNT; IF n<>0 THEN RAISE EXCEPTION 'Stale estimate snapshot update succeeded'; END IF;
+ IF NOT EXISTS(SELECT 1 FROM public.ledger_entries WHERE description='newer edit' AND occurred_at=original_time) THEN RAISE EXCEPTION 'Timestamp changed or current edit lost'; END IF;
+END $$;
 RESET ROLE;
 ROLLBACK;
-SELECT 'PASS: cross-account meal/profile reads, insert/update/delete, ownership reassignment, own update; all fixtures rolled back' AS result;
+SELECT 'PASS: cross-account meal/profile reads, insert/update/delete, ownership reassignment, own update, current/stale snapshot updates and timestamp preservation; all fixtures rolled back' AS result;
