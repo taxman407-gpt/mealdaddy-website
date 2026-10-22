@@ -54,3 +54,6 @@ verify_jwt = true
 
 [functions.owner-conversion-report]
 verify_jwt = true
+
+[functions.process-welcome-email]
+verify_jwt = true

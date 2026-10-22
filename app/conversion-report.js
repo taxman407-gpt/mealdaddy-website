@@ -10,3 +10,9 @@ async function load(){try{const data=await request('view');total=data.summary.re
 $('#report-filters').addEventListener('submit',event=>{event.preventDefault();offset=0;void load();});$('#report-prev').addEventListener('click',()=>{offset=Math.max(0,offset-100);void load();});$('#report-next').addEventListener('click',()=>{offset+=100;void load();});
 $('#report-export').addEventListener('click',async()=>{try{const data=await request('export'),keys=Object.keys(data.rows[0]||{});if(!keys.length){status.textContent='No rows to export.';return;}const text=registrationCsv(data.rows);const url=URL.createObjectURL(new Blob([text],{type:'text/csv;charset=utf-8'})),link=document.createElement('a');link.href=url;link.download='mealdaddy-registration-page.csv';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);status.textContent='Current page exported; export access recorded.';}catch(error){status.textContent=error.message;}});
 await load();
+
+try {
+ const {data,error}=await invokeAuthenticated('owner-conversion-report',{body:{action:'welcome_status'}});
+ if(error||!data?.ok)throw new Error('Delivery monitoring is unavailable.');
+ $('#welcome-monitor').textContent=`Welcome sending ${data.settings?.enabled?'enabled':'disabled'}. ${data.alertCount} deliveries require owner review. `+data.alerts.map(row=>`${row.user_id}: ${row.status} (${row.last_error_code||'unknown'})`).join('; ');
+} catch(error) {$('#welcome-monitor').textContent=error.message;}

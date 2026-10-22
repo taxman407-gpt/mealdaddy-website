@@ -14,7 +14,19 @@ Deno.serve(async request=>{
  const auth=createClient(url,anon,{global:{headers:{Authorization:authorization}}});const {data:{user},error:authError}=await auth.auth.getUser();if(authError||!user)return json({error:'Authentication required.'},401);
  const admin=createClient(url,service);const owner=await requireOwnerAuthorization(admin,user,authorization);if(!owner.ok)return json({error:owner.error},owner.status);
  let body;try{body=await request.json();}catch{return json({error:'Invalid request.'},400);}
- const action=body.action||'view';if(!['view','export'].includes(action))return json({error:'Unknown action.'},400);
+ const action=body.action||'view';
+ if(action==='welcome_status'){
+  const [{data:settings,error:settingsError},{data:alerts,error:alertError},{count,error:countError}]=await Promise.all([
+   admin.from('welcome_email_settings').select('enabled,started_at').eq('id',true).maybeSingle(),
+   admin.from('welcome_email_deliveries').select('user_id,status,attempts,last_error_code,updated_at').in('status',['failed','review_required']).order('updated_at',{ascending:false}).limit(100),
+   admin.from('welcome_email_deliveries').select('user_id',{head:true,count:'exact'}).in('status',['failed','review_required'])
+  ]);
+  if(settingsError||alertError||countError)return json({error:'Welcome monitoring is unavailable.'},503);
+  const {error:auditError}=await admin.from('owner_report_audit').insert({owner_id:user.id,action:'view',filters:{report:'welcome_delivery_monitor'},row_count:alerts?.length||0});
+  if(auditError)return json({error:'Report audit failed.'},503);
+  return json({ok:true,settings,alerts:alerts||[],alertCount:count||0});
+ }
+if(!['view','export'].includes(action))return json({error:'Unknown action.'},400);
  const date=(value:unknown)=>value===null||value===undefined||value===''?null:typeof value==='string'&&/^\d{4}-\d{2}-\d{2}T/.test(value)&&Number.isFinite(Date.parse(value))?new Date(value).toISOString():false;
  const from=date(body.from),to=date(body.to),offset=body.offset??0,limit=body.limit??100;
  const statuses=['complimentary','lifetime_paid','active_trial','paid_active','unknown_reconciliation','past_due','canceled','unpaid','incomplete_expired','incomplete_checkout','registered_no_linked_subscription'];
@@ -22,5 +34,5 @@ Deno.serve(async request=>{
  const filters={requested_from:from,requested_to:to,requested_status:body.status||null,requested_verified:body.verified||null,requested_marketing:body.marketing||null,requested_offset:offset,requested_limit:limit};
  const {data,error}=await admin.rpc('owner_conversion_report',filters);if(error||!data)return json({error:'Report could not be read.'},503);
  const {error:auditError}=await admin.from('owner_report_audit').insert({owner_id:user.id,action,filters,row_count:data.rows.length});if(auditError)return json({error:'Report access could not be audited; no data was returned.'},503);
- return json({ok:true,...data,offset,limit,notes:['No linked subscription is not proof that no Stripe payment occurred.','Paid conversions require positive verified payment evidence; missing historical evidence requires reconciliation.','Trial start and welcome delivery dates are not recorded by this report yet.']});
+ return json({ok:true,...data,offset,limit,notes:['No linked subscription is not proof that no Stripe payment occurred.','Paid conversions require positive verified payment evidence; missing historical evidence requires reconciliation.','Trial start is not recorded; welcome date appears only after a recorded successful send.']});
 });

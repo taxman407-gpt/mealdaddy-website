@@ -1,0 +1,25 @@
+begin;
+insert into auth.users(id,email,created_at) values('00000000-0000-4000-8000-00000000d101','historical@example.invalid',now()-interval '1 day');
+update auth.users set email_confirmed_at=now() where id='00000000-0000-4000-8000-00000000d101';
+do $$ begin if exists(select 1 from public.welcome_email_deliveries) then raise exception 'Disabled feature queued email';end if;end $$;
+update public.welcome_email_settings set enabled=true,started_at=now() where id;
+update auth.users set email_confirmed_at=null where id='00000000-0000-4000-8000-00000000d101';
+update auth.users set email_confirmed_at=now() where id='00000000-0000-4000-8000-00000000d101';
+insert into auth.users(id,email,created_at) values('00000000-0000-4000-8000-00000000d102','new@example.invalid',now());
+do $$ begin if exists(select 1 from public.welcome_email_deliveries) then raise exception 'Historical or unverified mail queued';end if;end $$;
+update auth.users set email_confirmed_at=now() where id='00000000-0000-4000-8000-00000000d102';
+update auth.users set email_confirmed_at=now() where id='00000000-0000-4000-8000-00000000d102';
+set local role service_role;
+do $$ declare claimed jsonb; begin
+ if (select count(*) from public.welcome_email_deliveries)<>1 then raise exception 'Duplicate/missing verification delivery';end if;
+ claimed:=public.claim_welcome_delivery();if claimed->>'recipient'<>'new@example.invalid' or (claimed->>'attempts')::int<>1 then raise exception 'Wrong claim';end if;
+ if public.claim_welcome_delivery() is not null then raise exception 'Concurrent lease reused';end if;
+ update public.welcome_email_deliveries set lease_until=now()-interval '1 minute',first_attempt_at=now()-interval '24 hours';
+ if public.claim_welcome_delivery() is not null then raise exception 'Retry after idempotency expired';end if;
+ if (select status from public.welcome_email_deliveries)<>'review_required' then raise exception 'Expired delivery not flagged';end if;
+ if has_table_privilege('authenticated','public.welcome_email_deliveries','SELECT') or has_function_privilege('authenticated','public.claim_welcome_delivery()','EXECUTE') then raise exception 'Outbox client access';end if;
+end $$;
+reset role;
+delete from auth.users where id='00000000-0000-4000-8000-00000000d102';
+do $$ begin if exists(select 1 from public.welcome_email_deliveries) then raise exception 'Deleted account retained delivery';end if;end $$;
+rollback;
