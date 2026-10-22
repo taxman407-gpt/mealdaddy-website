@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import {
+  portionCompositionExplanation,
   estimateInflammationScore,
   inflammationBand,
   inflammationProgressBackgroundSize,
@@ -43,3 +44,11 @@ assert.equal(report.scoredMeals, 3);
 assert.equal(report.unscoredMeals, 1);
 
 console.log("Inflammation-impact checks passed.");
+
+assert.equal(estimateInflammationScore({ inflammation_score: 7, consumed_fraction: 0 }), null);
+assert.equal(estimateInflammationScore({ inflammation_score: 7, consumed_fraction: 0.5 }), 7);
+assert.equal(estimateInflammationScore({ inflammation_score: 7, photo_review: [{name: 'Possible drink'}], components }), null);
+assert.equal(estimateInflammationScore({ inflammation_score: 7, fixture: true }), null);
+assert.match(portionCompositionExplanation({consumed_fraction: 0.5}), /50% eaten/);
+assert.match(portionCompositionExplanation({consumed_fraction: 0.5}), /does not halve/);
+assert.equal(portionCompositionExplanation({}), '');

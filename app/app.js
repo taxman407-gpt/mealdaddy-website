@@ -1,3 +1,4 @@
+import { createDraftNavigation } from "./draft-navigation.js?v=20261022-1";
 import { reviewedPhotoDescription } from "./photo-review.js?v=20261022-1";
 import { createMealDrafts } from "./meal-drafts.js?v=20261021-1";
 import { splitMealPortion, mealDescriptionWithPortion } from "./meal-portion.js?v=20261021-1";
@@ -8,7 +9,7 @@ import { entryDateDisplayLabel, localDateValue as localEntryDateValue, occurredA
 import { estimatedAdultBmi, formatWeight, formatWeightChange, normalizeUnitSystem, parseHeightCm, shouldEnableWeightTracking, weightFromKg, weightToKg } from "./health-metrics.js?v=20260813-4";
 import { initializeSavedFoods } from "./saved-foods.js?v=20261004-11";
 import { normalizeRestaurantPlan, restaurantChoiceLetters, restaurantFitLabels, restaurantMapUrl, restaurantOptionToLedgerEntry, safeRestaurantSourceUrl } from "./restaurant-plan.js?v=20261004-1";
-import { estimateInflammationScore, inflammationBand, inflammationImpact, inflammationProgressBackgroundSize, summarizeInflammationEntries, summarizeInflammationReport, weightedInflammationScore } from "./inflammation-impact.js?v=20261004-4";
+import { portionCompositionExplanation, estimateInflammationScore, inflammationBand, inflammationImpact, inflammationProgressBackgroundSize, summarizeInflammationEntries, summarizeInflammationReport, weightedInflammationScore } from "./inflammation-impact.js?v=20261004-4";
 import { resolvePrimaryEatingStyle } from "./profile-preferences.js?v=20260929-1";
 import { metricProgressSegments } from "./metric-progress.js?v=20260930-1";
 import { normalizeMetricOrder, normalizeOptionalMetrics } from "./metric-order.js?v=20261004-3";
@@ -100,6 +101,7 @@ document.querySelectorAll("[data-subview-back]").forEach((button) => {
 
 const user = session.user;
 const mealDrafts = createMealDrafts(user.id);
+const draftNavigation = createDraftNavigation();
 let restoringDraft = false;
 let quickRequestId = crypto.randomUUID();
 const allowedPlans = new Set(["core"]);
@@ -888,9 +890,10 @@ function mealImpactDetails(entry) {
     ? `<div class="meal-impact-score is-unscored"><span>Inflammation Score™</span><strong>Not scored yet</strong></div>`
     : `<div class="meal-impact-score impact-score-${band.tone}"><span>Inflammation Score™</span><strong>${formatEstimateNumber(score)}/10</strong><em>${escapeHtml(band.label)}</em></div>`;
   const summary = score === null
-    ? "Add impact details to see how the foods and preparation may influence this guidance score."
+    ? (estimate.photo_review?.length ? "Confirm the suspected photo items first." : estimate.fixture === true ? "Fictional test values; no health score is calculated." : estimate.consumed_fraction === 0 ? "No food consumed from this entry." : "Add impact details to see how the foods and preparation may influence this guidance score.")
     : String(estimate.inflammation_summary || "Food-pattern impact estimated from the details supplied.");
-  const addDetails = complete
+  const portionExplanation = portionCompositionExplanation(estimate);
+  const addDetails = complete || estimate.fixture === true || estimate.photo_review?.length || estimate.consumed_fraction === 0
     ? ""
     : `<button class="button button-quiet meal-impact-add" type="button" data-add-impact="${entry.id}"${isRunning ? " disabled" : ""}>${isRunning ? "Adding details…" : "Add impact details"}</button>`;
   return `<details class="meal-impact-details">
@@ -898,6 +901,7 @@ function mealImpactDetails(entry) {
     <div class="meal-impact-body">
       <div class="meal-impact-overview">${scoreBlock}<p>${escapeHtml(summary)}</p></div>
       <p class="meal-impact-scale">1 = strongly anti-inflammatory · 10 = highly inflammatory. This is an estimated food-pattern score, not a medical test or diagnosis.</p>
+      ${portionExplanation ? `<p class="meal-impact-scale">${escapeHtml(portionExplanation)}</p>` : ""}
       <ul class="meal-impact-components">${componentRows}</ul>
       ${addDetails}
     </div>
@@ -994,6 +998,7 @@ function renderLedger() {
       ${editor}
     </li>`;
   }).join("");
+  void restorePhotoReviewDrafts();
 }
 
 function updateMetricBar(progressId, value) {
@@ -2397,9 +2402,10 @@ function originalEstimateForAdjustment(estimate = {}) {
   return copy;
 }
 
-function closeLeftoverAdjustment(preserveDraft = true) {
+function closeLeftoverAdjustment(preserveDraft = true, fromBack = false) {
   if ($("#leftover-adjustment").hidden) return;
   if (preserveDraft) saveLeftoverDraft();
+  if (!fromBack) draftNavigation.close("leftover");
   $("#leftover-adjustment").hidden = true;
   document.body.classList.remove("modal-open");
   $("#leftover-analysis-form").reset();
@@ -2422,6 +2428,7 @@ async function openLeftoverAdjustment(entry, trigger) {
     toast("Second-photo portion correction is included with Meal Daddy Core.");
     return;
   }
+  draftNavigation.open("leftover", () => closeLeftoverAdjustment(true, true));
   state.leftoverEntryId = entry.id;
   state.leftoverPhoto = null;
   state.leftoverAnalysis = null;
@@ -2710,9 +2717,15 @@ $("#ledger-list").addEventListener("click", async (event) => {
   }
   if (editButton) {
     const editForm = $(`[data-edit-form="${editButton.dataset.editEntry}"]`);
+    draftNavigation.open(`edit:${editButton.dataset.editEntry}`, () => {
+      saveOpenEditDrafts();
+      editForm.hidden = true;
+      editButton.hidden = false;
+    });
     editForm.hidden = false;
     const draft = await mealDrafts.read(`edit:${editButton.dataset.editEntry}`);
     const entry = entryById(editButton.dataset.editEntry);
+    if (!editForm.isConnected || editForm.hidden) return;
     if (draft && draft.originalDescription === entry?.description) {
       editForm.elements.description.value = draft.description;
       editForm.elements.entry_category.value = draft.category;
@@ -2723,6 +2736,7 @@ $("#ledger-list").addEventListener("click", async (event) => {
     editButton.hidden = true;
   }
   if (cancelButton) {
+    draftNavigation.close(`edit:${cancelButton.dataset.cancelEdit}`);
     await mealDrafts.remove(`edit:${cancelButton.dataset.cancelEdit}`);
     $(`[data-edit-form="${cancelButton.dataset.cancelEdit}"]`).hidden = true;
     $(`[data-edit-entry="${cancelButton.dataset.cancelEdit}"]`).hidden = false;
@@ -2793,6 +2807,7 @@ $("#ledger-list").addEventListener("submit", async (event) => {
       .eq("id", entry.id).eq("user_id", user.id).eq("description", entry.description)
       .eq("nutrition_estimate", JSON.stringify(entry.nutrition_estimate)).select("id").maybeSingle();
     if (error || !data) throw new Error(error?.message || "This meal changed. Reload it before applying the correction.");
+    await mealDrafts.remove(`photo-review:${entry.id}`);
     await loadLedger();
     await retryEstimateEntry(entry.id, { announceStart: false });
   } catch (error) { status.textContent = error.message; button.disabled = false; }
@@ -2859,6 +2874,7 @@ $("#ledger-list").addEventListener("submit", async (event) => {
     saveButton.disabled = false;
     return;
   }
+  draftNavigation.close(`edit:${entry.id}`);
   await mealDrafts.remove(`edit:${entry.id}`);
   await loadLedger();
   if ((targetKind === "meal" && (descriptionChanged || kindChanged)) || estimateHydration) {
@@ -3213,8 +3229,43 @@ function saveLeftoverDraft() {
 }
 $("#leftover-adjustment").addEventListener("input", saveLeftoverDraft);
 $("#leftover-adjustment").addEventListener("change", saveLeftoverDraft);
+async function restorePhotoReviewDrafts() {
+  for (const form of document.querySelectorAll("[data-photo-review]")) {
+    const entry = entryById(form.dataset.photoReview);
+    if (!entry) continue;
+    const snapshot = JSON.stringify(entry.nutrition_estimate);
+    const draft = await mealDrafts.read(`photo-review:${entry.id}`);
+    if (!form.isConnected || form.dataset.draftTouched || !draft || draft.originalEstimate !== snapshot) continue;
+    for (const [index, decision] of draft.decisions.entries()) {
+      const choice = form.elements[`choice_${index}`];
+      const correction = form.elements[`correction_${index}`];
+      if (choice && correction) { choice.value = decision.choice; correction.value = decision.correction; }
+    }
+  }
+}
+function savePhotoReviewDrafts() {
+  for (const form of document.querySelectorAll("[data-photo-review]")) {
+    const entry = entryById(form.dataset.photoReview);
+    if (!entry) continue;
+    void mealDrafts.save(`photo-review:${entry.id}`, {
+      originalEstimate: JSON.stringify(entry.nutrition_estimate),
+      decisions: entry.nutrition_estimate.photo_review.map((item, index) => ({
+        choice: form.elements[`choice_${index}`].value, correction: form.elements[`correction_${index}`].value
+      }))
+    }).catch(() => toast("These photo correction choices could not be saved on your device."));
+  }
+}
+$("#ledger-list").addEventListener("input", (event) => {
+  const review = event.target.closest("[data-photo-review]");
+  if (review) review.dataset.draftTouched = "true";
+});
+$("#ledger-list").addEventListener("change", (event) => {
+  const review = event.target.closest("[data-photo-review]");
+  if (review) review.dataset.draftTouched = "true";
+});
 function saveOpenEditDrafts() {
   saveLeftoverDraft();
+  savePhotoReviewDrafts();
   for (const form of document.querySelectorAll("[data-edit-form]:not([hidden])")) {
     const entry = entryById(form.dataset.editForm);
     if (!entry) continue;

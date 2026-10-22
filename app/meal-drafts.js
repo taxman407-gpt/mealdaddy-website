@@ -38,12 +38,22 @@ export function createMealDrafts(namespace, { storage = globalThis.localStorage,
       // Immediate text backup survives pagehide even when the IDB task is suspended.
       const { photo, ...text } = draft;
       text.photoIdentity = photo ? `${photo.name}:${photo.size}:${photo.lastModified}` : null;
-      try { storage?.setItem(prefix + key, JSON.stringify(text)); } catch { /* IDB remains the primary store. */ }
+      let textStored = false;
+      try {
+        if (storage) { storage.setItem(prefix + key, JSON.stringify(text)); textStored = true; }
+      } catch { /* IDB remains the primary store. */ }
       return serial(async () => {
-        const db = await open();
+        let db;
+        try { db = await open(); } catch { /* A blocked IDB must not prevent the text fallback. */ }
         if (!db && photo) throw new Error('This browser cannot preserve draft photos. Keep this page open.');
-        if (!db && !storage) throw new Error('Draft storage is unavailable. Keep this page open.');
-        if (db) await transact(key, 'put', draft);
+        if (!db && !textStored) throw new Error('Draft storage is unavailable. Keep this page open.');
+        if (db) {
+          try { await transact(key, 'put', draft); }
+          catch {
+            if (photo) throw new Error('This browser cannot preserve draft photos. Keep this page open.');
+            if (!textStored) throw new Error('Draft storage is unavailable. Keep this page open.');
+          }
+        }
         return draft;
       });
     },

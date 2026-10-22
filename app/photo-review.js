@@ -1,6 +1,6 @@
 export function reviewedPhotoDescription(description, decisions) {
   const base = String(description || '').trim();
-  const parts = base.toLowerCase() === 'meal photo' ? [] : [base];
+  const parts = base.toLowerCase() === 'meal photo' ? [] : base.split(';').map((part) => part.trim()).filter(Boolean);
   const included = new Set(parts.map((part) => part.toLowerCase()));
   for (const { choice, name, correction } of decisions) {
     if (!['add', 'exclude', 'correct'].includes(choice)) throw new Error('Choose Add, Exclude, or Correct for each suspected item.');

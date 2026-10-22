@@ -357,7 +357,7 @@ Deno.serve(async (request) => {
     applyComponentTotals(estimate);
   }
   if (retainedPhotoPath) estimate.photo_path = retainedPhotoPath;
-  for (const field of ["favorite_origin", "input_authority", "edit_revision"]) {
+  for (const field of ["favorite_origin", "input_authority", "edit_revision", "photo_decisions"]) {
     if (entry.nutrition_estimate?.[field] !== undefined) estimate[field] = entry.nutrition_estimate[field];
   }
   if (entry.kind === "hydration") estimate.ounces = Number(entry.nutrition_estimate?.ounces || 0);

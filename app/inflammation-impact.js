@@ -38,6 +38,7 @@ export function weightedInflammationScore(components) {
 }
 
 export function estimateInflammationScore(nutrition = {}) {
+  if (nutrition.consumed_fraction === 0 || nutrition.photo_review?.length || nutrition.fixture === true) return null;
   return inflammationScore(nutrition.inflammation_score) ?? weightedInflammationScore(nutrition.components);
 }
 
@@ -79,4 +80,12 @@ export function summarizeInflammationReport(entries = [], dateKey = (value) => S
     scoredMeals: mealSummary.scoredMeals,
     unscoredMeals: mealSummary.unscoredMeals
   };
+}
+
+export function portionCompositionExplanation(nutrition = {}) {
+  const fraction = nutrition.consumed_fraction;
+  if (typeof fraction !== 'number' || !Number.isFinite(fraction) || fraction < 0) return '';
+  if (fraction === 0) return '0% eaten: no nutrients from this meal are included. No consumed-meal composition score is shown.';
+  const percent = Math.round(fraction * 1000) / 10;
+  return `${percent}% eaten: nutrient amounts reflect your consumed portion. The composition score describes the mix of ingredients, so eating half does not halve that score. This does not measure inflammation in your body.`;
 }

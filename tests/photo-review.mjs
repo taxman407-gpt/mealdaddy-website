@@ -16,3 +16,5 @@ assert.throws(() => reviewedPhotoDescription('3 eggs', [{ choice: '' }]));
 assert.throws(() => reviewedPhotoDescription('3 eggs', [{ choice: 'correct', correction: '' }]));
 assert.equal(gatePhotoComponents({ components: [{ name: 'Unknown drink', calories: 180 }] }, true).components.length, 0);
 console.log('Photo review: unconfirmed nutrients excluded; correction, exclusion, deduplication and missing classification passed.');
+
+assert.equal(reviewedPhotoDescription('3 eggs; toast', [{ name: 'toast', choice: 'add' }]), '3 eggs; toast');

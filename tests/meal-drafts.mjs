@@ -21,3 +21,11 @@ assert.equal(restored.photo,undefined);
 const blocked=createMealDrafts('blocked',{storage:null,indexedDB:null});
 await assert.rejects(blocked.save('meal',{description:'x'}),/unavailable/);
 console.log('Device drafts: user isolation, restore, save/remove ordering, fallback text, unavailable-photo warning passed.');
+
+const quotaBlocked = createMealDrafts('quota', {storage: {setItem(){throw new Error('Quota exceeded');},getItem(){return null;}},indexedDB:null});
+await assert.rejects(quotaBlocked.save('meal',{description:'Must not report saved'}), /unavailable/);
+const rejectedIdb = {open(){ const request = {}; queueMicrotask(()=>{ request.error = new Error('Browser blocked IndexedDB'); request.onerror(); }); return request; }};
+const fallback = createMealDrafts('text-fallback', {storage,indexedDB:rejectedIdb});
+await fallback.save('review',{decisions:[{choice:'correct',correction:'Diet Dr Pepper'}]});
+assert.equal((await fallback.read('review')).decisions[0].correction,'Diet Dr Pepper');
+await assert.rejects(fallback.save('photo',{photo:new File(['x'],'x.jpg')}), /cannot preserve draft photos/);
