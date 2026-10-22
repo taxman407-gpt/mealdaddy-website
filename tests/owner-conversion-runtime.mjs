@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {stripTypeScriptTypes} from 'node:module';
+import vm from 'node:vm';
+const source=stripTypeScriptTypes(readFileSync('supabase/functions/owner-conversion-report/index.ts','utf8').replace(/^import .*;\n/gm,''),{mode:'strip'});
+async function run({owner=true,authenticated=true,audit=true,body={},origin='https://mealdaddy-october-test.taxman407.workers.dev'}={}){let handler,reads=0,audits=0;const client={auth:{getUser:async()=>({data:{user:authenticated?{id:'owner-fixture'}:null},error:null})},rpc:async()=>{reads++;return {data:{rows:[{email:'fixture@example.invalid'}],summary:{registrations:1}},error:null};},from:()=>({insert:async row=>{audits++;assert.equal(row.owner_id,'owner-fixture');return {error:audit?null:{}};}})};vm.runInNewContext(source,{createClient:()=>client,requireOwnerAuthorization:async()=>owner?{ok:true}:{ok:false,status:403,error:'Owner MFA required'},Deno:{env:{get:name=>name==='SUPABASE_PUBLISHABLE_KEYS'?'{}':'fixture'},serve:fn=>handler=fn},Response});const response=await handler(new Request('https://fixture.test',{method:'POST',headers:{origin,authorization:'Bearer fixture'},body:JSON.stringify(body)}));return {status:response.status,payload:await response.json(),reads,audits,headers:response.headers};}
+let r=await run();assert.equal(r.status,200);assert.equal(r.audits,1);assert.equal(r.headers.get('cache-control'),'no-store');assert.equal(r.headers.get('access-control-allow-origin'),'https://mealdaddy-october-test.taxman407.workers.dev');
+for(const [options,status] of [[{owner:false},403],[{authenticated:false},401],[{origin:'https://untrusted.example'},403],[{body:{limit:501}},400],[{body:{offset:-1}},400],[{body:{from:'yesterday'}},400],[{body:{status:'anything'}},400]]){r=await run(options);assert.equal(r.status,status);assert.equal(r.reads,0);}
+r=await run({audit:false});assert.equal(r.status,503);assert.equal(r.payload.rows,undefined);
+r=await run({body:{action:'export'}});assert.equal(r.status,200);assert.equal(r.audits,1);
+console.log('Owner report runtime: owner/MFA gate, restricted origins, validated filters, audited views/exports and fail-closed audit errors passed.');

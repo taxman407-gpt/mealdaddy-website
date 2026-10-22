@@ -1,3 +1,4 @@
+import {recordPaymentEvidence} from "../_shared/payment-evidence.mjs";
 import { applyReferralInvoiceDiscount } from "../_shared/referral-discount.mjs";
 import { invoiceSubscriptionId, recordSubscriptionReferral, recordLifetimeReferral } from "../_shared/referral-billing.mjs";
 import { fulfillLifetimeCheckout } from "../_shared/lifetime-fulfillment.mjs";
@@ -174,6 +175,16 @@ Deno.serve(async (request) => {
         subscription,
         subscription.metadata.plan_key || existing?.plan_key || "core"
       );
+    }
+
+    if (Deno.env.get("ENABLE_OWNER_CONVERSION_REPORT") === "true" && event.type === "invoice.paid") {
+      const invoice=event.data.object as any, subscriptionId=invoiceSubscriptionId(invoice);
+      if(subscriptionId){
+        const {data:owner,error}=await admin.from("subscriptions").select("user_id,stripe_customer_id").eq("stripe_subscription_id",subscriptionId).maybeSingle();
+        const customer=typeof invoice.customer==="string"?invoice.customer:invoice.customer?.id;
+        if(error||!owner||!customer||owner.stripe_customer_id!==customer)throw new Error("Payment evidence ownership requires reconciliation");
+        await recordPaymentEvidence({invoice,userId:owner.user_id,subscriptionId,eventId:event.id,eventCreated:event.created,stripe,admin});
+      }
     }
 
     if (Deno.env.get("ENABLE_REFERRALS") === "true" && ["invoice.created", "invoice.paid"].includes(event.type)) {

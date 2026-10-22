@@ -1,0 +1,3 @@
+export const reportColumns=['email','registered_at','verified_at','conversion_status','plan_key','subscription_status','marketing_preference','first_paid_at','first_lifetime_paid_at','last_checkout_at','checkout_status','trial_ends_at','current_period_ends_at','cancel_at_period_end','stripe_customer_id','stripe_subscription_id','checkout_session_id'];
+function csvCell(value){let text=value===null||value===undefined?'Not recorded':String(value);if(/^[\s]*[=+@\-\t\r]/.test(text))text="'"+text;return '"'+text.replaceAll('"','""')+'"';}
+export function registrationCsv(rows){return [reportColumns.map(csvCell).join(','),...rows.map(row=>reportColumns.map(key=>csvCell(row[key])).join(','))].join('\r\n');}

@@ -51,3 +51,6 @@ verify_jwt = true
 
 [functions.manage-byok]
 verify_jwt = true
+
+[functions.owner-conversion-report]
+verify_jwt = true

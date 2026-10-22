@@ -1,5 +1,5 @@
 # Owner Tools — Registration-to-Subscription Conversion Report
-Status: Approved for October development branch; not yet implemented.
+Status: Implemented on the October test branch; test database migration and synthetic checks pass. Production rollout and live payment reconciliation remain disabled.
 Date: 2026-10-21
 
 ## Goal
@@ -37,3 +37,12 @@ Owner Tools > User Management > Registration & Conversion. Keep entry only on Ac
 7. CSV export escapes spreadsheet formulas and excludes internal sensitive fields.
 8. Pagination, filtering, and counts are correct; no duplicates for repeat webhooks.
 9. Synthetic fixtures only on isolated test Supabase project dkirmzthyynogkkaacmj; no production data changes.
+
+## Implementation evidence — 22 October 2026
+- Server-only report projection exposes the listed enrollment/billing fields through an owner/MFA endpoint; client roles cannot query the projection or execute its report RPC.
+- Date/status/verification/consent filters, 100-row UI pagination, matching-filter summaries, and current-page CSV export are implemented. CSV uses an explicit column allowlist and escapes formula prefixes.
+- Every view/export must write an owner audit record before returning any rows.
+- A positive-payment evidence collector runs only after verified Stripe webhooks, subscription/customer linkage, and succeeded PaymentIntent allocation checks, behind ENABLE_OWNER_CONVERSION_REPORT. It is source-only and disabled in test.
+- Synthetic SQL tests cover registration, trial, unproven active membership, positive payment, repeated checkout rows, unknown consent, filters and pagination; transactions roll back.
+- Trial start and welcome-delivery date are explicitly not recorded yet. Historical missing payment evidence remains unknown; no live customer data was inspected or backfilled.
+- Report view deliberately uses a privileged narrow projection of auth.users, granted only to service_role. No auth.users table access is granted to client or service roles by this migration.
