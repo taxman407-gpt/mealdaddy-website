@@ -72,3 +72,15 @@ Ten INFO advisor notices for RLS-enabled server-only tables without direct polic
 - The Stripe CLI documentation attempt was blocked by automatic approval review because it attempted an additional telemetry connection. It was not retried; implementation used the connected documentation lookup and official API references instead.
 
 Implementation references: https://docs.stripe.com/api/invoice-payment/list, https://docs.stripe.com/api/invoiceitems/create, https://docs.stripe.com/billing/subscriptions/coupons, https://platform.claude.com/docs/en/build-with-claude/structured-outputs, https://ai.google.dev/gemini-api/docs/generate-content/structured-output.
+
+## Optional account BYOK and remaining AI routes — 22 October
+- Optional cloud credentials use server AES-GCM with an account-bound authenticated context, random nonce, and a separately configured 32-byte server master key. Clients have no table read/write access. The test migration is 20261022154054; manage-byok v1 is deployed with feature flags disabled and no master/provider key configured.
+- Device/account selection is explicit per device. Saving or deleting a connection does not silently select a different key or provider. Device storage remains the default; no cloud activation occurred.
+- Saved-food analysis, leftover comparisons, dinner guidance and recipe recreation now use the same explicit provider connection for BYOK. Active monthly and maintained lifetime entitlements are checked server-side. Provider usage records tokens/model/provider with zero hosted cost for BYOK; concurrency/daily reservations remain enforced.
+- Plain-text and structured/image adapters cover all three providers. Current web search is supported only through the explicitly chosen OpenAI connection. Unsupported search fails before reservation/provider calls; BYOK never runs the hosted compatibility retry. Recipe cache keys include provider and model.
+- Runtime tests exercise all four endpoints with each provider using synthetic network adapters and no hosted key; missing-key and unsupported-search cases make no provider calls. No live provider acceptance is claimed.
+
+## Owner report and welcome delivery checkpoint
+- Owner registration/conversion migration 20261022154758 and owner-conversion-report v1 are deployed in the test project; synthetic SQL and runtime/CSV checks pass. Report access and export are owner+MFA gated and audited; payment evidence requires a real positive, owned, succeeded payment, not just active subscription status.
+- Welcome outbox/processor/monitoring source is committed, disabled by default. Local adapter/worker tests pass. The test migration and redeployment of welcome-aware report v2 remain pending because the Supabase connector returned invalid request state/internal errors on write attempts. No welcome tables, scheduler, credentials or sends were activated.
+- The migration CLI attempted unsolicited PostHog telemetry and automatic approval review rejected it. It was not retried. Source creation continued, and connector-based database work was attempted separately.

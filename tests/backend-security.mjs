@@ -11,7 +11,7 @@ for (const [name, source, requestKind] of [
   ["saved-food analysis", savedFood, "analyze-saved-food"],
   ["leftover adjustment", leftovers, "adjust-leftovers"]
 ]) {
-  assert.match(source, /\["trialing", "active"\]\.includes\(membership\.status\)/, `${name} must require a current membership`);
+  assert.match(source, /await resolveAiConnection\(/, `${name} must use the shared verified membership gate`);
   assert.doesNotMatch(source, /past_due/, `${name} must not grant AI access to a past-due membership`);
   assert.match(source, /admin\.rpc\("reserve_ai_usage"/, `${name} must reserve usage atomically`);
   assert.match(source, new RegExp(`requested_kind: "${requestKind}"`));

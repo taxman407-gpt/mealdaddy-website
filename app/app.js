@@ -296,7 +296,7 @@ function mealPhotoValidationMessage(file) {
 }
 
 function hasCurrentCoreMembership() {
-  return state.membershipPlan === "core" && ["trialing", "active", "past_due"].includes(state.membershipStatus);
+  return ["core", "byo"].includes(state.membershipPlan) && ["trialing", "active"].includes(state.membershipStatus);
 }
 
 async function readFunctionFailure(error) {
@@ -359,16 +359,18 @@ async function handleEstimateFailure(error, subject, action = "saved", entryId =
   return message;
 }
 
-async function invokeMealEstimate(options = {}) {
-  if (state.membershipPlan !== "byo") return invokeAuthenticated("estimate-entry", options);
+async function invokeMemberAi(functionName, options = {}) {
+  if (state.membershipPlan !== "byo") return invokeAuthenticated(functionName, options);
   try {
     const byok = localStorage.getItem(`mealdaddy-byok-source:${user.id}`) === "cloud" ? {storage:"cloud"} : await byokVault.read();
     if (!byok) throw new Error("Connect your selected BYOK provider and API key on this device first.");
-    return invokeAuthenticated("estimate-entry", { ...options, body: { ...options.body, byok } });
+    return invokeAuthenticated(functionName, { ...options, body: { ...options.body, byok } });
   } catch (error) {
     return { data: null, error: Object.assign(new Error(error.message), { context: new Response(JSON.stringify({ error: error.message }), {status:422}) }) };
   }
 }
+const invokeMealEstimate = options => invokeMemberAi("estimate-entry", options);
+
 async function restoreByokSettings() {
   try {
     const cloud = localStorage.getItem(`mealdaddy-byok-source:${user.id}`) === "cloud";
@@ -2416,7 +2418,7 @@ $("#coach-action-form").addEventListener("submit", async (event) => {
     }
     const recipeMode = state.coachMode === "recipe";
     const detailLevel = document.querySelector('input[name="recipe_detail"]:checked')?.value || "quick";
-    const { data, error } = await invokeAuthenticated(recipeMode ? "recipe-recreation" : "coach-action", {
+    const { data, error } = await invokeMemberAi(recipeMode ? "recipe-recreation" : "coach-action", {
       body: {
         mode: state.coachMode,
         context,
@@ -2517,7 +2519,7 @@ function closeLeftoverAdjustment(preserveDraft = true, fromBack = false) {
 
 async function openLeftoverAdjustment(entry, trigger) {
   if (!hasCurrentCoreMembership()) {
-    toast("Second-photo portion correction is included with Meal Daddy Core.");
+    toast("Second-photo portion correction requires an active membership.");
     return;
   }
   draftNavigation.open("leftover", () => closeLeftoverAdjustment(true, true));
@@ -2625,7 +2627,7 @@ $("#leftover-analysis-form").addEventListener("submit", async (event) => {
     photoPath = `${user.id}/leftover-scan-${crypto.randomUUID()}-${safeName}`;
     const { error: uploadError } = await supabase.storage.from("meal-photos").upload(photoPath, preparedPhoto, { upsert: false, contentType: preparedPhoto.type });
     if (uploadError) throw uploadError;
-    const { data, error } = await invokeAuthenticated("adjust-leftovers", {
+    const { data, error } = await invokeMemberAi("adjust-leftovers", {
       body: {
         entryId: entry.id,
         photoPath,
@@ -3401,7 +3403,7 @@ try {
   await restoreByokSettings();
   state.savedFoodsApi = await initializeSavedFoods({
     supabase,
-    invokeAuthenticated,
+    invokeAuthenticated: (name, options) => name === "analyze-saved-food" ? invokeMemberAi(name, options) : invokeAuthenticated(name, options),
     user,
     defaultMealLabel,
     toast,

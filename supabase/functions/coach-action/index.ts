@@ -1,3 +1,4 @@
+import {resolveAiConnection} from "../_shared/ai-connection.mjs";
 import { createClient } from "npm:@supabase/supabase-js@2.54.0";
 import { requireConditionalMfa } from "../_shared/conditional-mfa.ts";
 
@@ -188,7 +189,7 @@ Deno.serve(async (request) => {
   const secretKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ??
     namedKey("SUPABASE_SECRET_KEYS", "SUPABASE_SERVICE_ROLE_KEY");
   const openAiKey = Deno.env.get("OPENAI_API_KEY");
-  if (!supabaseUrl || !publishableKey || !secretKey || !openAiKey) {
+  if (!supabaseUrl || !publishableKey || !secretKey) {
     return json({ error: "Meal Daddy coaching is not configured." }, 503);
   }
 
@@ -199,6 +200,7 @@ Deno.serve(async (request) => {
   if (authError || !user) return json({ error: "Authentication required." }, 401);
 
   let mode = "";
+  let byokInput;
   let context = "";
   let nutritionContext: {
     calories: number;
@@ -220,6 +222,7 @@ Deno.serve(async (request) => {
   } | null = null;
   try {
     const body = await request.json();
+    byokInput = body.byok;
     mode = typeof body.mode === "string" ? body.mode : "";
     context = typeof body.context === "string" ? body.context.trim().slice(0, 1000) : "";
     if (body.nutritionContext && typeof body.nutritionContext === "object") {
@@ -303,26 +306,10 @@ Deno.serve(async (request) => {
   const admin = createClient(supabaseUrl, secretKey);
   const mfaResult = await requireConditionalMfa(admin, user.id, authHeader);
   if (!mfaResult.ok) return json({ error: mfaResult.error }, mfaResult.status);
-  const { data: membership } = await admin
-    .from("subscriptions")
-    .select("plan_key,status")
-    .eq("user_id", user.id)
-    .maybeSingle();
-  const { data: complimentaryGrant, error: complimentaryError } = await admin
-    .from("complimentary_access_grants")
-    .select("status")
-    .eq("user_id", user.id)
-    .maybeSingle();
-  if (complimentaryError) return json({ error: "Membership status could not be checked." }, 500);
-  const hasComplimentaryAccess = complimentaryGrant?.status === "active";
-  if (
-    !hasComplimentaryAccess && (
-      membership?.plan_key !== "core" ||
-      !["trialing", "active"].includes(membership.status)
-    )
-  ) {
-    return json({ error: "An active Meal Daddy Core membership is required." }, 402);
-  }
+  let ai;
+  try { ai = await resolveAiConnection({admin,userId:user.id,byokInput,hostedKey:openAiKey}); ai.assertCapabilities({webSearch:mode === "restaurant"}); }
+  catch(error) { return json({error:error.message},error.status||503); }
+  const membership=ai.membership;
 
   const monthStart = new Date();
   monthStart.setUTCDate(1);
@@ -337,7 +324,7 @@ Deno.serve(async (request) => {
     (sum, row) => sum + Number(row.estimated_cost_micros || 0),
     0
   );
-  if (usedMicros >= monthlyBudgetMicros) {
+  if (!ai.byok && usedMicros >= monthlyBudgetMicros) {
     return json({ error: "The monthly Core AI allowance has been reached." }, 429);
   }
 
@@ -388,22 +375,15 @@ Deno.serve(async (request) => {
     requestBody.include = ["web_search_call.action.sources"];
   }
 
-  const callOpenAi = (body: Record<string, unknown>) => fetch("https://api.openai.com/v1/responses", {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${openAiKey}`,
-      "content-type": "application/json"
-    },
-    body: JSON.stringify(body)
-  });
+  const callOpenAi = (body: Record<string, unknown>) => ai.call({...body,model:ai.modelFor(body.model)});
 
-  const monthlyLimitMicros = membership?.status === "trialing" ? 500_000 : monthlyBudgetMicros;
+  const monthlyLimitMicros = ai.monthlyLimit(membership?.status === "trialing" ? 500_000 : monthlyBudgetMicros);
   const dailyCallLimit = membership?.status === "trialing" ? 30 : 50;
   const { data: reservationRows, error: reservationError } = await admin.rpc("reserve_ai_usage", {
     requested_user_id: user.id,
     requested_ledger_entry_id: null,
     requested_kind: "coach-action",
-    requested_reserved_micros: mode === "restaurant" ? 150_000 : 100_000,
+    requested_reserved_micros: ai.byok ? 1 : mode === "restaurant" ? 150_000 : 100_000,
     requested_monthly_limit_micros: monthlyLimitMicros,
     requested_daily_call_limit: dailyCallLimit
   });
@@ -428,7 +408,7 @@ Deno.serve(async (request) => {
     await releaseReservation();
     return json({ error: "Meal Daddy could not reach its meal-guidance service. Please try again." }, 503);
   }
-  if (mode === "restaurant" && [400, 403].includes(openAiResponse.status)) {
+  if (!ai.byok && mode === "restaurant" && [400, 403].includes(openAiResponse.status)) {
     const compatibilityBody = {
       ...requestBody,
       tools: [{ type: "web_search_preview" }],
@@ -511,12 +491,12 @@ Deno.serve(async (request) => {
   const webSearchCalls = providerResponses.reduce((sum, item) => sum + (Array.isArray(item.output)
     ? item.output.filter((outputItem: Record<string, unknown>) => outputItem.type === "web_search_call").length
     : 0), 0);
-  const estimatedCostMicros = inputTokens * 1 + outputTokens * 6 + webSearchCalls * 10_000;
+  const estimatedCostMicros = ai.cost(inputTokens * 1 + outputTokens * 6 + webSearchCalls * 10_000);
   const { error: settleError } = await admin.rpc("settle_ai_usage", {
     requested_reservation_id: reservationId,
     requested_user_id: user.id,
-    requested_provider: "openai",
-    requested_model: mode === "restaurant" ? restaurantSearchModel : mealPlanningModel,
+    requested_provider: ai.provider,
+    requested_model: ai.modelFor(mode === "restaurant" ? restaurantSearchModel : mealPlanningModel),
     requested_input_tokens: inputTokens,
     requested_output_tokens: outputTokens,
     requested_actual_cost_micros: estimatedCostMicros

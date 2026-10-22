@@ -1,7 +1,8 @@
+import {resolveAiConnection} from "../_shared/ai-connection.mjs";
 import { createClient } from "npm:@supabase/supabase-js@2.54.0";
 import { requireConditionalMfa } from "../_shared/conditional-mfa.ts";
 
-const model = "gpt-5.6-luna";
+const defaultModel = "gpt-5.6-luna";
 const monthlyBudgetMicros = 3_000_000;
 const maxPhotoBytes = 8 * 1024 * 1024;
 const supportedPhotoTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
@@ -78,7 +79,7 @@ Deno.serve(async (request) => {
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ??
     namedKey("SUPABASE_SECRET_KEYS", "SUPABASE_SERVICE_ROLE_KEY");
   const openAiKey = Deno.env.get("OPENAI_API_KEY");
-  if (!supabaseUrl || !anonKey || !serviceKey || !openAiKey) {
+  if (!supabaseUrl || !anonKey || !serviceKey) {
     return json({ error: "After-meal photo analysis is not configured." }, 503);
   }
 
@@ -91,8 +92,10 @@ Deno.serve(async (request) => {
   let entryId = "";
   let photoPath = "";
   let context = "";
+  let byokInput;
   try {
     const body = await request.json();
+    byokInput = body.byok;
     entryId = typeof body.entryId === "string" ? body.entryId : "";
     photoPath = typeof body.photoPath === "string" ? body.photoPath : "";
     context = typeof body.context === "string" ? body.context.trim().slice(0, 500) : "";
@@ -115,29 +118,11 @@ Deno.serve(async (request) => {
   try {
     const mfaResult = await requireConditionalMfa(admin, user.id, authHeader);
     if (!mfaResult.ok) return json({ error: mfaResult.error }, mfaResult.status);
-    const [subscriptionResult, grantResult] = await Promise.all([
-      admin
-        .from("subscriptions")
-        .select("plan_key,status")
-        .eq("user_id", user.id)
-        .maybeSingle(),
-      admin
-        .from("complimentary_access_grants")
-        .select("access_type,status")
-        .eq("user_id", user.id)
-        .maybeSingle()
-    ]);
-    if (subscriptionResult.error || grantResult.error) {
-      return json({ error: "Membership access could not be verified." }, 500);
-    }
-    const membership = subscriptionResult.data;
-    const hasCore = membership?.plan_key === "core" &&
-      ["trialing", "active"].includes(membership.status);
-    const hasFamilyAccess = grantResult.data?.access_type === "family" &&
-      grantResult.data.status === "active";
-    if (!hasCore && !hasFamilyAccess) {
-      return json({ error: "An active Meal Daddy Core membership is required." }, 402);
-    }
+    let ai;
+    try { ai = await resolveAiConnection({admin,userId:user.id,byokInput,hostedKey:openAiKey}); }
+    catch(error) { return json({error:error.message},error.status||503); }
+    const membership = ai.membership;
+    const model = ai.modelFor(defaultModel);
 
     const { data: entry, error: entryError } = await admin
       .from("ledger_entries")
@@ -231,13 +216,13 @@ Deno.serve(async (request) => {
     }
     userContent.push(await imagePart(afterPhoto));
 
-    const monthlyLimitMicros = membership?.status === "trialing" ? 500_000 : monthlyBudgetMicros;
+    const monthlyLimitMicros = ai.monthlyLimit(membership?.status === "trialing" ? 500_000 : monthlyBudgetMicros);
     const dailyCallLimit = membership?.status === "trialing" ? 30 : 50;
     const { data: reservationRows, error: reservationError } = await admin.rpc("reserve_ai_usage", {
       requested_user_id: user.id,
       requested_ledger_entry_id: entry.id,
       requested_kind: "adjust-leftovers",
-      requested_reserved_micros: 100_000,
+      requested_reserved_micros: ai.byok ? 1 : 100_000,
       requested_monthly_limit_micros: monthlyLimitMicros,
       requested_daily_call_limit: dailyCallLimit
     });
@@ -252,13 +237,7 @@ Deno.serve(async (request) => {
     reservationId = reservationRows[0].reservation_id;
     const usedMicros = Number(reservationRows[0].used_monthly_micros || 0);
 
-    const openAiResponse = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST",
-      headers: {
-        authorization: `Bearer ${openAiKey}`,
-        "content-type": "application/json"
-      },
-      body: JSON.stringify({
+    const openAiResponse = await ai.call({
         model,
         store: false,
         reasoning: { effort: "none" },
@@ -277,8 +256,7 @@ Deno.serve(async (request) => {
             schema
           }
         }
-      })
-    });
+      });
 
     if (!openAiResponse.ok) {
       const requestId = openAiResponse.headers.get("x-request-id");
@@ -296,11 +274,11 @@ Deno.serve(async (request) => {
 
     const inputTokens = Number(response.usage?.input_tokens || 0);
     const outputTokens = Number(response.usage?.output_tokens || 0);
-    const estimatedCostMicros = inputTokens * 1 + outputTokens * 6;
+    const estimatedCostMicros = ai.cost(inputTokens * 1 + outputTokens * 6);
     const { error: settleError } = await admin.rpc("settle_ai_usage", {
       requested_reservation_id: reservationId,
       requested_user_id: user.id,
-      requested_provider: "openai",
+      requested_provider: ai.provider,
       requested_model: model,
       requested_input_tokens: inputTokens,
       requested_output_tokens: outputTokens,
@@ -313,7 +291,7 @@ Deno.serve(async (request) => {
       ok: true,
       analysis,
       comparedWithOriginal: Boolean(originalPhoto),
-      remainingBudgetMicros: Math.max(0, monthlyLimitMicros - usedMicros - estimatedCostMicros)
+      remainingBudgetMicros: ai.byok ? null : Math.max(0, monthlyLimitMicros - usedMicros - estimatedCostMicros)
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "The after-meal photo could not be analyzed.";

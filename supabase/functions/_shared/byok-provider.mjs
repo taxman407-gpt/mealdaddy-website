@@ -19,6 +19,9 @@ function portableSchema(schema) {
 }
 export async function callByokProvider(credentials, request, fetchImpl = fetch) {
   const {provider,key,model} = validateByok(credentials);
+  if(request.tools?.length && provider!=='openai') throw new Error('This selected provider connection does not support current web search. No alternate provider was used.');
+  const schema=request.text?.format?.schema;
+  const maxTokens=Number.isSafeInteger(request.max_output_tokens)?Math.min(4096,Math.max(1,request.max_output_tokens)):4096;
   const system = request.input.filter(item=>item.role==='system').flatMap(item=>item.content).map(part=>part.text||'').join('\n');
   const parts = request.input.filter(item=>item.role==='user').flatMap(item=>item.content);
   let url, headers, body;
@@ -26,21 +29,21 @@ export async function callByokProvider(credentials, request, fetchImpl = fetch) 
     url='https://api.openai.com/v1/responses';
     headers={authorization:`Bearer ${key}`};
     const {reasoning,...portable}=request;
-    body={...portable,model,store:false,max_output_tokens:4096};
+    body={...portable,model,store:false,max_output_tokens:maxTokens};
   } else if (provider === 'anthropic') {
     url='https://api.anthropic.com/v1/messages';
     headers={'x-api-key':key,'anthropic-version':'2023-06-01'};
-    body={model,max_tokens:4096,system,messages:[{role:'user',content:parts.map(part=>{
+    body={model,max_tokens:maxTokens,system,messages:[{role:'user',content:parts.map(part=>{
       if(part.type==='input_text')return {type:'text',text:part.text};
       const image=imageData(part);return {type:'image',source:{type:'base64',media_type:image.media,data:image.data}};
-    })}],output_config:{format:{type:'json_schema',schema:portableSchema(request.text.format.schema)}}};
+    })}],...(schema?{output_config:{format:{type:'json_schema',schema:portableSchema(schema)}}}:{})};
   } else {
     url=`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
     headers={'x-goog-api-key':key};
     body={systemInstruction:{parts:[{text:system}]},contents:[{role:'user',parts:parts.map(part=>{
       if(part.type==='input_text')return {text:part.text};
       const image=imageData(part);return {inlineData:{mimeType:image.media,data:image.data}};
-    })}],generationConfig:{maxOutputTokens:4096,responseMimeType:'application/json',responseJsonSchema:request.text.format.schema}};
+    })}],generationConfig:{maxOutputTokens:maxTokens,...(schema?{responseMimeType:'application/json',responseJsonSchema:schema}:{})}};
   }
   const response=await fetchImpl(url,{method:'POST',headers:{...headers,'content-type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(45000)});
   // Never relay a provider error body: it can contain request details or credentials.
