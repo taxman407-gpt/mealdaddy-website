@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import {captureReferral,pendingReferral,claimPendingReferral} from '../app/referral-client.js';
+const values=new Map();const storage={getItem:key=>values.get(key)||null,setItem:(key,value)=>values.set(key,value),removeItem:key=>values.delete(key)};
+const code='00000000-0000-4000-8000-000000000123';
+assert.equal(captureReferral({search:'?ref=javascript:alert(1)',storage}),null);
+assert.equal(captureReferral({search:`?ref=${code}`,storage}),code);
+assert.equal(captureReferral({search:'?ref=00000000-0000-4000-8000-000000000456',storage}),code,'First invite must not be replaced by another URL.');
+let calls=0;const user={id:'synthetic-a',email_confirmed_at:'2026-10-22',user_metadata:{signup_referral_code:code}};
+assert.equal(await claimPendingReferral({user,storage,invoke:async(name,options)=>{calls++;assert.equal(name,'manage-referrals');assert.equal(options.body.code,code);return {data:{ok:true,attributed:true}};}}),true);
+assert.equal(pendingReferral(user,storage),null);
+assert.equal(await claimPendingReferral({user,storage,invoke:async()=>{calls++;}}),false);assert.equal(calls,1);
+assert.equal(pendingReferral({...user,id:'new-device-account'},storage),code,'Sign-up metadata preserves cross-device attribution input.');
+console.log('Referral client: validated first-touch invite, verified account claim, cross-device input and replay suppression passed.');

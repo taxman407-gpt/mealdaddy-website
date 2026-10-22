@@ -105,6 +105,16 @@
       <p class="account-status" id="mfa-message" role="status" aria-live="polite"></p>
     </section>
 
+    <section class="account-card" aria-labelledby="referrals-title">
+      <p class="eyebrow">Invites and rewards</p><h2 id="referrals-title">Referrals</h2>
+      <p id="referral-balance">Loading referral balances…</p><p id="referral-program-terms"></p>
+      <p>Approved affiliates earn 15% of eligible net subscription receipts during the referred customer's first 12 months. Lifetime licenses earn 7.5% of eligible net proceeds once. Refunds reverse the related earnings. No commission is earned on annual lifetime maintenance.</p>
+      <p id="referral-affiliate-state"></p>
+      <div class="account-actions-row"><button class="button button-quiet" type="button" id="subscriber-referral-code">Create subscriber invite</button><button class="button button-quiet" type="button" id="affiliate-referral-code">Create affiliate invite</button><button class="button button-quiet" type="button" id="apply-affiliate">Request affiliate approval</button></div>
+      <div id="referral-links"></div>
+      <form id="referral-redemption-form"><label>Points to reserve for a subscription discount<input id="referral-points" type="number" min="1" step="1" required /></label><button class="button button-primary" type="submit">Reserve points for discount</button></form>
+      <p id="referral-redemption-summary"></p><p id="referral-status" role="status"></p>
+    </section>
     <section class="account-card membership-card" aria-labelledby="membership-title">
       <div class="account-card-heading">
         <div>

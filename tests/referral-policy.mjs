@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {eligibleCollectedNet,affiliateCommission} from '../supabase/functions/_shared/referral-policy.mjs';
+assert.equal(eligibleCollectedNet({amountPaidCents:1100,totalCents:1100,totalExcludingTaxCents:1000}),1000);
+assert.equal(eligibleCollectedNet({amountPaidCents:550,totalCents:1100,totalExcludingTaxCents:1000}),500);
+assert.equal(eligibleCollectedNet({amountPaidCents:0,totalCents:0,totalExcludingTaxCents:0}),0);
+const base={approved:true,kind:'subscription',eligibleNetCents:999,firstPaidAt:'2026-10-22T12:00:00Z',paidAt:'2027-10-21T12:00:00Z'};
+assert.equal(affiliateCommission(base),150);
+assert.equal(affiliateCommission({...base,paidAt:'2027-10-22T12:00:00Z'}),0);
+assert.equal(affiliateCommission({...base,approved:false}),0);
+assert.equal(affiliateCommission({...base,kind:'maintenance'}),0);
+assert.equal(affiliateCommission({...base,kind:'lifetime',eligibleNetCents:35000}),2625);
+assert.equal(affiliateCommission({...base,kind:'lifetime',eligibleNetCents:25000}),1875);
+assert.throws(()=>eligibleCollectedNet({amountPaidCents:-1,totalCents:0,totalExcludingTaxCents:0}));
+console.log('Referral policy: net collected cash, first-year 15%, once-only lifetime 7.5%, no maintenance commission passed.');

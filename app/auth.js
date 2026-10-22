@@ -1,3 +1,4 @@
+import { pendingReferral } from "./referral-client.js?v=20261022-1";
 import { supabase } from "./supabase-client.js?v=20261004-1";
 
 const form = document.querySelector("#auth-form");
@@ -176,7 +177,7 @@ form.addEventListener("submit", async (event) => {
   const result = mode === "signup"
     ? await supabase.auth.signUp({
         ...credentials,
-        options: { emailRedirectTo: signupTarget.href }
+        options: { emailRedirectTo: signupTarget.href, data: { signup_referral_code: pendingReferral() || null } }
       })
     : await supabase.auth.signInWithPassword(credentials);
 

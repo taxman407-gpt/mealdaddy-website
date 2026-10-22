@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {recordSubscriptionReferral,recordLifetimeReferral,invoiceSubscriptionId} from '../supabase/functions/_shared/referral-billing.mjs';
+assert.equal(invoiceSubscriptionId({parent:{subscription_details:{subscription:'sub_new'}}}),'sub_new');
+const writes=[];const admin={from(){const q={select(){return q;},eq(){return q;},async maybeSingle(){return {data:{referred_user_id:'user-a'},error:null};}};return q;},async rpc(name,args){writes.push({name,args});return {data:true,error:null};}};
+const stripe={invoices:{async listLineItems(){return {data:[{amount:1100,price:{id:'price_monthly'}}],has_more:false};}},invoicePayments:{async list(){return {data:[{amount_paid:550,payment:{type:'payment_intent',payment_intent:'pi_a'}},{amount_paid:550,payment:{type:'payment_intent',payment_intent:'pi_b'}}],has_more:false};}},paymentIntents:{async retrieve(){return {status:'succeeded',amount_received:550,customer:'cus_fixture'};}}};
+const invoice={id:'in_fixture',customer:'cus_fixture',status:'paid',currency:'usd',amount_paid:1100,total:1100,total_excluding_tax:1000};
+await recordSubscriptionReferral({invoice,userId:'user-a',admin,stripe,paidAt:'2026-10-22',eligiblePriceIds:['price_monthly']});
+assert.equal(writes.length,2);assert(writes.every(write=>write.args.requested_net_cents===500));assert(writes.every(write=>write.args.requested_collected_gross_cents===550));
+await recordSubscriptionReferral({invoice:{...invoice,paid_out_of_band:true},userId:'user-a',admin,stripe,eligiblePriceIds:['price_monthly']});assert.equal(writes.length,2);
+await recordLifetimeReferral({session:{id:'cs_fixture',payment_status:'paid',payment_intent:'pi_lifetime',amount_total:27500,total_details:{amount_tax:2500},metadata:{license_kind:'purchase'}},userId:'user-a',admin,paidAt:'2026-10-22'});
+assert.equal(writes.at(-1).args.requested_net_cents,25000);
+await recordLifetimeReferral({session:{payment_status:'paid',metadata:{license_kind:'maintenance'}},userId:'user-a',admin});assert.equal(writes.length,3);
+await assert.rejects(recordSubscriptionReferral({invoice:{...invoice,total_excluding_tax:null},userId:'user-a',admin,stripe,eligiblePriceIds:['price_monthly']}),/TAX_RECONCILIATION/);
+console.log('Referral billing: payment allocations, tax exclusion, no out-of-band rewards, lifetime once and no maintenance reward passed.');

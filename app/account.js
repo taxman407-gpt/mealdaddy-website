@@ -1,3 +1,4 @@
+import { initializeReferrals } from "./referrals.js?v=20261022-1";
 import { createByokVault } from "./byok-vault.js?v=20261022-1";
 import { lifetimeAccess } from "./membership-policy.mjs?v=20261022-1";
 import { invokeAuthenticated, supabase, requireSession } from "./supabase-client.js?v=20261004-1";
@@ -11,6 +12,7 @@ const session = await requireSession();
 if (!session) throw new Error("Authentication required");
 
 const user = session.user;
+void initializeReferrals({ invoke: invokeAuthenticated, user });
 let membership = null;
 let contactOptedIn = true;
 let mfaEnrollment = null;

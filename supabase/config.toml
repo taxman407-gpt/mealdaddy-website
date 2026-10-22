@@ -45,3 +45,6 @@ schema_paths = []
 
 [functions.create-license-checkout]
 verify_jwt = true
+
+[functions.manage-referrals]
+verify_jwt = true

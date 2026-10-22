@@ -1,10 +1,12 @@
+import { applyReferralInvoiceDiscount } from "../_shared/referral-discount.mjs";
+import { invoiceSubscriptionId, recordSubscriptionReferral, recordLifetimeReferral } from "../_shared/referral-billing.mjs";
 import { fulfillLifetimeCheckout } from "../_shared/lifetime-fulfillment.mjs";
-import Stripe from "npm:stripe@18.5.0";
+import Stripe from "npm:stripe@22.6.0";
 import { createClient } from "npm:@supabase/supabase-js@2.54.0";
 
 const stripeKey = Deno.env.get("STRIPE_SECRET_KEY") ?? "";
 const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET") ?? "";
-const stripe = new Stripe(stripeKey);
+const stripe = stripeKey ? new Stripe(stripeKey, { apiVersion: "2026-08-26.dahlia" }) : null;
 const cryptoProvider = Stripe.createSubtleCryptoProvider();
 
 function namedKey(variable: string, fallback: string) {
@@ -21,7 +23,7 @@ function unixDate(value: number | null | undefined) {
 
 Deno.serve(async (request) => {
   if (request.method !== "POST") return new Response("Method not allowed", { status: 405 });
-  if (!stripeKey || !webhookSecret) return new Response("Webhook not configured", { status: 503 });
+  if (!stripe || !webhookSecret) return new Response("Webhook not configured", { status: 503 });
 
   const signature = request.headers.get("stripe-signature");
   if (!signature) return new Response("Missing signature", { status: 400 });
@@ -76,7 +78,7 @@ Deno.serve(async (request) => {
       plan_key: planKey,
       status: subscription.status,
       trial_ends_at: unixDate(subscription.trial_end),
-      current_period_ends_at: unixDate(subscription.current_period_end),
+      current_period_ends_at: unixDate((subscription as any).current_period_end ?? subscription.items.data[0]?.current_period_end),
       cancel_at_period_end: subscription.cancel_at_period_end,
       updated_at: new Date().toISOString()
     });
@@ -89,6 +91,7 @@ Deno.serve(async (request) => {
       if (session.mode === "payment" && session.metadata?.billing_purpose === "lifetime_license") {
         if (Deno.env.get("ENABLE_LIFETIME_BILLING") !== "true") throw new Error("Lifetime fulfillment is disabled");
         await fulfillLifetimeCheckout({ session, admin, stripe, paidAt: new Date(event.created * 1000).toISOString() });
+        if (Deno.env.get("ENABLE_REFERRALS") === "true") await recordLifetimeReferral({ session, userId: session.metadata.user_id, admin, paidAt: new Date(event.created * 1000).toISOString() });
       }
     }
     if (event.type === "checkout.session.completed" && (event.data.object as Stripe.Checkout.Session).mode !== "payment") {
@@ -173,6 +176,31 @@ Deno.serve(async (request) => {
       );
     }
 
+    if (Deno.env.get("ENABLE_REFERRALS") === "true" && ["invoice.created", "invoice.paid"].includes(event.type)) {
+      const invoice = event.data.object as any;
+      const subscriptionId = invoiceSubscriptionId(invoice);
+      if (subscriptionId) {
+        const {data: owner, error: ownerError} = await admin.from("subscriptions").select("user_id,plan_key,stripe_customer_id").eq("stripe_subscription_id", subscriptionId).maybeSingle();
+        if (ownerError || !owner) throw new Error("Referral invoice ownership requires reconciliation");
+        const customerId = typeof invoice.customer === "string" ? invoice.customer : invoice.customer?.id;
+        if (owner.stripe_customer_id !== customerId || !["core","byo"].includes(owner.plan_key)) throw new Error("Referral invoice ownership mismatch");
+        if (event.type === "invoice.created") await applyReferralInvoiceDiscount({invoice,userId:owner.user_id,admin,stripe});
+        else await recordSubscriptionReferral({invoice,userId:owner.user_id,admin,stripe,paidAt:new Date((invoice.status_transitions?.paid_at || event.created)*1000).toISOString(),eligiblePriceIds:[Deno.env.get("STRIPE_CORE_PRICE_ID"),Deno.env.get("STRIPE_BYO_PRICE_ID")].filter(Boolean)});
+      }
+    }
+    if (Deno.env.get("ENABLE_REFERRALS") === "true" && ["invoice.voided","invoice.deleted"].includes(event.type)) {
+      const invoice = event.data.object as any;
+      const {error:releaseError} = await admin.from("referral_redemptions").update({status:"released"}).eq("stripe_invoice_id",invoice.id);
+      if (releaseError) throw new Error("Referral discount release requires reconciliation");
+    }
+    if (Deno.env.get("ENABLE_REFERRALS") === "true" && event.type === "charge.refunded") {
+      const charge = event.data.object as any;
+      const paymentIntent = typeof charge.payment_intent === "string" ? charge.payment_intent : charge.payment_intent?.id;
+      if (paymentIntent) {
+        const {error:refundError} = await admin.rpc("refund_referral_payment",{requested_payment_intent_id:paymentIntent,requested_refunded_gross_cents:charge.amount_refunded});
+        if (refundError) throw new Error("Referral refund reconciliation failed");
+      }
+    }
     if (event.type === "checkout.session.async_payment_failed") {
       const session = event.data.object as Stripe.Checkout.Session;
       if (session.mode === "payment" && session.metadata?.billing_purpose === "lifetime_license") {

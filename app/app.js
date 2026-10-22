@@ -1,3 +1,4 @@
+import { claimPendingReferral } from "./referral-client.js?v=20261022-1";
 import { lifetimeAccess } from "./membership-policy.mjs?v=20261022-1";
 import { createByokVault } from "./byok-vault.js?v=20261022-1";
 import { createDraftNavigation } from "./draft-navigation.js?v=20261022-1";
@@ -3363,6 +3364,7 @@ async function restoreQuickDraft() {
 try {
   await restoreQuickDraft();
   await loadProfile();
+  await claimPendingReferral({ user, invoke: invokeAuthenticated }).catch(() => false);
   await Promise.all([loadLedger(), loadMembership(), loadFeedback(), loadWeightEntries()]);
   await restoreByokSettings();
   state.savedFoodsApi = await initializeSavedFoods({
