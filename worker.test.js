@@ -1,6 +1,6 @@
 import config from './test-environment.json' with { type: 'json' };
 const headers = {
-  'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex, nofollow, noarchive', 'X-Content-Type-Options': 'nosniff', 'X-Frame-Options': 'DENY', 'Referrer-Policy': 'no-referrer',
+  'X-MealDaddy-Test-Release': 'october-lab-v1', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex, nofollow, noarchive', 'X-Content-Type-Options': 'nosniff', 'X-Frame-Options': 'DENY', 'Referrer-Policy': 'no-referrer',
   'Content-Security-Policy': `default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' ${config.supabaseUrl} ${config.supabaseUrl.replace('https:', 'wss:')}; script-src 'self'; style-src 'self'; worker-src 'self' blob:`,
 };
 function secure(response) {

@@ -4,7 +4,7 @@
 - Added browser-only sample lab, with fixed fictional values and no account requirement, using the same portion and sample-calculation modules as the backend test harness.
 - Direct percent-consumed field and description focus in the actual app editor; per-user device-only Quick Log and edit drafts, including Quick Log photo storage through IndexedDB and immediate text backup. Actual Android navigation and photo persistence are not yet browser-verified.
 - Separate test asset output (`dist-test`) with build-time production endpoint/secret scan. Production HTML and Worker configuration remain separate.
-- Test Worker restricted to its own host; root redirects to test sign-in; no production canonical redirect; private paths denied; no caching/indexing; CSP connects only to the test Supabase project.
+- Test Worker restricted to its own host; root redirects to the no-login sample lab; no production canonical redirect; private paths denied; no caching/indexing; CSP connects only to the test Supabase project.
 - Test-specific banner and sample meal picker. Billing and unconfigured functions explicitly blocked before requests; no false checkout success.
 - Real test-project Auth and RLS-protected ledger API. Deployed authenticated sample-only estimate-entry function and read-only owner-access-status to dkirmzthyynogkkaacmj.
 - Fixed, explicitly fictional fixture values for pizza, salad with/without dressing, and dressing alone. Leading percentage scales all nutrient fields once. Arbitrary foods/photos fail explicitly; no live AI or clinical inflammation inference.
