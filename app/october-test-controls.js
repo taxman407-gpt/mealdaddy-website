@@ -41,7 +41,7 @@ if (quickEntry) {
   quickEntry.closest('form').before(panel);
 }
 // Disable payment/AI-only affordances rather than presenting a live checkout.
-for (const control of document.querySelectorAll('[data-plan], #reset-password')) {
+for (const control of document.querySelectorAll('[data-plan]')) {
   control.disabled = true;
   control.title = 'Unavailable in this isolated test environment';
 }
