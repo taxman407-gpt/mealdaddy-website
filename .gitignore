@@ -1,5 +1,6 @@
 .wrangler/
 supabase/.temp/
 dist/
+dist-test/
 .netlify/
 node_modules/

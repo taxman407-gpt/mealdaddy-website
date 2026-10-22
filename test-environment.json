@@ -1,0 +1,7 @@
+{
+  "environment": "october-test",
+  "projectRef": "dkirmzthyynogkkaacmj",
+  "supabaseUrl": "https://dkirmzthyynogkkaacmj.supabase.co",
+  "publishableKey": "sb_publishable_BA5UflL2nBvpSuNfoOLdgQ_geHnSjBV",
+  "host": "mealdaddy-october-test.taxman407.workers.dev"
+}

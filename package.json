@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "build:vendor": "esbuild scripts/vendor-supabase.mjs --bundle --format=esm --platform=browser --minify --outfile=app/vendor/supabase-js.js",
-    "build": "esbuild ./scripts/vendor-supabase.mjs --bundle --format=esm --platform=browser --minify --outfile=app/vendor/supabase-js.js && node scripts/build-netlify.mjs",
+    "build": "esbuild ./scripts/vendor-supabase.mjs --bundle --format=esm --platform=browser --minify --outfile=app/vendor/supabase-js.js && node scripts/build-netlify.mjs && node scripts/build-test.mjs",
     "test": "node scripts/run-tests.mjs"
   },
   "dependencies": {

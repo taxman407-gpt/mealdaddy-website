@@ -7,6 +7,8 @@ const outputRoot = join(projectRoot, "dist");
 const publicFiles = ["index.html", "faq.html", "instructions.html", "privacy.html", "terms.html", "health-disclaimer.html", "script.js", "styles.css"];
 const publicDirectories = ["app", "assets", ".well-known"];
 const testOnlyAppFiles = new Set([
+  "october-test-controls.js",
+  "october-test.css",
   "sandbox.html",
   "sandbox.js",
   "v1-sandbox.html",

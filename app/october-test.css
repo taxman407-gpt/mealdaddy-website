@@ -1,0 +1,4 @@
+.october-test-banner { padding: 12px 20px; background: #fff2cc; color: #503b00; border-bottom: 2px solid #b68900; font: 600 14px/1.5 system-ui, sans-serif; position: relative; z-index: 100; }
+.october-test-samples { padding: 14px; margin: 16px 0; border: 1px solid #b68900; border-radius: 12px; background: #fffbef; color: #303030; }
+.october-test-samples summary { cursor: pointer; font-weight: 700; }
+.october-test-samples button { margin: 5px; }
