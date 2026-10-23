@@ -994,3 +994,6 @@ html:has(.v1-live) { height: auto; min-height: 100%; overflow-y: auto !important
 .v1-live .subscription-section .pricing-heading > p:last-child,
 .v1-live .subscription-section > .pricing-note { color: var(--v1-muted); }
 .pricing-card > p:not(.pricing-price) { line-height: 1.55; }
+.v1-live .pricing-card .button-primary { color: var(--paper); background: var(--forest); }
+.v1-live .pricing-card .button-quiet { color: var(--forest); border-color: var(--forest); background: transparent; }
+.pricing-card button:disabled { cursor: not-allowed; opacity: .7; }
