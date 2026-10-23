@@ -545,7 +545,7 @@ async function loadMembership() {
     $("#membership-date-row").hidden = false;
     $("#billing-actions").hidden = true;
     $("#lifetime-renewal").hidden = false;
-    $("#membership-explainer").textContent = "The first three years include maintenance. Initial Year 4 annual maintenance is Standard $60 or BYOK $36; reasonable changes require 60 days advance notice. Renewal is optional and is not an automatic charge.";
+    $("#membership-explainer").textContent = "The first three years include maintenance. Initial Year 4 annual maintenance is Standard $60 or BYOK $42; reasonable changes require 60 days advance notice. Renewal is optional and is not an automatic charge.";
     return;
   }
   const data = subscriptionResult.data;
