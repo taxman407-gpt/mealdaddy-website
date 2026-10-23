@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {membershipPlans,assertPlanPrice,lifetimeAccess,maintenanceQuote,addUtcYears} from '../supabase/functions/_shared/membership-policy.mjs';
+import {membershipPlans,assertPlanPrice,lifetimeAccess,maintenanceQuote,addUtcYears,lifetimePurchasePlan} from '../supabase/functions/_shared/membership-policy.mjs';
 assert.equal(membershipPlans.core.amountCents,999);assert.equal(membershipPlans.byo.amountCents,699);
 assert.equal(membershipPlans.core_lifetime.amountCents,35000);assert.equal(membershipPlans.byo_lifetime.amountCents,25000);
 assertPlanPrice('byo',{active:true,currency:'usd',unit_amount:699,type:'recurring',recurring:{interval:'month',interval_count:1}});
@@ -15,3 +15,15 @@ assert.throws(()=>maintenanceQuote(license,{changes:[{plan:'core',effectiveAt:'2
 assert.equal(maintenanceQuote(license,{now:new Date('2033-01-01'),changes:[{plan:'core',effectiveAt:'2032-12-31',notifiedAt:'2032-10-01',amountCents:6500}]}).amountCents,6500);
 assert.equal(lifetimeAccess({...license,status:'refunded'}).licenseValid,false);
 console.log('Membership policy: exact prices, three included years, leap dates, no back fees, reactivation and 60-day notice passed.');
+
+const availability={plans:{core:{capacity:2000,soldOut:false},byo:{capacity:2000,soldOut:false}}};
+assert.equal(lifetimePurchasePlan('core_lifetime',availability).amountCents,35000);
+availability.plans.core.soldOut=true;
+const regular=lifetimePurchasePlan('core_lifetime',availability);
+assert.equal(regular.amountCents,39500);
+assert.equal(regular.priceVariable,'STRIPE_CORE_REGULAR_LIFETIME_PRICE_ID');
+assertPlanPrice('core_lifetime',{active:true,currency:'usd',unit_amount:39500,type:'one_time'},regular);
+assert.throws(()=>assertPlanPrice('core_lifetime',{active:true,currency:'usd',unit_amount:35000,type:'one_time'},regular));
+availability.plans.byo.soldOut=true;
+assert.equal(lifetimePurchasePlan('byo_lifetime',availability).amountCents,29500);
+assert.throws(()=>lifetimePurchasePlan('core_lifetime',null));

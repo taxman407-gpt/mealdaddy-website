@@ -1,7 +1,7 @@
 import Stripe from "npm:stripe@22.6.0";
 import { createClient } from "npm:@supabase/supabase-js@2.54.0";
 import { requireConditionalMfa } from "../_shared/conditional-mfa.ts";
-import { membershipPlans, assertPlanPrice, maintenanceQuote } from "../_shared/membership-policy.mjs";
+import { membershipPlans, assertPlanPrice, maintenanceQuote, lifetimePurchasePlan } from "../_shared/membership-policy.mjs";
 const headers={"access-control-allow-origin":"*","access-control-allow-headers":"authorization, x-client-info, apikey, content-type","access-control-allow-methods":"POST, OPTIONS","content-type":"application/json"};
 const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers});
 function namedKey(name:string,fallback:string){try{return JSON.parse(Deno.env.get(name)||"{}").default||Deno.env.get(fallback);}catch{return Deno.env.get(fallback);}}
@@ -31,8 +31,13 @@ Deno.serve(async(request)=>{
  if(kind==='purchase'&&(license||grant?.status==='active'||['active','trialing','incomplete','past_due','unpaid','paused'].includes(subscription?.status)))return json({error:'Current membership already exists. Resolve it before purchasing a lifetime license.'},409);
  if(kind==='maintenance'&&(!license||license.status!=='paid'||license.plan_key!==planKey))return json({error:'A matching valid lifetime license is required.'},409);
  const stripe=new Stripe(stripeKey,{apiVersion:'2026-08-26.dahlia'});
- let priceId:string|undefined,expectedAmount:number;
- if(kind==='purchase'){priceId=Deno.env.get(membershipPlans[`${planKey}_lifetime`].priceVariable);expectedAmount=membershipPlans[`${planKey}_lifetime`].amountCents;}
+ let priceId:string|undefined,expectedAmount:number,purchasePlan:any;
+ if(kind==='purchase'){
+  const {data:availability,error}=await admin.rpc('founding_license_availability');
+  if(error)return json({error:'License availability could not be checked.'},503);
+  try{purchasePlan=lifetimePurchasePlan(`${planKey}_lifetime`,availability);}catch{return json({error:'This lifetime offer is unavailable.'},409);}
+  priceId=Deno.env.get(purchasePlan.priceVariable);expectedAmount=purchasePlan.amountCents;
+ }
  else {
   const {data:notices,error}=await admin.from('lifetime_maintenance_notices').select('plan_key,amount_cents,notified_at,effective_at').eq('user_id',user.id);
   if(error)return json({error:'Maintenance notice history is unavailable.'},503);
@@ -42,7 +47,7 @@ Deno.serve(async(request)=>{
  if(!priceId)return json({error:'This billing price is not configured.'},503);
  try{
   const price=await stripe.prices.retrieve(priceId);
-  if(kind==='purchase')assertPlanPrice(`${planKey}_lifetime`,price);
+  if(kind==='purchase')assertPlanPrice(`${planKey}_lifetime`,price,purchasePlan);
   else if(!price.active||price.currency!=='usd'||price.type!=='one_time'||price.unit_amount!==expectedAmount)throw new Error('Incorrect maintenance price');
   const {data:prior,error:priorError}=await admin.from('stripe_checkout_sessions').select('checkout_session_id').eq('user_id',user.id).in('status',['open','complete']);
   if(priorError)return json({error:'Existing checkout could not be checked.'},503);

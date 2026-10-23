@@ -4,8 +4,14 @@ export const membershipPlans = Object.freeze({
   core_lifetime: Object.freeze({key:'core_lifetime',name:'Standard Founding Member Lifetime',mode:'payment',amountCents:35000,currency:'usd',priceVariable:'STRIPE_CORE_LIFETIME_PRICE_ID',ai:'hosted',maintenanceCents:6000}),
   byo_lifetime: Object.freeze({key:'byo_lifetime',name:'BYOK Founding Member Lifetime',mode:'payment',amountCents:25000,currency:'usd',priceVariable:'STRIPE_BYO_LIFETIME_PRICE_ID',ai:'byok',maintenanceCents:4200})
 });
-export function assertPlanPrice(key,price){
-  const plan=membershipPlans[key];
+export function lifetimePurchasePlan(key,availability){
+ const plan=membershipPlans[key];
+ const state=availability?.plans?.[key==='core_lifetime'?'core':'byo'];
+ if(!plan||state?.capacity!==2000||typeof state.soldOut!=='boolean')throw new Error('Availability unavailable.');
+ return state.soldOut ? {...plan,name:key==='core_lifetime'?'Standard Lifetime':'BYOK Lifetime',amountCents:key==='core_lifetime'?39500:29500,priceVariable:key==='core_lifetime'?'STRIPE_CORE_REGULAR_LIFETIME_PRICE_ID':'STRIPE_BYO_REGULAR_LIFETIME_PRICE_ID'} : plan;
+}
+export function assertPlanPrice(key,price,override=null){
+  const plan=override||membershipPlans[key];
   if(!plan || !price?.active || price.currency!==plan.currency || price.unit_amount!==plan.amountCents)throw new Error('The configured price does not match the disclosed membership.');
   if(plan.mode==='subscription' && (price.type!=='recurring'||price.recurring?.interval!=='month'||price.recurring?.interval_count!==1))throw new Error('The configured plan must bill monthly.');
   if(plan.mode==='payment' && (price.type!=='one_time'||price.recurring))throw new Error('A lifetime license must be a one-time purchase.');
