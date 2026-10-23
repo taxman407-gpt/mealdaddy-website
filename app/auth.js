@@ -73,7 +73,9 @@ async function showMfaForm(factors) {
   document.querySelector("#reset-password").hidden = true;
   mfaForm.hidden = false;
   title.textContent = "Enter your security code";
-  copy.textContent = "Your password was accepted. Complete two-step verification to finish signing in.";
+  copy.textContent = recoverySession
+    ? "Your recovery link was accepted. Complete two-step verification before choosing your new password."
+    : "Your password was accepted. Complete two-step verification to finish signing in.";
   await prepareSelectedMfaFactor();
   mfaCode.focus();
 }
@@ -89,6 +91,8 @@ async function continueAfterAuthentication(destination) {
 
 function showRecoveryForm() {
   recoverySession = true;
+  mfaForm.hidden = true;
+  form.hidden = false;
   document.querySelector(".auth-tabs").hidden = true;
   email.closest("label").hidden = true;
   email.required = false;
@@ -149,6 +153,20 @@ form.addEventListener("submit", async (event) => {
   event.preventDefault();
   submit.disabled = true;
   if (recoverySession) {
+    try {
+      const factors = await requiredMfaFactors();
+      if (factors) {
+        password.value = "";
+        confirmPassword.value = "";
+        await showMfaForm(factors);
+        submit.disabled = false;
+        return;
+      }
+    } catch (error) {
+      submit.disabled = false;
+      status.textContent = error.message || "Account security could not be verified. Your password has not been changed.";
+      return;
+    }
     if (password.value !== confirmPassword.value) {
       submit.disabled = false;
       status.textContent = "The two passwords do not match. Please enter them again.";
@@ -242,6 +260,12 @@ mfaForm.addEventListener("submit", async (event) => {
   if (error) {
     status.textContent = error.message || "That code could not be verified.";
     mfaCode.select();
+    return;
+  }
+  if (recoverySession) {
+    showRecoveryForm();
+    status.textContent = "Two-step verification complete. Enter and confirm your new password.";
+    password.focus();
     return;
   }
   status.textContent = "Verified. Opening your MealDaddy account…";

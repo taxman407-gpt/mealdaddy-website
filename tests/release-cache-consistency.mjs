@@ -17,7 +17,7 @@ for (const page of ["app/index.html", "app/auth.html", "app/app.html", "app/acco
 }
 
 for (const [page, expectedScript] of [
-  ["app/auth.html", "./auth.js?v=20261004-1"],
+  ["app/auth.html", "./auth.js?v=20261023-1"],
   ["app/app.html", "./app.js?v=20261022-1"],
   ["app/account.html", "./account.js?v=20261008-1"],
   ["app/setup.html", "./setup.js?v=20261004-8"]
