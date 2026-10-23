@@ -13,7 +13,7 @@ assert.match(read("worker.js"), /const release = "20261016-v97"/);
 for (const page of ["app/index.html", "app/auth.html", "app/app.html", "app/account.html", "app/setup.html"]) {
   const html = read(page);
   const stylesheet = html.match(/href="(\.\/styles\.css\?v=[^"]+)"/)?.[1];
-  assert.equal(stylesheet, "./styles.css?v=20261004-21", `${page} must use the unchanged base stylesheet.`);
+  assert.equal(stylesheet, "./styles.css?v=20261023-1", `${page} must use the current base stylesheet.`);
 }
 
 for (const [page, expectedScript] of [
@@ -28,7 +28,7 @@ for (const [page, expectedScript] of [
 }
 
 for (const asset of [
-  "./styles.css?v=20261004-21",
+  "./styles.css?v=20261023-1",
   "./saved-foods.js?v=20261004-11",
   "./restaurant-plan.js?v=20261004-1",
   "./private-image.js?v=20261004-1",
