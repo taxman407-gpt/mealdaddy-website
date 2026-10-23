@@ -43,3 +43,9 @@ Server meal history, uploaded selected photos, saved server foods, profiles and 
 - An initial real-session test exposed a missing auth-table permission. Fixed with a service-only, exact-match identity function in `app_private`; no broad auth.users grant was added. Retested successfully.
 
 No real provider API call has been made in this preparation. Browser acceptance requiring Steve's production login and live provider acceptance are separate from synthetic and isolated tests.
+
+## Deployment verification
+
+The beta frontend was published from the October feature branch. The deployed sign-in page shows shared-account instructions and complimentary/no-checkout terms. At a measured 320 CSS pixels it has no horizontal overflow and all visible buttons meet a 48px minimum height. The existing production deployment remains version `4466ebda`.
+
+The unused client-callable beta identity RPC was removed after the advisory review; identity lookup remains in a private service-only function. Existing project advisories about the pre-existing `rls_auto_enable` function and leaked-password protection are separate from beta authorization. Real authenticated API tests used a temporary isolated account; that account and its session artifact were removed afterward. Steve's authenticated browser walkthrough and Android Back hardware behavior remain acceptance checks for the tester period.

@@ -18,7 +18,6 @@ end $$;
 set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-00000000be02","role":"authenticated"}',true);
 do $$ begin
- if public.beta_access()->>'plan'<>'core' then raise exception 'Wrong caller invitation'; end if;
  begin perform public.reserve_beta_sponsored_request('00000000-0000-4000-8000-00000000be02','gemini');raise exception 'Client reserved sponsor use directly';exception when insufficient_privilege then null;end;
  begin perform public.beta_access_for_user('00000000-0000-4000-8000-00000000be01');raise exception 'Client inspected another invitation';exception when insufficient_privilege then null;end;
 end $$;
