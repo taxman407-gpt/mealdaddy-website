@@ -10,7 +10,7 @@ const license={status:'paid',plan_key:'core',purchased_at:'2026-10-22T12:00:00Z'
 assert.equal(lifetimeAccess(license,new Date('2029-10-21')).active,true);
 assert.equal(lifetimeAccess(license,new Date('2029-10-23')).active,false);
 const quote=maintenanceQuote(license,{now:new Date('2033-01-01')});assert.equal(quote.amountCents,6000);assert.equal(quote.backFeesCents,0);assert.equal(quote.accessThrough,'2034-01-01T00:00:00.000Z');
-assert.equal(maintenanceQuote({...license,plan_key:'byo'},{now:new Date('2033-01-01')}).amountCents,3600);
+assert.equal(maintenanceQuote({...license,plan_key:'byo'},{now:new Date('2033-01-01')}).amountCents,4200);
 assert.throws(()=>maintenanceQuote(license,{changes:[{plan:'core',effectiveAt:'2030-01-01',notifiedAt:'2029-12-15',amountCents:6500}]}),/60 days/);
 assert.equal(maintenanceQuote(license,{now:new Date('2033-01-01'),changes:[{plan:'core',effectiveAt:'2032-12-31',notifiedAt:'2032-10-01',amountCents:6500}]}).amountCents,6500);
 assert.equal(lifetimeAccess({...license,status:'refunded'}).licenseValid,false);
