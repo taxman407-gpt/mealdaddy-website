@@ -2,7 +2,7 @@ export const membershipPlans = Object.freeze({
   core: Object.freeze({key:'core',name:'Standard',mode:'subscription',amountCents:999,currency:'usd',priceVariable:'STRIPE_CORE_PRICE_ID',ai:'hosted'}),
   byo: Object.freeze({key:'byo',name:'BYOK',mode:'subscription',amountCents:699,currency:'usd',priceVariable:'STRIPE_BYO_PRICE_ID',ai:'byok'}),
   core_lifetime: Object.freeze({key:'core_lifetime',name:'Standard Founding Member Lifetime',mode:'payment',amountCents:35000,currency:'usd',priceVariable:'STRIPE_CORE_LIFETIME_PRICE_ID',ai:'hosted',maintenanceCents:6000}),
-  byo_lifetime: Object.freeze({key:'byo_lifetime',name:'BYOK Founding Member Lifetime',mode:'payment',amountCents:25000,currency:'usd',priceVariable:'STRIPE_BYO_LIFETIME_PRICE_ID',ai:'byok',maintenanceCents:3600})
+  byo_lifetime: Object.freeze({key:'byo_lifetime',name:'BYOK Founding Member Lifetime',mode:'payment',amountCents:25000,currency:'usd',priceVariable:'STRIPE_BYO_LIFETIME_PRICE_ID',ai:'byok',maintenanceCents:4200})
 });
 export function assertPlanPrice(key,price){
   const plan=membershipPlans[key];
