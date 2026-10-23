@@ -49,3 +49,9 @@ No real provider API call has been made in this preparation. Browser acceptance 
 The beta frontend was published from the October feature branch. The deployed sign-in page shows shared-account instructions and complimentary/no-checkout terms. At a measured 320 CSS pixels it has no horizontal overflow and all visible buttons meet a 48px minimum height. The existing production deployment remains version `4466ebda`.
 
 The unused client-callable beta identity RPC was removed after the advisory review; identity lookup remains in a private service-only function. Existing project advisories about the pre-existing `rls_auto_enable` function and leaked-password protection are separate from beta authorization. Real authenticated API tests used a temporary isolated account; that account and its session artifact were removed afterward. Steve's authenticated browser walkthrough and Android Back hardware behavior remain acceptance checks for the tester period.
+
+## Existing security items — remediation
+
+Restricted `public.rls_auto_enable()` execution to its database owner; PUBLIC, anonymous, authenticated and service API roles no longer have EXECUTE. The event trigger is retained. A rollback-only CREATE TABLE probe verified that automatic row-level security still works. Production security advisors now report no function-execution warnings.
+
+Breached-password protection remains OFF because Supabase restricts it to Pro or higher; the organization currently uses Free. The native dashboard lists Pro from $25/month; project compute and other billable usage must be included in an upgrade review. No subscription or billing change has been authorized or made. This is the sole remaining WARN-level security advisor item; INFO-level tables with RLS but no client policy are intentionally server-only.
