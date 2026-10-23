@@ -1,18 +1,34 @@
+import {PRIVATE_BETA_DEPLOYMENT} from "./beta-deployment.mjs";
 import {validateByok,callByokProvider} from './byok-provider.mjs';
 import {openByokCredentials} from './byok-cloud-vault.mjs';
 import {lifetimeAccess} from './membership-policy.mjs';
+import {createSponsoredBetaConnection} from './beta-sponsored-provider.mjs';
 function failure(message,status=503){return Object.assign(new Error(message),{status});}
 export async function resolveAiConnection({admin,userId,byokInput,hostedKey,env=name=>Deno.env.get(name),fetchImpl=fetch}){
  const [subscriptionResult,licenseResult,grantResult]=await Promise.all([
   admin.from('subscriptions').select('plan_key,status').eq('user_id',userId).maybeSingle(),
   admin.from('lifetime_licenses').select('*').eq('user_id',userId).maybeSingle(),
-  admin.from('complimentary_access_grants').select('access_type,status').eq('user_id',userId).maybeSingle()
+  admin.from('complimentary_access_grants').select('access_type,plan_key,status').eq('user_id',userId).maybeSingle()
  ]);
  if(subscriptionResult.error||licenseResult.error||grantResult.error)throw failure('Membership access could not be verified.');
  const membership=subscriptionResult.data,license=lifetimeAccess(licenseResult.data);
  const current=membership&&['core','byo'].includes(membership.plan_key)&&['trialing','active'].includes(membership.status);
- const plan=current?membership.plan_key:license.active?license.plan:grantResult.data?.access_type==='family'&&grantResult.data?.status==='active'?'core':null;
+ let plan=current?membership.plan_key:license.active?license.plan:['family','beta'].includes(grantResult.data?.access_type)&&grantResult.data?.status==='active'?(grantResult.data.plan_key||'core'):null;
+ if(PRIVATE_BETA_DEPLOYMENT){
+  const access=await admin.rpc('beta_access_for_user',{target_user_id:userId});
+  if(access.error||!access.data)throw failure('An active private beta invitation is required.',403);
+  plan=access.data.plan;
+  if(!byokInput)throw failure('Choose sponsor-paid AI or your personal API key explicitly. No hosted provider was used.',422);
+ }
  if(!plan)throw failure('An active MealDaddy membership is required.',402);
+ if(byokInput?.storage==='beta_sponsor'){
+  if(byokInput.key || byokInput.model)throw failure('Sponsor-paid requests must not include a personal API key or model.',422);
+  const sponsored=await createSponsoredBetaConnection({admin,userId,provider:byokInput.provider,env,fetchImpl});
+  return {byok:true,billing:sponsored.billing,provider:sponsored.provider,membership,plan,
+   modelFor:()=>sponsored.model,monthlyLimit:()=>1000000000000,cost:()=>0,
+   assertCapabilities:({webSearch=false}={})=>{if(webSearch)throw failure('Web search is not supported by the sponsor-paid beta connection. No alternate provider was used.',422);},
+   call:request=>sponsored.call(request)};
+ }
  let credentials=null;
  if(plan==='byo'){
   if(env('ENABLE_BYOK')!=='true')throw failure('BYOK requests are not enabled. No hosted provider was used.');

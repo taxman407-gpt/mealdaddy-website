@@ -1,4 +1,6 @@
+import {PRIVATE_BETA_DEPLOYMENT} from "./beta-deployment.mjs";
 type MfaAdminClient = {
+  rpc?: (name: string, args: Record<string, unknown>) => Promise<{data: unknown; error: unknown}>;
   auth: {
     admin: {
       mfa: {
@@ -37,6 +39,11 @@ export async function requireConditionalMfa(
   userId: string,
   authHeader: string
 ): Promise<ConditionalMfaResult> {
+  if (PRIVATE_BETA_DEPLOYMENT || (typeof Deno !== 'undefined' && Deno.env.get('REQUIRE_BETA_INVITE') === 'true')) {
+    if (!admin.rpc) return {ok:false,status:500,error:'Beta invitation could not be verified.'};
+    const access = await admin.rpc('beta_access_for_user',{target_user_id:userId});
+    if (access.error || !access.data) return {ok:false,status:403,error:'An active private beta invitation is required.'};
+  }
   let factorResult: Awaited<ReturnType<MfaAdminClient["auth"]["admin"]["mfa"]["listFactors"]>>;
   try {
     factorResult = await admin.auth.admin.mfa.listFactors({ userId });

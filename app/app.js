@@ -822,7 +822,7 @@ async function loadMembership() {
       .maybeSingle(),
     supabase
       .from("complimentary_access_grants")
-      .select("access_type,status")
+      .select("access_type,plan_key,status")
       .eq("user_id", user.id)
       .maybeSingle(),
     supabase.from("lifetime_licenses").select("plan_key,status,purchased_at,maintenance_paid_through").eq("user_id", user.id).maybeSingle()
@@ -848,20 +848,20 @@ async function loadMembership() {
   const data = subscriptionResult.data;
   const currentStripeMembership = data && ["trialing", "active", "past_due", "unpaid"].includes(data.status);
   const familyAccess = !currentStripeMembership &&
-    grantResult.data?.access_type === "family" &&
+    ["family", "beta"].includes(grantResult.data?.access_type) &&
     grantResult.data.status === "active";
   if (familyAccess) {
-    state.membershipPlan = "core";
+    state.membershipPlan = grantResult.data.plan_key || "core";
     state.membershipStatus = "active";
     state.membershipAccess = "family";
     $("#estimate-membership-prompt").hidden = true;
     $("#subscription").hidden = false;
     $("#plan-options").hidden = true;
     $("#trial-note").hidden = true;
-    $("#subscription-title").textContent = "Complimentary Family Access";
-    $("#subscription-copy").textContent = "Your Meal Daddy Core access is complimentary. No payment method or monthly fee is connected to this access.";
+    $("#subscription-title").textContent = grantResult.data.access_type === "beta" ? "Complimentary Beta Access" : "Complimentary Family Access";
+    $("#subscription-copy").textContent = state.membershipPlan === "byo" ? "Complimentary BYOK access. Your selected API provider bills usage separately." : "Complimentary Standard access. No payment method or monthly fee is connected to this access.";
     $("#billing-status").textContent = "Complimentary access active";
-    $("#provider-settings").hidden = true;
+    $("#provider-settings").hidden = state.membershipPlan !== "byo";
     return;
   }
   state.membershipPlan = data?.plan_key || null;

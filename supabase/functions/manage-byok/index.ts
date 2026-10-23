@@ -27,13 +27,14 @@ Deno.serve(async(request)=>{
  }
  if(action!=='save')return json({error:'Unknown action.'},400);
  if(!enabled)return json({error:'Encrypted account key storage is not enabled and configured. Your key was not saved.'},503);
- const [{data:subscription,error:subError},{data:license,error:licenseError}]=await Promise.all([
+ const [{data:subscription,error:subError},{data:license,error:licenseError},{data:grant,error:grantError}]=await Promise.all([
   admin.from('subscriptions').select('plan_key,status').eq('user_id',user.id).maybeSingle(),
-  admin.from('lifetime_licenses').select('*').eq('user_id',user.id).maybeSingle()
+  admin.from('lifetime_licenses').select('*').eq('user_id',user.id).maybeSingle(),
+  admin.from('complimentary_access_grants').select('access_type,plan_key,status').eq('user_id',user.id).maybeSingle()
  ]);
- if(subError||licenseError)return json({error:'BYOK membership could not be verified.'},503);
+ if(subError||licenseError||grantError)return json({error:'BYOK membership could not be verified.'},503);
  const licenseAccess=lifetimeAccess(license);
- if(!(subscription?.plan_key==='byo'&&['active','trialing'].includes(subscription.status))&&!(licenseAccess.active&&licenseAccess.plan==='byo'))return json({error:'An active BYOK membership is required.'},402);
+ if(!(subscription?.plan_key==='byo'&&['active','trialing'].includes(subscription.status))&&!(licenseAccess.active&&licenseAccess.plan==='byo')&&!(grant?.status==='active'&&['family','beta'].includes(grant.access_type)&&grant.plan_key==='byo'))return json({error:'An active BYOK membership is required.'},402);
  try{
   const encrypted=await sealByokCredentials(user.id,input.credentials,secret);
   const {error}=await admin.from('byok_cloud_credentials').upsert({user_id:user.id,...encrypted,updated_at:new Date().toISOString()},{onConflict:'user_id'});

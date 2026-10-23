@@ -7,6 +7,10 @@ const outputRoot = join(projectRoot, "dist");
 const publicFiles = ["index.html", "faq.html", "instructions.html", "privacy.html", "terms.html", "health-disclaimer.html", "script.js", "styles.css"];
 const publicDirectories = ["app", "assets", ".well-known"];
 const testOnlyAppFiles = new Set([
+  "beta-controls.js",
+  "beta-connection.js",
+  "beta-admin.js",
+  "beta.css",
   "test-lab.html",
   "test-lab.js",
   "test-lab.css",

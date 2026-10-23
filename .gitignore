@@ -4,3 +4,6 @@ dist/
 dist-test/
 .netlify/
 node_modules/
+
+dist-beta/
+.env*

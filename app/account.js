@@ -526,7 +526,7 @@ async function loadMembership() {
       .maybeSingle(),
     supabase
       .from("complimentary_access_grants")
-      .select("access_type,status,granted_at,updated_at")
+      .select("access_type,plan_key,status,granted_at,updated_at")
       .eq("user_id", user.id)
       .maybeSingle(),
     supabase.from("lifetime_licenses").select("plan_key,status,purchased_at,maintenance_paid_through").eq("user_id", user.id).maybeSingle()
@@ -551,20 +551,20 @@ async function loadMembership() {
   const data = subscriptionResult.data;
   const currentStripeMembership = data && ["trialing", "active", "past_due", "unpaid"].includes(data.status);
   const familyGrant = !currentStripeMembership &&
-    grantResult.data?.access_type === "family" &&
+    ["family", "beta"].includes(grantResult.data?.access_type) &&
     grantResult.data.status === "active"
     ? grantResult.data
     : null;
   if (familyGrant) {
     membership = {
-      plan_key: "core",
+      plan_key: familyGrant.plan_key || "core",
       status: "active",
-      access_source: "family",
+      access_source: familyGrant.access_type,
       granted_at: familyGrant.granted_at,
       updated_at: familyGrant.updated_at
     };
-    $("#membership-title").textContent = "Complimentary Family Access";
-    $("#membership-copy").textContent = "Meal Daddy Core is available to this account without a monthly fee or payment method.";
+    $("#membership-title").textContent = familyGrant.access_type === "beta" ? "Complimentary Beta Access" : "Complimentary Family Access";
+    $("#membership-copy").textContent = membership.plan_key === "byo" ? "Complimentary BYOK access. Your provider bills API usage separately." : "Standard access is available without a monthly fee or payment method.";
     $("#membership-status").textContent = "Complimentary";
     $("#membership-status").classList.remove("is-warning", "is-muted");
     $("#membership-date-row").hidden = true;

@@ -1,3 +1,4 @@
+import {createSponsoredBetaConnection} from "../supabase/functions/_shared/beta-sponsored-provider.mjs";
 import {sealByokCredentials, openByokCredentials} from "../supabase/functions/_shared/byok-cloud-vault.mjs";
 import { lifetimeAccess } from "../supabase/functions/_shared/membership-policy.mjs";
 import { validateByok, callByokProvider } from "../supabase/functions/_shared/byok-provider.mjs";
@@ -15,7 +16,7 @@ const owner = '00000000-0000-4000-8000-000000000001';
 const baseNutrients = Object.fromEntries(contract.nutrientFields.map((field) => [field, 0]));
 function component(name, calories, extras = {}) { return { ...baseNutrients, name, calories, evidence_type: 'description_estimate', confidence: 'medium', inflammation_score: 3, inflammation_impact: 'neutral', inflammation_note: 'Test estimate.', ...extras }; }
 function answer(components) { return { ...baseNutrients, components, entry_description: 'Synthetic meal', photo_quality: { suitable: true, reason: '' }, photo_description: '', description_reconciliation_note: '', label_detected: false, label_food: {}, inflammation_score: 3, inflammation_summary: 'Test estimate.', confidence: 'medium', note: 'Synthetic fixture.' }; }
-async function exercise({ description = '1 oz vinaigrette', metadata = {}, kind = 'meal', status = 'pending_estimate', response = answer([component('1 oz vinaigrette', 45)]), stale = false, mfa = true, ownRow = true, body = {}, authorization = true, plan = "core", enableByok = false, hostedConfigured = true, cloudEnabled = false, cloudRecord = null, masterSecret = "" } = {}) {
+async function exercise({ description = '1 oz vinaigrette', metadata = {}, kind = 'meal', status = 'pending_estimate', response = answer([component('1 oz vinaigrette', 45)]), stale = false, mfa = true, ownRow = true, body = {}, authorization = true, plan = "core", enableByok = false, hostedConfigured = true, cloudEnabled = false, cloudRecord = null, masterSecret = "", sponsorEnabled=false, sponsorAllowed=true } = {}) {
   let handler;
   let providerCalls = 0, photoDownloads = 0, writes = 0, settlements = 0;
   let submitted;
@@ -48,25 +49,28 @@ async function exercise({ description = '1 oz vinaigrette', metadata = {}, kind 
     from: builder,
     storage: { from() { return { async download() { photoDownloads += 1; return { data: new Blob(['fixture'], { type: 'image/jpeg' }), error: null }; } }; } },
     async rpc(name) {
+      if (name === 'reserve_beta_sponsored_request') return {data:sponsorAllowed,error:null};
       if (name === 'reserve_ai_usage') return { data: [{ reservation_id: 'fixture-reservation' }], error: null };
       if (name === 'settle_ai_usage') settlements += 1;
       return { data: true, error: null };
     }
   };
   const context = {
-    ...contract, applyComponentTotals, gatePhotoComponents, openByokCredentials, validateByok, callByokProvider, lifetimeAccess,
+    PRIVATE_BETA_DEPLOYMENT:false, ...contract, applyComponentTotals, gatePhotoComponents, openByokCredentials, validateByok, callByokProvider, lifetimeAccess,
     createClient: () => client,
     requireConditionalMfa: async () => mfa ? { ok: true } : { ok: false, status: 403, error: 'MFA required.' },
     Deno: { env: { get(name) { if(name === 'ENABLE_BYOK_CLOUD') return cloudEnabled ? 'true' : 'false'; if(name === 'BYOK_VAULT_MASTER_KEY') return masterSecret; if(name === 'ENABLE_BYOK') return enableByok ? 'true' : 'false'; if(name === 'OPENAI_API_KEY' && !hostedConfigured) return undefined; return name === 'SUPABASE_URL' ? 'https://synthetic.example.test' : name === 'SUPABASE_PUBLISHABLE_KEYS' ? '{}' : 'test-value'; } }, serve(fn) { handler = fn; } },
     AbortSignal, crypto: webcrypto, TextEncoder, Uint8Array, Response, Request, Blob, URL, btoa, atob,
     fetch: async (url, options) => {
-      assert.equal(url, 'https://api.openai.com/v1/responses');
+      assert.ok(['https://api.openai.com/v1/responses','https://api.anthropic.com/v1/messages'].includes(url));
       providerCalls += 1;
       submitted = JSON.parse(options.body);
       if (stale) { row.description = 'A newer saved edit'; row.nutrition_estimate = { input_authority: 'edited_text', edit_revision: 'new-revision' }; }
+      if(url.includes("anthropic")) return Response.json({content:[{type:"text",text:JSON.stringify(response)}],usage:{input_tokens:100,output_tokens:100}});
       return new Response(JSON.stringify({ usage: { input_tokens: 100, output_tokens: 100 }, output: [{ content: [{ type: 'output_text', text: JSON.stringify(response) }] }] }), { status: 200 });
     }
   };
+  context.createSponsoredBetaConnection = options => createSponsoredBetaConnection({...options,env:name=>({ENABLE_SPONSORED_BETA:String(sponsorEnabled),BETA_ANTHROPIC_API_KEY:"synthetic-sponsor-key",BETA_ANTHROPIC_MODEL:"explicit-sponsored-model"})[name],fetchImpl:context.fetch});
   context.callByokProvider = (credentials, request) => callByokProvider(credentials, request, context.fetch);
   vm.runInNewContext(source, context);
   const result = await handler(new Request('https://synthetic.example.test/estimate-entry', { method: 'POST', headers: authorization ? { authorization: 'Bearer synthetic-not-a-real-token', 'content-type': 'application/json' } : { 'content-type': 'application/json' }, body: JSON.stringify({ entryId: row.id, ...body }) }));
@@ -171,3 +175,15 @@ for (const options of [{cloudEnabled:false},{cloudRecord:null},{masterSecret:bto
  assert.equal(r.writes,0);
 }
 console.log("Cloud estimator: selected encrypted key, missing/disabled/wrong-key rejection, no hosted fallback or key persistence passed.");
+
+r = await exercise({hostedConfigured:false,sponsorEnabled:true,body:{byok:{storage:'beta_sponsor',provider:'anthropic'}}});
+assert.equal(r.status,200);assert.equal(r.providerCalls,1);
+assert.equal(r.row.nutrition_estimate.ai_billing,'beta_sponsor');
+assert.equal(r.row.nutrition_estimate.ai_provider,'anthropic');
+assert.equal(r.payload.remainingBudgetMicros,null);
+assert.ok(!JSON.stringify(r.row).includes('synthetic-sponsor-key'));
+for(const options of [{sponsorEnabled:false},{sponsorAllowed:false},{body:{byok:{storage:'beta_sponsor',provider:'anthropic',key:'personal-key'}}}]){
+ r = await exercise({hostedConfigured:false,sponsorEnabled:true,body:{byok:{storage:'beta_sponsor',provider:'anthropic'}},...options});
+ assert.ok(r.status>=400);assert.equal(r.providerCalls,0);assert.equal(r.writes,0);
+}
+console.log('Sponsored estimator: explicit Claude path, sponsor billing, no key persistence, disabled/denied/ambiguous funding blocked.');

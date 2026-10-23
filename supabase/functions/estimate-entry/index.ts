@@ -1,3 +1,5 @@
+import {PRIVATE_BETA_DEPLOYMENT} from "../_shared/beta-deployment.mjs";
+import { createSponsoredBetaConnection } from "../_shared/beta-sponsored-provider.mjs";
 import { openByokCredentials } from "../_shared/byok-cloud-vault.mjs";
 import { lifetimeAccess } from "../_shared/membership-policy.mjs";
 import { validateByok, callByokProvider } from "../_shared/byok-provider.mjs";
@@ -80,12 +82,18 @@ Deno.serve(async (request) => {
   let saveFavorite = false;
   let byok: ReturnType<typeof validateByok> | null = null;
   let cloudByok = false;
+  let sponsorInput: {provider?: string} | null = null;
+  let sponsored: Awaited<ReturnType<typeof createSponsoredBetaConnection>> | null = null;
   try {
     const body = await request.json();
+    if (PRIVATE_BETA_DEPLOYMENT && !body.byok) return json({error:"Choose sponsor-paid AI or your personal API key explicitly. No hosted provider was used."},422);
     entryId = typeof body.entryId === "string" ? body.entryId : "";
     itemizeExisting = body.itemizeExisting === true;
     saveFavorite = body.saveFavorite === true;
-    if (body.byok !== undefined) {
+    if (body.byok?.storage === "beta_sponsor") {
+      if (body.byok.key || body.byok.model) return json({error:"Sponsor-paid requests must not include a personal key or model."},422);
+      sponsorInput = {provider:body.byok.provider};
+    } else if (body.byok !== undefined) {
       if (Deno.env.get("ENABLE_BYOK") !== "true") return json({ error: "BYOK is not enabled in this environment." }, 503);
       if (body.byok?.storage === "cloud") cloudByok = true;
       else {
@@ -109,8 +117,9 @@ Deno.serve(async (request) => {
     const access = lifetimeAccess(license);
     if (access.active) membership = { plan_key: access.plan, status: "active" };
   }
-  const { data: complimentaryGrant } = await admin.from("complimentary_access_grants").select("access_type,status").eq("user_id", user.id).maybeSingle();
-  const hasComplimentaryAccess = complimentaryGrant?.access_type === "family" && complimentaryGrant.status === "active";
+  const { data: complimentaryGrant } = await admin.from("complimentary_access_grants").select("access_type,plan_key,status").eq("user_id", user.id).maybeSingle();
+  const hasComplimentaryAccess = ["family", "beta"].includes(complimentaryGrant?.access_type) && complimentaryGrant.status === "active";
+  if (hasComplimentaryAccess && !["trialing", "active"].includes(membership?.status)) membership = {plan_key:complimentaryGrant.plan_key || "core",status:"active"};
   if ((!membership || !["trialing", "active"].includes(membership.status)) && !hasComplimentaryAccess && user.email && stripeKey) {
     const stripeHeaders = { authorization: `Bearer ${stripeKey}` };
     const customerResponse = await fetch(`https://api.stripe.com/v1/customers?email=${encodeURIComponent(user.email)}&limit=10`, { headers: stripeHeaders });
@@ -168,6 +177,15 @@ Deno.serve(async (request) => {
   if (!hasComplimentaryAccess && (!["core", "byo"].includes(membership?.plan_key) || !["trialing", "active"].includes(membership.status))) {
     return json({ error: "An active Meal Daddy membership is required." }, 402);
   }
+  if (PRIVATE_BETA_DEPLOYMENT) {
+    const beta=await admin.rpc("beta_access_for_user",{target_user_id:user.id});
+    if(beta.error || !beta.data)return json({error:"An active private beta invitation is required."},403);
+    membership={plan_key:beta.data.plan,status:"active"};
+  }
+  if (sponsorInput) {
+    try { sponsored = await createSponsoredBetaConnection({admin,userId:user.id,provider:sponsorInput.provider}); model = sponsored.model; }
+    catch (error) { return json({error:error.message},error.status || 503); }
+  }
   if (cloudByok) {
     if (Deno.env.get("ENABLE_BYOK_CLOUD") !== "true") return json({error:"Encrypted account key use is not enabled. No alternate provider was used."},503);
     const {data:connection,error:connectionError} = await admin.from("byok_cloud_credentials").select("version,provider,model,nonce,ciphertext").eq("user_id",user.id).maybeSingle();
@@ -175,8 +193,8 @@ Deno.serve(async (request) => {
     try { byok = await openByokCredentials(user.id,connection,Deno.env.get("BYOK_VAULT_MASTER_KEY")); model=byok.model; }
     catch { return json({error:"The encrypted account connection could not be opened. Reconnect it; no alternate provider was used."},503); }
   }
-  if (membership?.plan_key === "byo" && !byok && !hasComplimentaryAccess) return json({ error: "Choose your BYOK provider and connect its key on this device. Meal Daddy will not switch to a hosted provider.", code: "BYOK_REQUIRED" }, 422);
-  if (!byok && !openAiKey) return json({ error: "Hosted nutrition estimation is not configured." }, 503);
+  if (membership?.plan_key === "byo" && !byok && !sponsored) return json({ error: "Choose your BYOK provider and connect its key on this device. Meal Daddy will not switch to a hosted provider.", code: "BYOK_REQUIRED" }, 422);
+  if (!byok && !sponsored && !openAiKey) return json({ error: "Hosted nutrition estimation is not configured." }, 503);
 
   const monthStart = new Date();
   monthStart.setUTCDate(1);
@@ -184,7 +202,7 @@ Deno.serve(async (request) => {
   const { data: usageRows, error: usageError } = await admin.from("ai_usage_events").select("estimated_cost_micros").eq("user_id", user.id).gte("created_at", monthStart.toISOString());
   if (usageError) return json({ error: "Usage could not be checked." }, 500);
   const usedMicros = (usageRows ?? []).reduce((sum, row) => sum + Number(row.estimated_cost_micros || 0), 0);
-  if (!byok && usedMicros >= monthlyBudgetMicros) return json({ error: "The monthly Core AI allowance has been reached." }, 429);
+  if (!byok && !sponsored && usedMicros >= monthlyBudgetMicros) return json({ error: "The monthly Core AI allowance has been reached." }, 429);
 
   const { data: entry, error: entryError } = await admin.from("ledger_entries").select("id,kind,description,status,nutrition_estimate").eq("id", entryId).eq("user_id", user.id).maybeSingle();
   if (entryError || !entry) return json({ error: "Entry was not found." }, 404);
@@ -293,11 +311,11 @@ Deno.serve(async (request) => {
   const userContent: Array<Record<string, unknown>> = [{ type: "input_text", text: estimateInputText(entry, Boolean(photoInput), portion) }];
   if (photoInput) userContent.push(photoInput);
 
-  const monthlyLimitMicros = byok ? 1_000_000_000 : membership?.status === "trialing" ? 500_000 : monthlyBudgetMicros;
+  const monthlyLimitMicros = (byok || sponsored) ? 1_000_000_000 : membership?.status === "trialing" ? 500_000 : monthlyBudgetMicros;
   const dailyCallLimit = membership?.status === "trialing" ? 30 : 50;
   const { data: reservationRows, error: reservationError } = await admin.rpc("reserve_ai_usage", {
     requested_user_id: user.id, requested_ledger_entry_id: entry.id, requested_kind: "estimate-entry",
-    requested_reserved_micros: byok ? 1 : 100_000, requested_monthly_limit_micros: monthlyLimitMicros, requested_daily_call_limit: dailyCallLimit
+    requested_reserved_micros: (byok || sponsored) ? 1 : 100_000, requested_monthly_limit_micros: monthlyLimitMicros, requested_daily_call_limit: dailyCallLimit
   });
   if (reservationError || !reservationRows?.[0]?.reservation_id) {
     const detail = reservationError?.message ?? "";
@@ -319,14 +337,15 @@ Deno.serve(async (request) => {
           : "Estimate nutrition for the complete described meal, including every food and drink in the same entry. Return approximate calories, protein, total carbohydrates, net carbohydrates, fat, fiber, and hydration ounces from described water or other non-alcoholic beverages. Also itemize each distinct food, beverage, sauce, and meaningful addition as a short named component with its own estimates; combine negligible herbs or spices when useful. Every component must state whether it uses nutrition_label, photo_estimate, or description_estimate evidence and include its own confidence. Set every top-level numeric total equal to the sum of that field across the components, allowing only ordinary decimal rounding. Net carbohydrates should subtract fiber and applicable sugar alcohols or allulose when the description or ordinary product information supports that adjustment. Honor explicit labels such as 0 net carbs. Apply the Meal Daddy Inflammation Score System from 1 strongly anti-inflammatory to 10 highly inflammatory, considering processing level, refined carbohydrates, added sugars, seed oils, alcohol, and whole-food ratio. Give every component its own score, helpful/neutral/watch impact, and a concise reason. The top-level score reflects the complete meal rather than adding the component scores. Do not invent an oil, sauce, or processing method that is not described or visible; lower confidence and identify important uncertainty in the summary. The score is a food-pattern guidance estimate, not a biomarker, diagnosis, or medical result. Do not count fluid contained inside solid foods, sauces, or soup as hydration. Do not provide medical advice. If quantity is unclear, use a typical serving and explain the key assumption briefly.") + " " + inputInstructions + confirmationInstructions }] }, { role: "user", content: userContent }],
         text: { verbosity: "low", format: { type: "json_schema", name: "nutrition_estimate", strict: true, schema } }
       };
-    openAiResponse = byok
+    openAiResponse = sponsored ? await sponsored.call(providerRequest) : byok
       ? await callByokProvider(byok, providerRequest)
       : await fetch("https://api.openai.com/v1/responses", {
           method: "POST", headers: { "authorization": `Bearer ${openAiKey}`, "content-type": "application/json" },
           body: JSON.stringify(providerRequest), signal: AbortSignal.timeout(45000)
         });
-  } catch {
+  } catch (error) {
     await releaseReservation();
+    if (sponsored) return json({error:error.message || "Sponsor-paid estimation is unavailable. No personal key was used."},error.status || 502);
     return json({ error: "Nutrition estimation could not connect. Your edited entry remains saved without the old calculation." }, 502);
   }
   if (!openAiResponse.ok) {
@@ -340,8 +359,8 @@ Deno.serve(async (request) => {
   const outputTokens = Number(response.usage?.output_tokens || 0);
   const estimatedCostMicros = inputTokens * 1 + outputTokens * 6;
   const settleReservation = () => admin.rpc("settle_ai_usage", {
-    requested_reservation_id: reservationId, requested_user_id: user.id, requested_provider: byok?.provider || "openai", requested_model: model,
-    requested_input_tokens: inputTokens, requested_output_tokens: outputTokens, requested_actual_cost_micros: byok ? 0 : estimatedCostMicros
+    requested_reservation_id: reservationId, requested_user_id: user.id, requested_provider: sponsored?.provider || byok?.provider || "openai", requested_model: model,
+    requested_input_tokens: inputTokens, requested_output_tokens: outputTokens, requested_actual_cost_micros: (byok || sponsored) ? 0 : estimatedCostMicros
   });
   let estimate: Record<string, any>;
   try {
@@ -363,9 +382,9 @@ Deno.serve(async (request) => {
   delete estimate.label_food;
   const generatedDescription = String(estimate.entry_description || "").replace(/\s+/g, " ").trim().slice(0, 500);
   const reconciliationNote = String(estimate.description_reconciliation_note || "").replace(/\s+/g, " ").trim().slice(0, 300);
-  estimate.ai_provider = byok?.provider || "openai";
+  estimate.ai_provider = sponsored?.provider || byok?.provider || "openai";
   estimate.ai_model = model;
-  estimate.ai_billing = byok ? "user_provider_account" : "hosted_allowance";
+  estimate.ai_billing = sponsored ? "beta_sponsor" : byok ? "user_provider_account" : "hosted_allowance";
   estimate.user_description = hasUserDescription ? entry.description : "";
   if (reconciliationNote) estimate.note = reconciliationNote;
   estimate.source = labelCandidate ? "nutrition_label_photo" : photoPath ? "meal_photo_estimate" : "ai_text_estimate";
@@ -410,5 +429,5 @@ Deno.serve(async (request) => {
   if (updateError) return json({ error: "The estimate could not be saved. Your edited entry remains available for retry." }, 500);
   if (!updatedEntry) return json({ error: "This entry changed while its nutrition was being calculated. The older result was discarded. Retry the latest saved entry.", code: "ENTRY_CHANGED" }, 409);
   if (settleError) return json({ error: "The estimate was saved, but usage accounting needs attention." }, 503);
-  return json({ ok: true, estimate, entryDescription: finalDescription, descriptionReconciliationNote: reconciliationNote, labelCandidate, remainingBudgetMicros: byok ? null : Math.max(0, monthlyBudgetMicros - usedMicros - estimatedCostMicros) });
+  return json({ ok: true, estimate, entryDescription: finalDescription, descriptionReconciliationNote: reconciliationNote, labelCandidate, remainingBudgetMicros: (byok || sponsored) ? null : Math.max(0, monthlyBudgetMicros - usedMicros - estimatedCostMicros) });
 });
