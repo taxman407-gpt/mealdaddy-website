@@ -850,7 +850,7 @@ html:has(.v1-live) { height: auto; min-height: 100%; overflow-y: auto !important
 .v1-live .app-header { background: var(--v1-panel); border-color: var(--v1-line); }
 .v1-live .dashboard { background: var(--v1-bg); min-height: calc(100vh - 132px); height: auto; overflow: visible; padding: 18px 18px 80px; }
 .v1-top-tabs {
-  display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; padding: 8px;
+  display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; padding: 8px;
   position: sticky; top: 0; z-index: 20; background: var(--v1-panel);
 }
 .v1-top-tabs button {
@@ -1004,3 +1004,12 @@ html:has(.v1-live) { height: auto; min-height: 100%; overflow-y: auto !important
 .founding-sold { flex: 0 0 var(--sold-percent, 0%); background: #c85a45; }
 .founding-available { flex: 1; background: var(--forest-2); }
 .founding-bar-legend { display: flex; justify-content: space-between; gap: 12px; margin-top: 5px; color: var(--ink); font-size: .75rem; }
+
+/* Enrollment has its own screen; meal logging stays focused on entries. */
+.v1-live:not([data-app-view="enrollment"]) .subscription-section { display: none !important; }
+.v1-live[data-app-view="enrollment"] .dashboard { display: none; }
+.v1-top-tabs button { min-width: 0; padding: 8px 3px; overflow-wrap: normal; }
+@media (max-width: 420px) {
+  .v1-top-tabs { gap: 2px; padding: 6px 4px; }
+  .v1-top-tabs button { font-size: .75rem; min-height: 48px; }
+}

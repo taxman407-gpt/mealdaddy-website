@@ -28,7 +28,7 @@ const $$ = (selector) => [...document.querySelectorAll(selector)];
 const session = await requireSession();
 if (!session) throw new Error("Authentication required");
 
-const appViews = new Set(["today", "log", "entries", "plan", "more"]);
+const appViews = new Set(["enrollment", "today", "log", "entries", "plan", "more"]);
 function showAppView(nextView, options = {}) {
   const view = appViews.has(nextView) ? nextView : "log";
   document.body.dataset.appView = view;
@@ -74,7 +74,7 @@ document.querySelectorAll("[data-more-target]").forEach((control) => {
 
 // Opening MealDaddy favors fast logging unless a trusted in-app return view was supplied.
 const requestedAppView = new URLSearchParams(location.search).get("view");
-showAppView(appViews.has(requestedAppView) ? requestedAppView : "log", { focus: false });
+showAppView(appViews.has(requestedAppView) ? requestedAppView : new URLSearchParams(location.search).has("plan") || new URLSearchParams(location.search).has("checkout") ? "enrollment" : "log", { focus: false });
 
 document.querySelectorAll("[data-account-link]").forEach((link) => {
   link.addEventListener("click", () => {
@@ -836,7 +836,7 @@ async function loadMembership() {
     state.membershipPlan = access.plan;
     state.membershipStatus = access.active ? "active" : "maintenance_due";
     state.membershipAccess = "lifetime";
-    $("#subscription").hidden = access.active;
+    $("#subscription").hidden = false;
     $("#plan-options").hidden = true;
     $("#trial-note").hidden = true;
     $("#provider-settings").hidden = access.plan !== "byo";
@@ -855,7 +855,7 @@ async function loadMembership() {
     state.membershipStatus = "active";
     state.membershipAccess = "family";
     $("#estimate-membership-prompt").hidden = true;
-    $("#subscription").hidden = true;
+    $("#subscription").hidden = false;
     $("#plan-options").hidden = true;
     $("#trial-note").hidden = true;
     $("#subscription-title").textContent = "Complimentary Family Access";
@@ -868,7 +868,7 @@ async function loadMembership() {
   state.membershipStatus = data?.status || null;
   state.membershipAccess = data ? "stripe" : null;
   if (!data) {
-    $("#subscription").hidden = checkoutResult === "success";
+    $("#subscription").hidden = false;
     return;
   }
 
@@ -880,7 +880,7 @@ async function loadMembership() {
 
   const planName = data.plan_key === "byo" ? "Bring Your Own API" : "Meal Daddy Core";
   $("#estimate-membership-prompt").hidden = true;
-  $("#subscription").hidden = true;
+  $("#subscription").hidden = false;
   $("#plan-options").hidden = true;
   $("#trial-note").hidden = true;
   $("#subscription-title").textContent = planName;
