@@ -734,6 +734,7 @@ h2 { font-size: clamp(1.65rem, 3vw, 2.6rem); line-height: 1.06; letter-spacing: 
   border: 1px solid var(--line);
   border-radius: 26px;
   padding: clamp(22px, 4vw, 32px);
+  color: var(--ink);
   background: var(--paper);
   box-shadow: 0 12px 35px rgba(23, 63, 53, .06);
 }
@@ -989,3 +990,7 @@ html:has(.v1-live) { height: auto; min-height: 100%; overflow-y: auto !important
 .conversion-report-table-wrap { max-width: 100%; overflow-x: auto; }
 .conversion-report-table-wrap table { border-collapse: collapse; font-size: .85rem; }
 .conversion-report-table-wrap th, .conversion-report-table-wrap td { padding: .65rem; border-bottom: 1px solid var(--line, #ddd); text-align: left; white-space: nowrap; }
+
+.v1-live .subscription-section .pricing-heading > p:last-child,
+.v1-live .subscription-section > .pricing-note { color: var(--v1-muted); }
+.pricing-card > p:not(.pricing-price) { line-height: 1.55; }
