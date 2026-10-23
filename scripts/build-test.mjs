@@ -14,6 +14,8 @@ client = client.replace(/const SUPABASE_URL = "[^"]+";/, `const SUPABASE_URL = $
     return { data: null, error: new Error('This feature is not connected in the isolated test environment. No payment or live AI request was made.') };
   }`);
 writeFileSync(clientPath, client);
+const foundingPath = 'dist-test/app/founding-license.js';
+writeFileSync(foundingPath, readFileSync(foundingPath, 'utf8').replace('const TEST_AVAILABILITY_SAMPLES = null;', 'const TEST_AVAILABILITY_SAMPLES = {core:495,byo:2000};'));
 cpSync('app/october-test-controls.js', 'dist-test/app/october-test-controls.js');
 cpSync('app/october-test.css', 'dist-test/app/october-test.css');
 for (const file of ['test-lab.html', 'test-lab.js', 'test-lab.css']) cpSync(`app/${file}`, `dist-test/app/${file}`);

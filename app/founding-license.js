@@ -1,8 +1,15 @@
 import { supabase } from './supabase-client.js?v=20261004-1';
 import { foundingOfferState } from './founding-policy.mjs';
+const TEST_AVAILABILITY_SAMPLES = null;
 let checking=false;
 function render(card,value,standard=false){
  if(!card)return;
+ if(TEST_AVAILABILITY_SAMPLES){
+  value={capacity:2000,soldOut:false,remaining:TEST_AVAILABILITY_SAMPLES[standard?'core':'byo']};
+  let label=card.querySelector('[data-availability-sample]');
+  if(!label){label=document.createElement('p');label.dataset.availabilitySample='';card.querySelector('.pricing-price').after(label);}
+  label.textContent='Sample availability — not actual sales';
+ }
  const state=foundingOfferState(value,{standard});
  card.hidden=!state.visible;
  const counter=card.querySelector(standard?'[data-founding-remaining]':'#founding-remaining');
