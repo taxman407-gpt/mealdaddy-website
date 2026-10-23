@@ -1000,5 +1000,7 @@ html:has(.v1-live) { height: auto; min-height: 100%; overflow-y: auto !important
 
 #founding-countdown { margin: 0 0 20px; }
 #founding-remaining { margin: 0 0 8px; color: var(--forest); font-size: 1.15rem; font-weight: 850; }
-.founding-availability-bar { width: 100%; height: 12px; border-radius: 999px; background: linear-gradient(to right, #c85a45 0 var(--sold-percent, 0%), var(--forest-2) var(--sold-percent, 0%) 100%); }
+.founding-availability-bar { display: flex; width: 100%; height: 12px; border-radius: 999px; overflow: hidden; }
+.founding-sold { flex: 0 0 var(--sold-percent, 0%); background: #c85a45; }
+.founding-available { flex: 1; background: var(--forest-2); }
 .founding-bar-legend { display: flex; justify-content: space-between; gap: 12px; margin-top: 5px; color: var(--ink); font-size: .75rem; }
