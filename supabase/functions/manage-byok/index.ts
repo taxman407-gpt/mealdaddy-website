@@ -1,3 +1,4 @@
+import {PRIVATE_BETA_DEPLOYMENT} from "../_shared/beta-deployment.mjs";
 import {createClient} from "npm:@supabase/supabase-js@2.54.0";
 import {requireConditionalMfa} from "../_shared/conditional-mfa.ts";
 import {lifetimeAccess} from "../_shared/membership-policy.mjs";
@@ -34,7 +35,9 @@ Deno.serve(async(request)=>{
  ]);
  if(subError||licenseError||grantError)return json({error:'BYOK membership could not be verified.'},503);
  const licenseAccess=lifetimeAccess(license);
- if(!(subscription?.plan_key==='byo'&&['active','trialing'].includes(subscription.status))&&!(licenseAccess.active&&licenseAccess.plan==='byo')&&!(grant?.status==='active'&&['family','beta'].includes(grant.access_type)&&grant.plan_key==='byo'))return json({error:'An active BYOK membership is required.'},402);
+ let betaByok=false;
+ if(PRIVATE_BETA_DEPLOYMENT){const beta=await admin.rpc("beta_access_for_user",{target_user_id:user.id});if(beta.error||!beta.data)return json({error:"An active private beta invitation is required."},403);betaByok=beta.data.plan==="byo";}
+ if(!betaByok&&!(subscription?.plan_key==='byo'&&['active','trialing'].includes(subscription.status))&&!(licenseAccess.active&&licenseAccess.plan==='byo')&&!(grant?.status==='active'&&['family','beta'].includes(grant.access_type)&&grant.plan_key==='byo'))return json({error:'An active BYOK membership is required.'},402);
  try{
   const encrypted=await sealByokCredentials(user.id,input.credentials,secret);
   const {error}=await admin.from('byok_cloud_credentials').upsert({user_id:user.id,...encrypted,updated_at:new Date().toISOString()},{onConflict:'user_id'});

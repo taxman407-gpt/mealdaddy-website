@@ -25,7 +25,7 @@ Enter dedicated sponsor secrets in the production project's Edge Function Secret
 
 Never paste keys into chat, source, a browser URL, or the tester's personal BYOK form. Select supported text/photo/structured-output model IDs explicitly. Configure provider dollar caps, then set the sponsor request allowances and enable spending in Owner Tools. Defaults are 20 requests/tester/UTC day, 50 global/UTC day, 200 total; spending is OFF. Request limits are not dollar caps. Failed attempts consume request reservations conservatively.
 
-Optional encrypted account-key storage additionally needs `BYOK_VAULT_MASTER_KEY` (32 random bytes, base64), `ENABLE_BYOK_CLOUD=true`; device-only key setup works independently. Account storage is visibly unavailable until configured. Current web search requires an explicitly selected compatible OpenAI personal connection; Claude/Gemini do not silently switch to OpenAI for restaurant or optional recipe searches.
+Encrypted account-key storage is configured with a securely generated server vault key and `ENABLE_BYOK_CLOUD=true`. Device-only storage remains the default. The master key is held only in Supabase secrets and is not stored in source or exported. Current web search requires an explicitly selected compatible OpenAI personal connection; Claude/Gemini do not silently switch to OpenAI for restaurant or optional recipe searches.
 
 After credentials are present: perform real text/photo/structured-output calls for each funded provider, test provider rejection/quota behavior, then have Steve and invited testers exercise the actual phone app (including Android Back) for one or two days. No production frontend cutover before Steve approves.
 

@@ -44,6 +44,8 @@ app=app.replace('async function loadMembership() {',`async function loadMembersh
     $('#billing-status').textContent='Complimentary beta access active';return;
   }`);
 write('app.js',app);
+write('auth.html',read('auth.html').replace('Sign in to open your daily ledger, profile, and plans.','Use your regular MealDaddy login. New testers must use the email Steve approved.').replace('Creating an account does not require payment information. Stripe is used only if you later choose a paid membership.','Private beta access is complimentary. No payment information is required; checkout is disabled.').replace('href="../"','href="https://www.mealdaddy.ai/"'));
+
 // No synthetic inventory in the real beta, and no calls to production billing endpoints.
 write('founding-license.js',read('founding-license.js').replace("supabase.functions.invoke('founding-availability'", "supabase.functions.invoke('beta-founding-availability'"));
 write('register-sw.js','// Service workers are disabled for the private beta.\n');

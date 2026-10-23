@@ -3,3 +3,4 @@
 
 .v1-live:not([data-app-view="more"]) .beta-connection-panel{display:none}
 .beta-panel input[type="checkbox"]{width:auto;min-height:24px}
+.auth-page .password-visibility,.auth-page .auth-reset{min-height:48px;min-width:48px}.auth-page .password-input-wrap input{padding-right:72px}
