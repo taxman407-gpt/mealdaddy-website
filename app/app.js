@@ -840,7 +840,7 @@ async function loadMembership() {
     $("#plan-options").hidden = true;
     $("#trial-note").hidden = true;
     $("#provider-settings").hidden = access.plan !== "byo";
-    $("#subscription-title").textContent = "Founding Member Lifetime License";
+    $("#subscription-title").textContent = access.plan === "byo" ? "Founding Member Lifetime License" : "Lifetime Member License";
     $("#subscription-copy").textContent = access.active ? `Maintenance included or paid through ${new Date(access.accessThrough).toLocaleDateString()}.` : "Your lifetime license remains valid. Renew maintenance to reactivate; skipped years carry no back fees.";
     $("#billing-status").textContent = access.active ? "Lifetime access active" : "Maintenance renewal required in Account & Privacy.";
     return;
