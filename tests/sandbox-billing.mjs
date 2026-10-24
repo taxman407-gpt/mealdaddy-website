@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import {sandboxEnv, sandboxBillingError, sandboxProject, sandboxOrigin} from '../supabase/sandbox-functions/_shared/billing-sandbox.mjs';
+const base = {SUPABASE_URL:`https://${sandboxProject}.supabase.co`, SANDBOX_STRIPE_SECRET_KEY:'rk_test_fixture',STRIPE_SECRET_KEY:'sk_live_do_not_use', ENABLE_REFERRALS:'true'};
+const env = values => key => sandboxEnv(key, name => values[name]);
+assert.equal(env(base)('STRIPE_SECRET_KEY'),'rk_test_fixture');
+assert.equal(env(base)('ENABLE_REFERRALS'),'false');
+assert.equal(env(base)('ENABLE_LIFETIME_BILLING'),'false');
+assert.equal(sandboxBillingError(env(base),sandboxOrigin),null);
+assert.ok(sandboxBillingError(env({...base,SUPABASE_URL:'https://egbieqvbwniaxgqjzqkp.supabase.co'})));
+assert.ok(sandboxBillingError(env({...base,SANDBOX_STRIPE_SECRET_KEY:'sk_live_fixture'})));
+assert.ok(sandboxBillingError(env({...base,SANDBOX_STRIPE_SECRET_KEY:undefined})));
+assert.ok(sandboxBillingError(env(base),'https://www.mealdaddy.ai'));
+console.log('Sandbox billing rejects production project, live/missing keys and production origin; ignores live billing configuration.');
