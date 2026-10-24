@@ -42,3 +42,12 @@ No full-app readiness claim, provider call, customer record change, production d
 - Full regression suite and new trigger/runtime/batch/label arithmetic tests pass. Published through c7e41d64f4e2d7b67771dd8d02c846a47d086fed; beta-analyze-saved-food version 9 is deployed.
 - Earlier browser tests verified auto-save and unchanged-description retry, each updating the favorite and two linked entries today. The final version-9 request stalled; refreshing the existing tab left initialization pending, and a fresh navigation timed out. No confirmed final result from version 9.
 - Pumpkin favorite 25ba0b69-6702-46cf-b2f4-9eae8c436fe0 still showed the pre-label-override 159.2 kcal / 10g carbs / 6.3g net-carbs estimate at the last database read. These are provisional and must not be represented as final corrected values. Final real-request validation and phone-button QA remain outstanding.
+
+## Manual-value restoration — October 24
+
+- Steve clarified that his hand-entered nutrition came from the earlier ChatGPT breakdown and must take precedence over recalculation. Retrieved that prior breakdown rather than guessing replacements.
+- Published manual-nutrition protection in 176ccd3277786483174fc14ceb3649545ab345a3. Normal Save preserves manual numeric edits even when recipe text changes simultaneously. The persisted manual source prevents later implicit replacement; explicit Recalculate nutrition is the override. Consolidated component totals match the manual fields rather than retaining contradictory AI ingredient totals.
+- Full tests and build passed. Verified deployed saved-foods.js matches the tested build and confirmed the updated explanation in the browser.
+- Restored supported original per-muffin fields: 144 kcal, 5.7g protein, 11g fat, 3.6g saturated fat, 6.6g total carbs, 2.9g fiber, 3.7g net carbs, 130mg sodium. The original figures are estimates. Cholesterol (~100mg in the earlier breakdown) has no field in this editor and was not inserted into another nutrient field.
+- Browser confirmed two linked entries updated; database read verified both one-serving entries at 144 kcal and 3.7g net carbs and the favorite marked manual with matching components. This restoration supersedes the provisional muffin values reported above. No new meals were added.
+- Verified the restored card on phone and desktop layouts; saved proof in muffin-manual-values-restored.png. Reset the phone viewport afterward.
