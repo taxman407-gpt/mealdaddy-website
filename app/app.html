@@ -350,7 +350,7 @@
           </fieldset>
           <label class="saved-food-keep-photo"><input id="saved-food-keep-photo" type="checkbox" /><span><strong>Keep a private reference photo</strong><small>Otherwise the photo is deleted and only the reviewed nutrition data remains.</small></span></label>
           <div class="saved-food-editor-actions"><button class="button button-primary" id="save-saved-food" type="submit">Save to My Foods</button><button class="button button-secondary" id="recalculate-saved-food" type="submit">Recalculate nutrition</button><button class="button button-quiet" id="saved-food-back-to-photo" type="button">Back</button></div>
-          <p>Recipe and serving changes recalculate when saved. Recalculate nutrition retries the current recipe and saves valid results using the update scope above.</p>
+          <p>Recipe and serving changes recalculate when saved unless nutrition was entered manually. Save changes preserves your manual values. Recalculate nutrition explicitly replaces them with a fresh estimate using the update scope above.</p>
           <p class="saved-food-editor-status" id="saved-food-review-status" role="status" aria-live="polite"></p>
         </form>
       </div>

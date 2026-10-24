@@ -126,8 +126,21 @@ function normalizedFood(food) {
   return normalized;
 }
 
+export function hasManualNutritionChanges(food, previousFood) {
+  return Boolean(previousFood) && numericFields.some(field=>numberValue(food[field])!==numberValue(previousFood[field]));
+}
+
+export function manualFavoriteNutrition(food, previousFood) {
+  const sameRecipe = previousFood && ["name","brand_or_restaurant","serving_description","notes"].every(field=>String(food[field]||"").trim()===String(previousFood[field]||"").trim());
+  const score = sameRecipe ? weightedInflammationScore(previousFood.components) : null;
+  const component = {name: `${food.name} — manually entered totals`.slice(0,80), evidence_type:"description_estimate", confidence:food.confidence, ...Object.fromEntries(numericFields.map(field=>[field,numberValue(food[field])]))};
+  if(score!==null)Object.assign(component,{inflammation_score:score,inflammation_impact:score<=3?"helpful":score<=6?"neutral":"watch",inflammation_note:"Previous ingredient-composition estimate retained; nutrition totals were entered manually."});
+  return {...food,evidence_type:"manual",components:[component]};
+}
+
 export function needsFavoriteRecalculation(food, previousFood, force = false) {
   if(force)return true;
+  if(previousFood && (hasManualNutritionChanges(food,previousFood) || previousFood.evidence_type==="manual" || food.evidence_type==="manual"))return false;
   if(previousFood)return ["name", "brand_or_restaurant", "serving_description", "notes"].some(field=>String(food[field]||"").trim()!==String(previousFood[field]||"").trim());
   return food.item_type === "home_meal" && Boolean(food.notes?.trim()) && ["calories","protein_g","carbs_g","fat_g"].every(field=>numberValue(food[field])===0);
 }
@@ -398,7 +411,7 @@ export async function initializeSavedFoods({
     if (!food.components.length) return "";
     return `<details class="saved-food-evidence">
       <summary>How values were calculated</summary>
-      <ul>${food.components.map((component) => `<li><span>${escapeHtml(component.name)}</span><span>${escapeHtml(componentEvidenceLabels[component.evidence_type] || "Estimated")} · ${formatNumber(component.calories)} cal · ${formatNumber(component.carbs_g)}g carbs · ${formatNumber(component.fiber_g)}g fiber</span></li>`).join("")}</ul>
+      <ul>${food.components.map((component) => `<li><span>${escapeHtml(component.name)}</span><span>${escapeHtml(food.evidence_type === "manual" ? "Manually entered values" : componentEvidenceLabels[component.evidence_type] || "Estimated")} · ${formatNumber(component.calories)} cal · ${formatNumber(component.carbs_g)}g carbs · ${formatNumber(component.fiber_g)}g fiber</span></li>`).join("")}</ul>
     </details>`;
   }
 
@@ -982,6 +995,7 @@ export async function initializeSavedFoods({
           notes: food.notes
         });
       }
+      if (!needsRecalculation && (hasManualNutritionChanges(food, previousFood) || food.evidence_type === "manual")) food = manualFavoriteNutrition(food, previousFood);
       if (mode === "one_time") {
         await logFood({ ...food, storage_scope: "one_time" }, 1, defaultMealLabel());
         closeEditor();
