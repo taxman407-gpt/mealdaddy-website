@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 
 const origin = 'https://mealdaddy-october-test.taxman407.workers.dev';
 const hash = value => createHash('sha256').update(value).digest('hex');
-const files = ['auth.js', 'auth.html', 'supabase-client.js', 'app.js',
+const files = ['auth.js', 'auth.html', 'supabase-client.js', 'app.js', 'app.html', 'saved-foods.js',
   'beta-connection.js', 'beta-controls.js', 'beta-admin.js', 'byok-vault.js',
   'meal-drafts.js', 'draft-navigation.js', 'photo-review.js'];
 const get = path => fetch(`${origin}/${path}`, {

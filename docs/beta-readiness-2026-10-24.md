@@ -1,5 +1,16 @@
 # Beta acceptance checkpoint — October 24, 2026
 
+## Current remaining work — evening checkpoint
+
+- Manual muffin values are restored and protected; explicit recalculation remains available. The later restoration section supersedes the earlier provisional numbers.
+- Full regression suite passed again. Expanded public deployment verification to include app.html and saved-foods.js: all 13 assets match the local beta build; billing remains disabled.
+- Authenticated Edge Quick Log draft survived switching to Plan and back, then a full reload. Cleared the synthetic draft afterward without submitting it or adding a meal.
+- OpenAI text guidance is verified; live meal-photo review, correction/save, leftover/portion acceptance and final recipe-analysis acceptance remain outstanding. Automated coverage does not substitute for these provider/UI checks.
+- Stripe discovery still exposes only the live MealDaddy.AI account. Requested sandbox connection for checkout/webhook acceptance; no live payment operation was performed.
+- Welcome email remains implemented but disabled, pending verified sender, provider credentials and end-to-end test delivery. No email was sent.
+- Android hardware Back remains a user-device check. Gemini and Claude live-provider acceptance is deferred per Steve's priority.
+- No production release or main merge is claimed. These gates must be resolved before calling the October release complete.
+
 The current test hostname serves the private beta with shared MealDaddy identities, not the retired isolated fixture environment. Use `npm run build`, `node scripts/build-private-beta.mjs`, then `npm run test:beta-deployment` for public asset verification. The older `test:deployment` command intentionally checks the separate fixture build and is not a beta readiness check.
 
 Verified this session:
