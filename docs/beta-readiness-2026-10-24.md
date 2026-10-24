@@ -25,3 +25,11 @@ No full-app readiness claim, provider call, customer record change, production d
 - More → Beta AI connection had no source selected in this browser.
 - Live AI acceptance is blocked pending an explicit funded connection. Secret presence was not inspected, and no provider request, spending activation, or meal-record mutation was performed.
 - Left the authenticated browser on More for connection setup. This supersedes the sign-in blocker above, but not the outstanding provider, payment, email, or Android acceptance checks.
+
+## OpenAI acceptance — October 24
+
+- Published explicit OpenAI selection in commit 2768915157c67cb6fef5e081bf372103cd4fb08e; six beta function deployments are version 4. Production function names were not deployed.
+- All eleven deployed beta assets matched; the full regression suite and new entitlement/invitation/cost-limit checks passed.
+- In Steve's authenticated Edge session, selected OpenAI using the existing Standard allowance. A real kitchen-planning request returned a two-ingredient egg/olive-oil suggestion without adding a ledger entry.
+- Reload preserved `hosted_openai`. At 390 CSS pixels, the selected option and status were readable without horizontal overflow; see beta-openai-phone.png. Restored the normal viewport afterward.
+- This confirms real text guidance, not photo-analysis/correction/save acceptance or Android hardware testing. Nutrition accuracy remains a separate check: the response estimated 220–240 kcal for two large eggs plus one tablespoon olive oil, which appears understated and needs review.
