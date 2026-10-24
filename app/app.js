@@ -4,7 +4,7 @@ import { createByokVault } from "./byok-vault.js?v=20261022-1";
 import { createDraftNavigation } from "./draft-navigation.js?v=20261022-1";
 import { reviewedPhotoDescription } from "./photo-review.js?v=20261022-1";
 import { createMealDrafts } from "./meal-drafts.js?v=20261021-1";
-import { splitMealPortion, mealDescriptionWithPortion } from "./meal-portion.js?v=20261021-1";
+import { splitMealPortion, mealDescriptionWithPortion, scaleSavedMealPortion } from "./meal-portion.js?v=20261021-1";
 import { invokeAuthenticated, supabase, requireSession } from "./supabase-client.js?v=20261004-1";
 import { buildProteinGuidance } from "./feedback-guidance.js?v=20261004-1";
 import { adaptiveHydrationGuidance } from "./adaptive-hydration.js?v=20261004-1";
@@ -2933,6 +2933,9 @@ $("#ledger-list").addEventListener("submit", async (event) => {
     toast("Include a fluid amount, such as 16 oz, 2 cups, 500 ml, or 1 liter.");
     return;
   }
+  let scaledPortion = null;
+  try { if (targetKind === "meal") scaledPortion = scaleSavedMealPortion(entry, description); }
+  catch (error) { toast(error.message); return; }
   const descriptionChanged = description !== entry.description;
   const kindChanged = targetKind !== entry.kind;
   const saveButton = form.querySelector('button[type="submit"]');
@@ -2946,6 +2949,9 @@ $("#ledger-list").addEventListener("submit", async (event) => {
   if (targetKind === "hydration") {
     changes.nutrition_estimate = { ounces };
     changes.status = estimateHydration ? "pending_estimate" : "estimated";
+  } else if (scaledPortion) {
+    changes.nutrition_estimate = scaledPortion;
+    changes.status = "estimated";
   } else if (descriptionChanged || kindChanged) {
     const retainedPhotoPath = typeof entry.nutrition_estimate?.photo_path === "string" ? entry.nutrition_estimate.photo_path : null;
     const favoriteOrigin = entry.nutrition_estimate?.favorite_origin || (
@@ -2981,7 +2987,9 @@ $("#ledger-list").addEventListener("submit", async (event) => {
   draftNavigation.close(`edit:${entry.id}`);
   await mealDrafts.remove(`edit:${entry.id}`);
   await loadLedger();
-  if ((targetKind === "meal" && (descriptionChanged || kindChanged)) || estimateHydration) {
+  if (scaledPortion) {
+    toast("Portion updated using your saved nutrition values.");
+  } else if ((targetKind === "meal" && (descriptionChanged || kindChanged)) || estimateHydration) {
     toast(targetKind === "hydration" ? "Drink updated. Estimating its nutrition..." : "Meal updated. Recalculating nutrition...");
     await retryEstimateEntry(entry.id, { announceStart: false });
   } else if (targetKind === "hydration") {

@@ -62,3 +62,9 @@ No full-app readiness claim, provider call, customer record change, production d
 - Restored supported original per-muffin fields: 144 kcal, 5.7g protein, 11g fat, 3.6g saturated fat, 6.6g total carbs, 2.9g fiber, 3.7g net carbs, 130mg sodium. The original figures are estimates. Cholesterol (~100mg in the earlier breakdown) has no field in this editor and was not inserted into another nutrient field.
 - Browser confirmed two linked entries updated; database read verified both one-serving entries at 144 kcal and 3.7g net carbs and the favorite marked manual with matching components. This restoration supersedes the provisional muffin values reported above. No new meals were added.
 - Verified the restored card on phone and desktop layouts; saved proof in muffin-manual-values-restored.png. Reset the phone viewport afterward.
+
+## Portion-only preservation — October 24
+
+Found that editing only the consumed percentage triggered a fresh AI estimate, including for manually reviewed saved-food entries. Portion-only edits now scale stored nutrient totals and components directly, preserving their source and food-composition score. A stored baseline avoids cumulative rounding and permits 0% to 100% restoration. Ingredient edits still recalculate. Pending photo confirmations or a leftover-photo adjustment must be resolved before applying a whole-meal percentage.
+
+Favorite updates preserve this explicit percentage instead of restoring full portions. The compare-and-swap ledger update remains in place and updates the existing row without changing its date. Added tests cover all ten nutrient quantities, repeated percentage changes, zero restoration, source preservation and blocking ambiguous photo/leftover states. Full regression suite and builds pass. No real meal record was edited for these tests. Live provider/photo/save and Android hardware acceptance remain outstanding; local tests do not establish these.

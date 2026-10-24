@@ -1,3 +1,4 @@
+import { scaleSavedMealPortion, mealDescriptionWithPortion } from "./meal-portion.js?v=20261021-1";
 import {
   deleteLocalSavedFood,
   getCachedSyncedFoods,
@@ -816,8 +817,14 @@ export async function initializeSavedFoods({
       await Promise.all(matches.slice(index, index + 25).map(async (entry) => {
         const origin = entry.nutrition_estimate?.favorite_origin || {};
         const multiplier = Math.max(0.1, Math.min(50, numberValue(origin.servings) || 1));
-        const { description } = favoriteEntryDescription(food, multiplier);
-        const nutrition = favoriteEntryNutrition(food, multiplier, description);
+        let { description } = favoriteEntryDescription(food, multiplier);
+        let nutrition = favoriteEntryNutrition(food, multiplier, description);
+        if (entry.nutrition_estimate?.saved_portion_basis) {
+          const percentage = entry.nutrition_estimate.consumed_fraction * 100;
+          const portionDescription = mealDescriptionWithPortion(description, percentage);
+          nutrition = scaleSavedMealPortion({kind:"meal", status:"estimated", description, nutrition_estimate:nutrition}, portionDescription) || nutrition;
+          description = portionDescription;
+        }
         const photoPath = entry.nutrition_estimate?.photo_path;
         if (typeof photoPath === "string") nutrition.photo_path = photoPath;
         const { error: updateError } = await supabase
