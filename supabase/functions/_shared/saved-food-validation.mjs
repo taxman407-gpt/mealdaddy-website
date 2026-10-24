@@ -7,3 +7,11 @@ export function validateSavedFoodAnalysis(food) {
  if(food.net_carbs_g>food.carbs_g+0.1||food.fiber_g>food.carbs_g+0.1)throw new Error('The nutrition analysis returned inconsistent carbohydrate values. Your saved values were not replaced. Please recalculate.');
  return food;
 }
+
+export function totalSavedFoodComponents(food) {
+ if(!Array.isArray(food.components)||!food.components.length)throw new Error('The analysis omitted its ingredient breakdown. Your saved values were not replaced. Please recalculate.');
+ const fields=savedFoodNutrients.filter(f=>!['sugar_alcohols_g','allulose_g'].includes(f));
+ for(const component of food.components){if(fields.some(field=>typeof component[field]!=='number'||!Number.isFinite(component[field])||component[field]<0))throw new Error('An ingredient has incomplete nutrition. Your saved values were not replaced. Please recalculate.');}
+ for(const field of fields)food[field]=Math.round(food.components.reduce((sum,c)=>sum+c[field],0)*10)/10;
+ return food;
+}

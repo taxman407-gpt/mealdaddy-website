@@ -392,7 +392,7 @@ export async function initializeSavedFoods({
     if (!food.components.length) return "";
     return `<details class="saved-food-evidence">
       <summary>How values were calculated</summary>
-      <ul>${food.components.map((component) => `<li><span>${escapeHtml(component.name)}</span><span>${escapeHtml(componentEvidenceLabels[component.evidence_type] || "Estimated")}</span></li>`).join("")}</ul>
+      <ul>${food.components.map((component) => `<li><span>${escapeHtml(component.name)}</span><span>${escapeHtml(componentEvidenceLabels[component.evidence_type] || "Estimated")} · ${formatNumber(component.calories)} cal · ${formatNumber(component.carbs_g)}g carbs · ${formatNumber(component.fiber_g)}g fiber</span></li>`).join("")}</ul>
     </details>`;
   }
 
