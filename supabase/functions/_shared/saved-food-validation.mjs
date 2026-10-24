@@ -19,3 +19,27 @@ export function totalSavedFoodComponents(food) {
  delete food.servings_in_recipe;
  return food;
 }
+
+// Apply unambiguous, user-supplied label statements with matching volume units.
+// Unrecognized text stays an estimate; it is never guessed into a label override.
+export function applyWrittenLabelValues(food, context='') {
+ const quantity='(\\d+(?:\\.\\d+)?(?:\\s+\\d+/\\d+)?|\\d+/\\d+)';
+ const unit='(cups?|tbsp|tablespoons?|tsp|teaspoons?)';
+ const parseAmount=s=>s.trim().split(/\s+/).reduce((sum,p)=>sum+(p.includes('/')?Number(p.split('/')[0])/Number(p.split('/')[1]):Number(p)),0);
+ const volume=u=>/^cup/i.test(u)?48:/^(tbsp|tablespoon)/i.test(u)?3:1;
+ const clean=s=>s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z ]/g,' ').replace(/\s+/g,' ').trim();
+ const linePattern=new RegExp('^[•*\\-]?\\s*'+quantity+'\\s*'+unit+'\\s+(.+?)\\s*[—–]\\s*label:\\s*(.+?)\\s+per\\s+'+quantity+'\\s*'+unit,'i');
+ const fields={calories:'calories',protein:'protein_g',carbs:'carbs_g',carbohydrates:'carbs_g',fat:'fat_g',fiber:'fiber_g'};
+ for(const line of context.split('\n')){
+  const m=line.trim().match(linePattern);if(!m)continue;
+  const factor=parseAmount(m[1])*volume(m[2])/(parseAmount(m[5])*volume(m[6]));
+  if(!Number.isFinite(factor)||factor<=0)continue;
+  const matches=food.components?.filter(c=>clean(c.name).includes(clean(m[3])))||[];
+  if(matches.length!==1)continue;
+  const values={};for(const v of m[4].matchAll(/(\d+(?:\.\d+)?)\s*(?:g\s+)?(calories|protein|carbs|carbohydrates|fat|fiber)\b/gi))values[fields[v[2].toLowerCase()]]=Number(v[1])*factor;
+  if(!Object.keys(values).length)continue;
+  Object.assign(matches[0],values);
+  if(values.carbs_g!==undefined && values.fiber_g!==undefined)matches[0].net_carbs_g=Math.max(0,values.carbs_g-values.fiber_g);
+ }
+ return food;
+}

@@ -1,4 +1,4 @@
-import {validateSavedFoodAnalysis,totalSavedFoodComponents} from "../_shared/saved-food-validation.mjs";
+import {validateSavedFoodAnalysis,totalSavedFoodComponents,applyWrittenLabelValues} from "../_shared/saved-food-validation.mjs";
 import {resolveAiConnection} from "../_shared/ai-connection.mjs";
 import { createClient } from "npm:@supabase/supabase-js@2.54.0";
 import { requireConditionalMfa } from "../_shared/conditional-mfa.ts";
@@ -314,7 +314,7 @@ Deno.serve(async (request) => {
     if (settleError) return json({ error: "The analysis completed, but usage accounting needs attention." }, 503);
     reservationId = null;
 
-    try { validateSavedFoodAnalysis(food); totalSavedFoodComponents(food); validateSavedFoodAnalysis(food); }
+    try { validateSavedFoodAnalysis(food); applyWrittenLabelValues(food,context); totalSavedFoodComponents(food); validateSavedFoodAnalysis(food); }
     catch(error){ return json({error:error.message},422); }
     return json({ ok: true, food });
   } catch (error) {

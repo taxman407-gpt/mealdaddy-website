@@ -3,7 +3,7 @@ import {readFileSync} from 'node:fs';
 import {stripTypeScriptTypes} from 'node:module';
 import vm from 'node:vm';
 import {webcrypto} from 'node:crypto';
-import {validateSavedFoodAnalysis,totalSavedFoodComponents} from '../supabase/functions/_shared/saved-food-validation.mjs';
+import {validateSavedFoodAnalysis,totalSavedFoodComponents,applyWrittenLabelValues} from '../supabase/functions/_shared/saved-food-validation.mjs';
 import {resolveAiConnection} from '../supabase/functions/_shared/ai-connection.mjs';
 async function exercise(name,{provider='anthropic',missing=false,search=false,foodOverride=null,context='Synthetic dinner'}={}){
  let handler;const events=[],writes=[],calls=[];const userId='00000000-0000-4000-8000-00000000e101';
@@ -14,7 +14,7 @@ async function exercise(name,{provider='anthropic',missing=false,search=false,fo
  const fixture=name==='analyze-saved-food'?JSON.stringify(foodOverride||validFood):name==='coach-action'?'A synthetic dinner suggestion.':JSON.stringify({title:'Synthetic recipe',calories:300,portion_eaten_percent:50});
  const fetchImpl=async(url,options)=>{calls.push({url,options});if(provider==='anthropic')return Response.json({content:[{type:'text',text:fixture}],usage:{input_tokens:5,output_tokens:10}});if(provider==='gemini')return Response.json({candidates:[{content:{parts:[{text:fixture}]}}],usageMetadata:{promptTokenCount:5,candidatesTokenCount:10}});return Response.json({output:[{content:[{type:'output_text',text:fixture}]}],usage:{input_tokens:5,output_tokens:10}});};
  const env=name=>name==='OPENAI_API_KEY'?undefined:name==='SUPABASE_PUBLISHABLE_KEYS'||name==='SUPABASE_SECRET_KEYS'?'{}':name==='ENABLE_BYOK'?'true':name==='SUPABASE_URL'?'https://synthetic.example.invalid':'synthetic-config';
- vm.runInNewContext(source,{validateSavedFoodAnalysis,totalSavedFoodComponents,createClient:()=>client,resolveAiConnection:options=>resolveAiConnection({...options,env,fetchImpl}),requireConditionalMfa:async()=>({ok:true}),Deno:{env:{get:env},serve:fn=>handler=fn},fetch:()=>{throw new Error('Hosted fallback must never run');},crypto:webcrypto,TextEncoder,Uint8Array,Response,Request,Blob,URL,btoa,atob,console});
+ vm.runInNewContext(source,{validateSavedFoodAnalysis,totalSavedFoodComponents,applyWrittenLabelValues,createClient:()=>client,resolveAiConnection:options=>resolveAiConnection({...options,env,fetchImpl}),requireConditionalMfa:async()=>({ok:true}),Deno:{env:{get:env},serve:fn=>handler=fn},fetch:()=>{throw new Error('Hosted fallback must never run');},crypto:webcrypto,TextEncoder,Uint8Array,Response,Request,Blob,URL,btoa,atob,console});
  const body={byok:missing?null:{provider,model:'explicit-fixture-model',key:'synthetic-provider-key'},entryId:'fixture-entry',photoPath:`${userId}/leftover-scan-fixture.png`,textOnly:true,context,source:'Synthetic favorite meal',detailLevel:'quick',mode:search?'restaurant':'dinner',searchCurrent:search};
  const response=await handler(new Request('https://fixture.test',{method:'POST',headers:{authorization:'Bearer synthetic'},body:JSON.stringify(body)}));return {status:response.status,payload:await response.json(),calls,events,writes};
 }
@@ -33,3 +33,6 @@ console.log('Saved-food runtime: complete recipe text, explicit long-input rejec
 const calculated=totalSavedFoodComponents({servings_in_recipe:1,components:[{calories:15,protein_g:0.5,carbs_g:3.33,net_carbs_g:2.33,fat_g:0,fiber_g:1,sodium_mg:1,added_sugar_g:0,saturated_fat_g:0,hydration_ounces:0},{calories:53.33,protein_g:2,carbs_g:2,net_carbs_g:0.67,fat_g:4.67,fiber_g:1.33,sodium_mg:0,added_sugar_g:0,saturated_fat_g:0.3,hydration_ounces:0}],calories:999});assert.equal(calculated.calories,68.3);assert.equal(calculated.carbs_g,5.3);assert.equal(calculated.fiber_g,2.3);assert.throws(()=>totalSavedFoodComponents({servings_in_recipe:1,components:[{calories:20}]}));
 
 const batch=totalSavedFoodComponents({servings_in_recipe:6,components:[{name:'1/2 cup almond flour',calories:320,protein_g:12,carbs_g:12,net_carbs_g:4,fat_g:28,fiber_g:8,sodium_mg:0,added_sugar_g:0,saturated_fat_g:2,hydration_ounces:0}]});assert.equal(batch.calories,53.3);assert.equal(batch.protein_g,2);assert.equal(batch.carbs_g,2);assert.equal(batch.fiber_g,1.3);
+
+const labelContext='• 1 cup canned pumpkin purée — label: 45 calories, 10 g carbs, 3 g fiber per 1/2 cup; organic status not shown\n• 1/2 cup almond flour — label: 160 calories, 14 g fat, 6 g carbs, 4 g fiber, 6 g protein per 1/4 cup; organic status not shown';
+const labelFood={components:[{name:'1 cup canned pumpkin purée',calories:180,carbs_g:40,fiber_g:12},{name:'1/2 cup almond flour',calories:160,carbs_g:6,fat_g:14,fiber_g:4,protein_g:6}]};applyWrittenLabelValues(labelFood,labelContext);assert.equal(labelFood.components[0].calories,90);assert.equal(labelFood.components[0].carbs_g,20);assert.equal(labelFood.components[1].calories,320);assert.equal(labelFood.components[1].protein_g,12);
