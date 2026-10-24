@@ -1,6 +1,11 @@
 begin;
 insert into auth.users(id,email) values('00000000-0000-4000-8000-000000000c01','lifetime-a@example.invalid'),('00000000-0000-4000-8000-000000000c02','lifetime-b@example.invalid');
 set local role service_role;
+-- Purchases must first reserve a checkout quote, just like the deployed handler.
+insert into public.stripe_checkout_sessions(checkout_session_id,user_id,status)
+values('cs_synthetic_purchase','00000000-0000-4000-8000-000000000c01','open');
+insert into public.lifetime_checkout_quotes(checkout_session_id,user_id,plan_key,kind,price_id,amount_cents)
+values('cs_synthetic_purchase','00000000-0000-4000-8000-000000000c01','core','purchase','price_synthetic_core_lifetime',35000);
 do $$ begin
  if not public.record_lifetime_payment('00000000-0000-4000-8000-000000000c01','cs_synthetic_purchase','pi_synthetic_purchase','core','purchase',35000,'2026-10-22T12:00:00Z') then raise exception 'Purchase not applied'; end if;
  if public.record_lifetime_payment('00000000-0000-4000-8000-000000000c01','cs_synthetic_purchase','pi_synthetic_purchase','core','purchase',35000,'2026-10-22T12:00:00Z') then raise exception 'Replay applied twice'; end if;

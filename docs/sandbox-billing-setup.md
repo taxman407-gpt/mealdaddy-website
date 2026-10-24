@@ -34,3 +34,7 @@ Created sandbox-only one-time prices, both verified livemode=false:
 - BYOK Founding Lifetime USD 250: price_1UUEG4CVOk0M72MfYQ3HL6ue.
 
 Added sandbox-create-license-checkout and enabled lifetime handling only inside the isolated sandbox packages. Monthly checkout and webhook were redeployed with this configuration. This supersedes the earlier disabled-lifetime packaging note; referrals/report activation stay disabled. Maintenance and sold-out replacement prices are not configured. No lifetime payment or entitlement was created. The shared beta checkout remains disabled. Both secure credentials and end-to-end payment acceptance are still pending.
+
+## Database acceptance verified
+
+Executed the lifetime and founding-capacity SQL acceptance suites against dkirmzthyynogkkaacmj in rollback-only transactions. Updated the older fixtures to reserve a checkout quote before fulfillment and reflect the separate, always-visible plan counters. Passed duplicate-payment/refund protection, reactivation without back fees, cross-account and forged-access rejection, independent plan capacity, 201/200 near-limit boundary, reservation expiry, overselling rejection and sticky sellout. Verified zero remaining synthetic lifetime identities after rollback. These are database tests, not Stripe payment acceptance or actual production availability.
