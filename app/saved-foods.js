@@ -933,17 +933,20 @@ export async function initializeSavedFoods({
     const recipeDescriptionChanged = previousFood && ["name", "brand_or_restaurant", "serving_description", "notes"].some((field) =>
       String(food[field] || "").trim() !== String(previousFood[field] || "").trim()
     );
+    const needsRecalculation = recipeDescriptionChanged || event.submitter?.id === "recalculate-saved-food";
+    const recalculateButton = $("#recalculate-saved-food");
     let recalculationSummary = "";
     const mode = previousFood
       ? previousFood.storage_scope === "device" ? "device_only" : "sync_cache"
       : selectedStorageMode();
     const keepPhoto = $("#saved-food-keep-photo").checked;
     button.disabled = true;
-    status.textContent = recipeDescriptionChanged
+    recalculateButton.disabled = true;
+    status.textContent = needsRecalculation
       ? "Recipe details changed. Recalculating nutrition..."
       : mode === "one_time" ? "Logging the reviewed values..." : "Saving your reviewed food...";
     try {
-      if (recipeDescriptionChanged) {
+      if (needsRecalculation) {
         if (!hasCurrentCoreMembership()) {
           showMembershipPrompt("Favorite", "updated");
           throw new Error("An active Meal Daddy Core membership is required to recalculate this favorite.");
@@ -958,6 +961,8 @@ export async function initializeSavedFoods({
           body: { itemType: food.item_type, context, textOnly: true }
         });
         if (error || !data?.food) throw new Error(await functionErrorMessage(error, "Meal Daddy could not recalculate this favorite."));
+        const invalidFields = numericFields.filter(field => typeof data.food[field] !== "number" || !Number.isFinite(data.food[field]) || data.food[field] < 0);
+        if(invalidFields.length || (food.item_type === "home_meal" && numericFields.every(field=>data.food[field]===0))) throw new Error("The analysis returned incomplete or all-zero recipe nutrition. Your saved values were not replaced. Try Recalculate nutrition again.");
         const recalculated = normalizedFood(data.food);
         recalculationSummary = nutritionChangeSummary(previousFood, recalculated);
         food = normalizedFood({
@@ -968,7 +973,7 @@ export async function initializeSavedFoods({
           name: food.name,
           brand_or_restaurant: food.brand_or_restaurant,
           serving_description: food.serving_description,
-          notes: [food.notes, recalculated.notes].filter(Boolean).join(" ").slice(0, 1000)
+          notes: food.notes
         });
       }
       if (mode === "one_time") {
@@ -1001,7 +1006,7 @@ export async function initializeSavedFoods({
       await loadFoods();
       await onLedgerChange();
       closeEditor();
-      const recalculationNotice = recalculationSummary ? ` Nutrition updated: ${recalculationSummary}.` : recipeDescriptionChanged ? " Nutrition was recalculated; the reviewed totals did not materially change." : "";
+      const recalculationNotice = recalculationSummary ? ` Nutrition updated: ${recalculationSummary}.` : needsRecalculation ? " Nutrition was recalculated; the reviewed totals did not materially change." : "";
       toast(updatedTodayCount
         ? `${food.nickname || food.name} saved. ${updatedTodayCount} linked ${updatedTodayCount === 1 ? "entry" : "entries"} updated automatically.${recalculationNotice}`
         : `${food.nickname || food.name} saved to My Foods.${recalculationNotice}`);
@@ -1009,6 +1014,7 @@ export async function initializeSavedFoods({
       status.textContent = error.message || "The saved food could not be stored.";
     } finally {
       button.disabled = false;
+      recalculateButton.disabled = false;
     }
   });
 

@@ -3,16 +3,18 @@ import {readFileSync} from 'node:fs';
 import {stripTypeScriptTypes} from 'node:module';
 import vm from 'node:vm';
 import {webcrypto} from 'node:crypto';
+import {validateSavedFoodAnalysis} from '../supabase/functions/_shared/saved-food-validation.mjs';
 import {resolveAiConnection} from '../supabase/functions/_shared/ai-connection.mjs';
-async function exercise(name,{provider='anthropic',missing=false,search=false}={}){
+async function exercise(name,{provider='anthropic',missing=false,search=false,foodOverride=null,context='Synthetic dinner'}={}){
  let handler;const events=[],writes=[],calls=[];const userId='00000000-0000-4000-8000-00000000e101';
  const client={auth:{getUser:async()=>({data:{user:{id:userId}},error:null})},from(table){let patch;const q={select:()=>q,eq:()=>q,neq:()=>q,gte:()=>q,update:value=>{patch=value;writes.push(value);return q;},upsert:value=>{patch=value;writes.push(value);return q;},single:async()=>({data:{id:'fixture-saved-recipe'},error:null}),maybeSingle:async()=>({data:table==='subscriptions'?{plan_key:'byo',status:'active'}:table==='ledger_entries'?{id:'fixture-entry',kind:'meal',description:'Synthetic meal',status:'estimated',nutrition_estimate:{calories:600}}:table==='profiles'?{}:null,error:null}),then:resolve=>Promise.resolve({data:table==='ai_usage_events'?[]:patch?{id:'fixture-row'}:null,error:null}).then(resolve)};return q;},rpc:async(name,parameters)=>{events.push({name,parameters});return {data:name==='reserve_ai_usage'?[{reservation_id:'fixture-reservation',used_monthly_micros:0}]:true,error:null};},storage:{from:()=>({download:async()=>({data:new Blob(['synthetic-image'],{type:'image/png'}),error:null}),remove:async()=>({error:null})})}};
  const source=stripTypeScriptTypes(readFileSync(`supabase/functions/${name}/index.ts`,'utf8').replace(/^import .*;\n/gm,''),{mode:'strip'});
- const fixture=name==='coach-action'?'A synthetic dinner suggestion.':JSON.stringify({title:'Synthetic recipe',calories:300,portion_eaten_percent:50});
+ const validFood={item_type:'home_meal',name:'Muffin',calories:145,protein_g:5.8,carbs_g:7,net_carbs_g:4.3,fat_g:11,fiber_g:2.7,sodium_mg:160,added_sugar_g:0,saturated_fat_g:3.4,sugar_alcohols_g:0,allulose_g:0,hydration_ounces:0};
+ const fixture=name==='analyze-saved-food'?JSON.stringify(foodOverride||validFood):name==='coach-action'?'A synthetic dinner suggestion.':JSON.stringify({title:'Synthetic recipe',calories:300,portion_eaten_percent:50});
  const fetchImpl=async(url,options)=>{calls.push({url,options});if(provider==='anthropic')return Response.json({content:[{type:'text',text:fixture}],usage:{input_tokens:5,output_tokens:10}});if(provider==='gemini')return Response.json({candidates:[{content:{parts:[{text:fixture}]}}],usageMetadata:{promptTokenCount:5,candidatesTokenCount:10}});return Response.json({output:[{content:[{type:'output_text',text:fixture}]}],usage:{input_tokens:5,output_tokens:10}});};
  const env=name=>name==='OPENAI_API_KEY'?undefined:name==='SUPABASE_PUBLISHABLE_KEYS'||name==='SUPABASE_SECRET_KEYS'?'{}':name==='ENABLE_BYOK'?'true':name==='SUPABASE_URL'?'https://synthetic.example.invalid':'synthetic-config';
- vm.runInNewContext(source,{createClient:()=>client,resolveAiConnection:options=>resolveAiConnection({...options,env,fetchImpl}),requireConditionalMfa:async()=>({ok:true}),Deno:{env:{get:env},serve:fn=>handler=fn},fetch:()=>{throw new Error('Hosted fallback must never run');},crypto:webcrypto,TextEncoder,Uint8Array,Response,Request,Blob,URL,btoa,atob,console});
- const body={byok:missing?null:{provider,model:'explicit-fixture-model',key:'synthetic-provider-key'},entryId:'fixture-entry',photoPath:`${userId}/leftover-scan-fixture.png`,textOnly:true,context:'Synthetic dinner',source:'Synthetic favorite meal',detailLevel:'quick',mode:search?'restaurant':'dinner',searchCurrent:search};
+ vm.runInNewContext(source,{validateSavedFoodAnalysis,createClient:()=>client,resolveAiConnection:options=>resolveAiConnection({...options,env,fetchImpl}),requireConditionalMfa:async()=>({ok:true}),Deno:{env:{get:env},serve:fn=>handler=fn},fetch:()=>{throw new Error('Hosted fallback must never run');},crypto:webcrypto,TextEncoder,Uint8Array,Response,Request,Blob,URL,btoa,atob,console});
+ const body={byok:missing?null:{provider,model:'explicit-fixture-model',key:'synthetic-provider-key'},entryId:'fixture-entry',photoPath:`${userId}/leftover-scan-fixture.png`,textOnly:true,context,source:'Synthetic favorite meal',detailLevel:'quick',mode:search?'restaurant':'dinner',searchCurrent:search};
  const response=await handler(new Request('https://fixture.test',{method:'POST',headers:{authorization:'Bearer synthetic'},body:JSON.stringify(body)}));return {status:response.status,payload:await response.json(),calls,events,writes};
 }
 for(const name of ['analyze-saved-food','adjust-leftovers','coach-action','recipe-recreation']){
@@ -21,3 +23,9 @@ for(const name of ['analyze-saved-food','adjust-leftovers','coach-action','recip
 }
 for(const name of ['coach-action','recipe-recreation']){const r=await exercise(name,{provider:'anthropic',search:true});assert.equal(r.status,422);assert.equal(r.calls.length,0);assert.equal(r.events.length,0);}
 console.log('Member AI runtime: all four endpoints with three explicit providers, no hosted key/fallback, token accounting at zero hosted cost, credential privacy, missing-key and unsupported-search rejection passed.');
+
+for(const foodOverride of [{}, {calories:300}, {item_type:'home_meal',...Object.fromEntries(['calories','protein_g','carbs_g','net_carbs_g','fat_g','fiber_g','sodium_mg','added_sugar_g','saturated_fat_g','sugar_alcohols_g','allulose_g','hydration_ounces'].map(k=>[k,0]))}]){const r=await exercise('analyze-saved-food',{provider:'openai',foodOverride});assert.equal(r.status,422);assert.equal(r.writes.length,0);assert.ok(r.events.some(e=>e.name==='settle_ai_usage'));}
+const longContext='x'.repeat(750)+' almond flour and butter; yield 6 muffins';
+const full=await exercise('analyze-saved-food',{provider:'openai',context:longContext});assert.equal(full.status,200);assert.equal(JSON.parse(full.calls[0].options.body).input[1].content[0].text,longContext);
+const tooLong=await exercise('analyze-saved-food',{context:'x'.repeat(1601)});assert.equal(tooLong.status,422);assert.equal(tooLong.calls.length,0);
+console.log('Saved-food runtime: complete recipe text, explicit long-input rejection, malformed and zero result rejection, provider usage settled without overwriting saved records passed.');

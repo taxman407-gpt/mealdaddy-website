@@ -1,3 +1,4 @@
+import {validateSavedFoodAnalysis} from "../_shared/saved-food-validation.mjs";
 import {resolveAiConnection} from "../_shared/ai-connection.mjs";
 import { createClient } from "npm:@supabase/supabase-js@2.54.0";
 import { requireConditionalMfa } from "../_shared/conditional-mfa.ts";
@@ -88,8 +89,9 @@ Deno.serve(async (request) => {
     byokInput = body.byok;
     photoPath = typeof body.photoPath === "string" ? body.photoPath : "";
     itemType = allowedItemTypes.has(body.itemType) ? body.itemType : "packaged_product";
-    context = typeof body.context === "string" ? body.context.trim().slice(0, 700) : "";
+    context = typeof body.context === "string" ? body.context.trim().slice(0, 1600) : "";
     textOnly = body.textOnly === true;
+    if(typeof body.context === "string" && body.context.trim().length > 1600)return json({error:"The recipe description is too long. Shorten it to 1600 characters; no ingredients were silently omitted."},422);
   } catch {
     return json({ error: "Invalid request." }, 400);
   }
@@ -217,6 +219,7 @@ Deno.serve(async (request) => {
       "When a Nutrition Facts label is readable, copy its serving and values rather than estimating the visible food.",
       textOnly ? "Use description_estimate for the top-level source and every component. Honor explicit terms such as sugar-free, no added sugar, stevia, zero-carb, and stated measurements." : "Use nutrition_label only for a readable product label. Use restaurant_published only when restaurant-published nutrition values are visibly supplied. Otherwise use photo_estimate and conservatively estimate the visible portion.",
       "For net carbohydrates, use an explicitly stated label value when visible. Otherwise subtract fiber and only clearly applicable sugar alcohols or allulose supported by the label; do not invent deductions.",
+      "For a recipe with a stated batch yield, calculate the complete batch from every listed ingredient and divide all nutrition values by that yield. Return the requested serving, not the whole batch. Use supplied package values for those ingredients. Never use zero as a placeholder for unknown nutrition; return your best supported estimate and explain uncertainty in notes.",
       "For a prepared meal, include the complete visible serving. For a restaurant item, include visible sauces, sides, and modifications described by the user.",
       "Hydration ounces apply only to a visible or described non-alcoholic drink, not water contained in solid food.",
       "Return one component matching the reusable serving and its nutrition values. Apply the Meal Daddy Inflammation Score System from 1 strongly anti-inflammatory to 10 highly inflammatory, considering processing, refined carbohydrates, added sugars, seed oils, alcohol, and whole-food balance. Give the component a helpful, neutral, or watch impact and a concise reason. This is a food-pattern estimate, not a biomarker, diagnosis, or medical result.",
@@ -258,7 +261,7 @@ Deno.serve(async (request) => {
         store: false,
         reasoning: { effort: "none" },
         safety_identifier: await safetyIdentifier(user.id),
-        max_output_tokens: 900,
+        max_output_tokens: 1800,
         input: [
           {
             role: "system",
@@ -309,6 +312,8 @@ Deno.serve(async (request) => {
     if (settleError) return json({ error: "The analysis completed, but usage accounting needs attention." }, 503);
     reservationId = null;
 
+    try { validateSavedFoodAnalysis(food); }
+    catch(error){ return json({error:error.message},422); }
     return json({ ok: true, food });
   } catch (error) {
     console.error("Saved-food analysis failed before completion", error instanceof Error ? error.message : "unknown error");
