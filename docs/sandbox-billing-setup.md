@@ -26,3 +26,11 @@ Packaging uses dedicated sandbox variable names, hard-codes the isolated project
 Validation: full npm test passed including new isolation tests. Live unauthenticated checkout returned 401. Live sandbox webhook returned 503 with a missing sandbox credential message. These prove fail-closed configuration, not end-to-end payment fulfillment. Next: secure credential entry, synthetic test identity, actual test checkout, signed fulfillment, replay and cancellation checks.
 
 Sources: https://supabase.com/docs/guides/functions/secrets and https://docs.stripe.com/products-prices/manage-prices .
+
+## Lifetime sandbox catalog prepared
+
+Created sandbox-only one-time prices, both verified livemode=false:
+- Standard Founding Lifetime USD 350: price_1UUEG1CVOk0M72MfIafG1Vx2.
+- BYOK Founding Lifetime USD 250: price_1UUEG4CVOk0M72MfYQ3HL6ue.
+
+Added sandbox-create-license-checkout and enabled lifetime handling only inside the isolated sandbox packages. Monthly checkout and webhook were redeployed with this configuration. This supersedes the earlier disabled-lifetime packaging note; referrals/report activation stay disabled. Maintenance and sold-out replacement prices are not configured. No lifetime payment or entitlement was created. The shared beta checkout remains disabled. Both secure credentials and end-to-end payment acceptance are still pending.

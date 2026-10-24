@@ -68,3 +68,12 @@ No full-app readiness claim, provider call, customer record change, production d
 Found that editing only the consumed percentage triggered a fresh AI estimate, including for manually reviewed saved-food entries. Portion-only edits now scale stored nutrient totals and components directly, preserving their source and food-composition score. A stored baseline avoids cumulative rounding and permits 0% to 100% restoration. Ingredient edits still recalculate. Pending photo confirmations or a leftover-photo adjustment must be resolved before applying a whole-meal percentage.
 
 Favorite updates preserve this explicit percentage instead of restoring full portions. The compare-and-swap ledger update remains in place and updates the existing row without changing its date. Added tests cover all ten nutrient quantities, repeated percentage changes, zero restoration, source preservation and blocking ambiguous photo/leftover states. Full regression suite and builds pass. No real meal record was edited for these tests. Live provider/photo/save and Android hardware acceptance remain outstanding; local tests do not establish these.
+
+## Deployed browser acceptance continuation — October 24 evening
+
+- All 14 public beta assets now match the build including the portion-only fix.
+- In authenticated Edge, opened an existing muffin editor, changed only the unsaved percentage to 50, used browser Back, and reopened: draft restored 50. Cancel followed by reopening restored the saved 100. Never submitted the form; saved meal remained 144 calories.
+- Opened leftover-photo review for that meal without an original photo. The correct no-original-photo explanation appeared. Entered disposable context, used Back, reopened and verified the same context restored. Cleared test context and closed the dialog.
+- At 390 x 844 CSS pixels, the dialog width was approximately 375 pixels and no horizontal document overflow was observed. Screenshot leftover-phone-check.png records the pre-copy-update view. Restored the regular viewport.
+- Updated photo processing disclosures to refer to the selected AI provider. OpenAI remains selected; no Claude/Gemini credentials were activated.
+- No real meal insert, edit, deletion, or provider photo request occurred in this walkthrough. Actual photo upload/provider correctness and Android hardware Back remain separate acceptance gates.

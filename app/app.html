@@ -305,7 +305,7 @@
           <label class="saved-food-photo-picker"><span>Take or choose a photo</span><input id="saved-food-photo-input" type="file" accept="image/*" capture="environment" /></label>
           <span class="saved-food-photo-name" id="saved-food-photo-name">No photo selected.</span>
           <label class="saved-food-context"><span>Helpful details <small>(optional)</small></span><textarea id="saved-food-photo-context" rows="3" maxlength="700" placeholder="Product and serving, ingredients, restaurant and menu item, or any modifications"></textarea></label>
-          <p class="saved-food-processing-note">The photo is temporarily uploaded to your protected account and sent to OpenAI for this analysis. It is deleted after processing. If you later choose &quot;Keep photo,&quot; Meal Daddy saves a separate private copy only after you approve the values.</p>
+          <p class="saved-food-processing-note">The photo is temporarily uploaded to your protected account and sent to your selected AI provider for this analysis. It is deleted after processing. If you later choose &quot;Keep photo,&quot; Meal Daddy saves a separate private copy only after you approve the values.</p>
           <div class="saved-food-editor-actions"><button class="button button-primary" id="analyze-saved-food-photo" type="submit">Read photo</button><button class="button button-quiet" id="saved-food-enter-manually" type="button">Enter values manually</button></div>
           <p class="saved-food-editor-status" id="saved-food-scan-status" role="status" aria-live="polite"></p>
         </form>
@@ -368,7 +368,7 @@
         <label class="leftover-photo-picker"><span>Take an after-meal photo</span><input id="leftover-photo-input" type="file" accept="image/*" capture="environment" required /></label>
         <span class="leftover-photo-name" id="leftover-photo-name">No photo selected.</span>
         <label class="leftover-context"><span>What was left? <small>(optional but helpful)</small></span><textarea id="leftover-context" rows="2" maxlength="500" placeholder="For example: ate all the chicken, left half the fries and most of the sauce"></textarea></label>
-        <p class="leftover-privacy">The after photo is temporarily uploaded to your protected account, processed by OpenAI, and deleted after analysis. The original meal entry and its saved nutrition remain unchanged until you confirm.</p>
+        <p class="leftover-privacy">The after photo is temporarily uploaded to your protected account, processed by your selected AI provider, and deleted after analysis. The original meal entry and its saved nutrition remain unchanged until you confirm.</p>
         <div class="leftover-actions"><button class="button button-primary" type="submit" id="analyze-leftovers">Compare photos</button><button class="button button-quiet" type="button" data-close-leftover-adjustment>Cancel</button></div>
         <p class="leftover-status" id="leftover-analysis-status" role="status" aria-live="polite"></p>
       </form>

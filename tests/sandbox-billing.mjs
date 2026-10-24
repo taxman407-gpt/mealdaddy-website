@@ -4,7 +4,7 @@ const base = {SUPABASE_URL:`https://${sandboxProject}.supabase.co`, SANDBOX_STRI
 const env = values => key => sandboxEnv(key, name => values[name]);
 assert.equal(env(base)('STRIPE_SECRET_KEY'),'rk_test_fixture');
 assert.equal(env(base)('ENABLE_REFERRALS'),'false');
-assert.equal(env(base)('ENABLE_LIFETIME_BILLING'),'false');
+assert.equal(env(base)('ENABLE_LIFETIME_BILLING'),'true');
 assert.equal(sandboxBillingError(env(base),sandboxOrigin),null);
 assert.ok(sandboxBillingError(env({...base,SUPABASE_URL:'https://egbieqvbwniaxgqjzqkp.supabase.co'})));
 assert.ok(sandboxBillingError(env({...base,SANDBOX_STRIPE_SECRET_KEY:'sk_live_fixture'})));
