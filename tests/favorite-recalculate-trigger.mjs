@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {needsFavoriteRecalculation} from '../app/saved-foods.js';
+const old={item_type:'home_meal',name:'Muffin',serving_description:'one muffin',notes:'Recipe makes 6 muffins',calories:140,protein_g:5,carbs_g:7,fat_g:11};
+assert.equal(needsFavoriteRecalculation(old,old),false);
+assert.equal(needsFavoriteRecalculation(old,old,true),true);
+assert.equal(needsFavoriteRecalculation({...old,notes:old.notes+'; add salt'},old),true);
+assert.equal(needsFavoriteRecalculation({...old,serving_description:'half muffin'},old),true);
+assert.equal(needsFavoriteRecalculation({...old,nickname:'My muffin'},old),false);
+assert.equal(needsFavoriteRecalculation({...old,calories:141},old),false);
+assert.equal(needsFavoriteRecalculation({...old,calories:0,protein_g:0,carbs_g:0,fat_g:0},null),true);
+assert.equal(needsFavoriteRecalculation({...old,item_type:'packaged_product',calories:0,protein_g:0,carbs_g:0,fat_g:0},null),false);
+console.log('Favorite triggers: automatic recipe/portion edits, zero-valued new recipe, explicit unchanged retry, and preserved manual corrections passed.');

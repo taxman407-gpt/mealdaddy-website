@@ -126,6 +126,12 @@ function normalizedFood(food) {
   return normalized;
 }
 
+export function needsFavoriteRecalculation(food, previousFood, force = false) {
+  if(force)return true;
+  if(previousFood)return ["name", "brand_or_restaurant", "serving_description", "notes"].some(field=>String(food[field]||"").trim()!==String(previousFood[field]||"").trim());
+  return food.item_type === "home_meal" && Boolean(food.notes?.trim()) && ["calories","protein_g","carbs_g","fat_g"].every(field=>numberValue(food[field])===0);
+}
+
 export function findSavedFoodMatch(foods, description) {
   const query = normalizedSearchText(description);
   if (!query || query.length > 180 || /[,;+&]|\b(and|with|plus)\b/i.test(description)) return null;
@@ -933,7 +939,7 @@ export async function initializeSavedFoods({
     const recipeDescriptionChanged = previousFood && ["name", "brand_or_restaurant", "serving_description", "notes"].some((field) =>
       String(food[field] || "").trim() !== String(previousFood[field] || "").trim()
     );
-    const needsRecalculation = recipeDescriptionChanged || event.submitter?.id === "recalculate-saved-food";
+    const needsRecalculation = needsFavoriteRecalculation(food, previousFood, event.submitter?.id === "recalculate-saved-food");
     const recalculateButton = $("#recalculate-saved-food");
     let recalculationSummary = "";
     const mode = previousFood
@@ -943,7 +949,7 @@ export async function initializeSavedFoods({
     button.disabled = true;
     recalculateButton.disabled = true;
     status.textContent = needsRecalculation
-      ? "Recipe details changed. Recalculating nutrition..."
+      ? "Recalculating nutrition from the recipe and serving..."
       : mode === "one_time" ? "Logging the reviewed values..." : "Saving your reviewed food...";
     try {
       if (needsRecalculation) {
