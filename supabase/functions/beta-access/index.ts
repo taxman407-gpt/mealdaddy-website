@@ -20,7 +20,7 @@ Deno.serve(async request=>{
   if(result.error)return json({error:'Your beta invitation could not be checked.'},503);
   if(!result.data)return json({error:'This account is not invited to the private beta. Ask Steve to approve this login email.'},403);
   const configured=(provider:string)=>Boolean(Deno.env.get(provider==='anthropic'?'BETA_ANTHROPIC_API_KEY':'BETA_GEMINI_API_KEY')&&Deno.env.get(provider==='anthropic'?'BETA_ANTHROPIC_MODEL':'BETA_GEMINI_MODEL'));
-  return json({ok:true,...result.data,providers:{anthropic:configured('anthropic'),gemini:configured('gemini')}});
+  return json({ok:true,...result.data,providers:{openai:Boolean(Deno.env.get('OPENAI_API_KEY')),anthropic:configured('anthropic'),gemini:configured('gemini')}});
  }
  const owner=await requireOwnerAuthorization(admin,user,authorization);if(!owner.ok)return json({error:owner.error},owner.status);
  let result;

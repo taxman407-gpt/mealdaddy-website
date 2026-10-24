@@ -82,6 +82,7 @@ Deno.serve(async (request) => {
   let saveFavorite = false;
   let byok: ReturnType<typeof validateByok> | null = null;
   let cloudByok = false;
+  let betaHosted = false;
   let sponsorInput: {provider?: string} | null = null;
   let sponsored: Awaited<ReturnType<typeof createSponsoredBetaConnection>> | null = null;
   try {
@@ -90,7 +91,10 @@ Deno.serve(async (request) => {
     entryId = typeof body.entryId === "string" ? body.entryId : "";
     itemizeExisting = body.itemizeExisting === true;
     saveFavorite = body.saveFavorite === true;
-    if (body.byok?.storage === "beta_sponsor") {
+    if (body.byok?.storage === "beta_hosted") {
+      if (!PRIVATE_BETA_DEPLOYMENT || body.byok.provider !== "openai" || body.byok.key || body.byok.model) return json({error:"Invalid beta OpenAI connection."},422);
+      betaHosted = true;
+    } else if (body.byok?.storage === "beta_sponsor") {
       if (body.byok.key || body.byok.model) return json({error:"Sponsor-paid requests must not include a personal key or model."},422);
       sponsorInput = {provider:body.byok.provider};
     } else if (body.byok !== undefined) {
@@ -180,7 +184,8 @@ Deno.serve(async (request) => {
   if (PRIVATE_BETA_DEPLOYMENT) {
     const beta=await admin.rpc("beta_access_for_user",{target_user_id:user.id});
     if(beta.error || !beta.data)return json({error:"An active private beta invitation is required."},403);
-    membership={plan_key:beta.data.plan,status:"active"};
+    if(betaHosted && membership?.plan_key!=="core")return json({error:"Existing Standard access is required for the beta OpenAI connection."},403);
+    membership={plan_key:betaHosted?"core":beta.data.plan,status:"active"};
   }
   if (sponsorInput) {
     try { sponsored = await createSponsoredBetaConnection({admin,userId:user.id,provider:sponsorInput.provider}); model = sponsored.model; }

@@ -14,11 +14,16 @@ export async function resolveAiConnection({admin,userId,byokInput,hostedKey,env=
  const membership=subscriptionResult.data,license=lifetimeAccess(licenseResult.data);
  const current=membership&&['core','byo'].includes(membership.plan_key)&&['trialing','active'].includes(membership.status);
  let plan=current?membership.plan_key:license.active?license.plan:['family','beta'].includes(grantResult.data?.access_type)&&grantResult.data?.status==='active'?(grantResult.data.plan_key||'core'):null;
+ const hostedEligible=plan==='core';
  if(PRIVATE_BETA_DEPLOYMENT){
   const access=await admin.rpc('beta_access_for_user',{target_user_id:userId});
   if(access.error||!access.data)throw failure('An active private beta invitation is required.',403);
   plan=access.data.plan;
   if(!byokInput)throw failure('Choose sponsor-paid AI or your personal API key explicitly. No hosted provider was used.',422);
+ }
+ if(byokInput?.storage==='beta_hosted'){
+  if(!PRIVATE_BETA_DEPLOYMENT || !hostedEligible || byokInput.provider!=='openai' || byokInput.key || byokInput.model)throw failure('Existing Standard access is required for the beta OpenAI connection.',403);
+  plan='core';byokInput=undefined;
  }
  if(!plan)throw failure('An active MealDaddy membership is required.',402);
  if(byokInput?.storage==='beta_sponsor'){
