@@ -33,3 +33,12 @@ No full-app readiness claim, provider call, customer record change, production d
 - In Steve's authenticated Edge session, selected OpenAI using the existing Standard allowance. A real kitchen-planning request returned a two-ingredient egg/olive-oil suggestion without adding a ledger entry.
 - Reload preserved `hosted_openai`. At 390 CSS pixels, the selected option and status were readable without horizontal overflow; see beta-openai-phone.png. Restored the normal viewport afterward.
 - This confirms real text guidance, not photo-analysis/correction/save acceptance or Android hardware testing. Nutrition accuracy remains a separate check: the response estimated 220–240 kcal for two large eggs plus one tablespoon olive oil, which appears understated and needs review.
+
+## Saved recipe recalculation — October 24
+
+- Added explicit Recalculate nutrition submit control; recipe/serving edits recalculate automatically, and new home recipes with descriptions and empty nutrition trigger analysis. Manual numeric corrections remain possible.
+- Fixed silent 700-character recipe truncation; accepts up to 1600 characters with explicit rejection above that length. Missing/non-numeric and all-zero home-recipe analyses are rejected before writes. Validation still settles provider usage.
+- Added ingredient breakdown, server-side batch division, and exact overrides for unambiguous same-volume written label statements. These checks caught incorrect model scaling of pumpkin, almond flour, and butter. Label-free ingredients remain estimates.
+- Full regression suite and new trigger/runtime/batch/label arithmetic tests pass. Published through c7e41d64f4e2d7b67771dd8d02c846a47d086fed; beta-analyze-saved-food version 9 is deployed.
+- Earlier browser tests verified auto-save and unchanged-description retry, each updating the favorite and two linked entries today. The final version-9 request stalled; refreshing the existing tab left initialization pending, and a fresh navigation timed out. No confirmed final result from version 9.
+- Pumpkin favorite 25ba0b69-6702-46cf-b2f4-9eae8c436fe0 still showed the pre-label-override 159.2 kcal / 10g carbs / 6.3g net-carbs estimate at the last database read. These are provisional and must not be represented as final corrected values. Final real-request validation and phone-button QA remain outstanding.
