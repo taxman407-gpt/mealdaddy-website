@@ -1,5 +1,7 @@
 # Automated verified-registration welcome email — October upgrade
-Status: Implemented and deployed in the isolated test project with sending disabled. Synthetic SQL and worker/runtime checks pass.
+Status: Isolated provider delivery and duplicate-suppression checks passed October 24, 2026 (EDT); sending is disabled again. Production activation remains pending.
+
+Current evidence: [Welcome delivery verification](welcome-delivery-verification-2026-10-25.md). This supersedes historical statements below that no sender or provider was configured. The scheduler accepts modern secret keys in `WELCOME_SERVICE_ROLE_KEY` and sends them in `apikey`; legacy keys retain bearer authentication. The deployed test worker validates configured credentials before any database or provider operation.
 
 ## Trigger
 Send exactly one welcome email after successful email verification of a newly registered MealDaddy account. Do not trigger merely on sign-up form submission, checkout attempt, or repeat sign-in. Historical users must not be bulk-mailed on feature activation.

@@ -1,5 +1,18 @@
 # Beta acceptance checkpoint — October 24, 2026
 
+## Current release gate status — October 25, 2026
+
+This status supersedes the historical checkpoints below.
+
+- **Welcome provider integration verified:** sender domain verified; one isolated welcome delivered to Resend's test sink on October 24 at 10:11 p.m. EDT. Repeated invocation processed zero. Missing service credentials returned HTTP 403. Modern secret-key worker and scheduler authentication is committed in `19289c03bfc739415038a253ed07aa5d9c03a886`; full regression suite passed. See [delivery evidence](welcome-delivery-verification-2026-10-25.md).
+- **Sending remains disabled:** test server flag restored to false (digest verified); production was not deployed or activated. Production scheduler credentials and explicit activation remain release steps.
+- **Sandbox billing acceptance previously passed:** sandbox receipts do not represent actual sales.
+- **Still unverified:** integrated Quick Log photo correction and save against an authorized disposable account, final live recipe-analysis acceptance, and physical Android Back behavior. Simulated handlers and desktop Back checks do not close these gates. Live Gemini/Claude checks remain deferred.
+- **Fresh build and deployed assets verified:** all 23 public beta assets matched the build byte for byte; health reports shared accounts, beta API namespace and billing disabled.
+- **Browser sample acceptance passed:** an unsaved 50% portion and notes survived desktop Back; saving retained one row and its original timestamp while halving all displayed nutrients. Replacing a salad with its no-dressing version removed the dressing component; separately adding one ounce of vinaigrette produced exactly two sample rows and one dressing component. These are browser-local fixed fixtures, not AI or shared-account acceptance. Disposable samples were removed after verification.
+- **No full-release claim:** production rollout and real inbox deliverability have not been verified.
+
+
 ## Latest checkpoint — photo review and editable welcome email
 
 This section supersedes older pending-status entries below.
