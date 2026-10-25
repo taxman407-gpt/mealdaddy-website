@@ -1,5 +1,18 @@
 # Beta acceptance checkpoint — October 24, 2026
 
+## Latest checkpoint — photo review and editable welcome email
+
+This section supersedes older pending-status entries below.
+- Real OpenAI photo analysis returned an editable, low-confidence plate estimate. The My Foods flow is not proof of the full Quick Log uncertain-item confirmation path.
+- Caught Recalculate saving the draft immediately. Fixed and deployed preview-only behavior; new/existing foods and all three storage modes pass handler tests. Live browser recalculation produced 78 calories; closing/reloading preserved the prior saved 720-calorie favorite. The accidental test favorite remains; no test meal was intentionally logged.
+- Fixed white text on the light photo editor. Live computed styles verify dark text on cream.
+- Owner Tools → Welcome Email is deployed with subject/message editing, preview, draft persistence, explicit activation, optimistic revision protection, owner/MFA checks, separate beta/live channels and revision history. A draft persisted across reload; active copy stayed unchanged; original draft wording was restored. The phone layout has no horizontal overflow.
+- New queued emails snapshot the active template. Processor snapshot support is deployed to the isolated project; production worker rollout remains part of release. No sending was enabled and no email was sent.
+- The latest full regression suite and all 18 public beta deployment checks passed.
+- Previous sandbox billing acceptance passed monthly/lifetime checkout, trial conversion, cancellation, refund and replay checks; sandbox receipts never represent real sales.
+- Still required before a full release claim: verified email sender/provider setup and delivery test; actual Android hardware Back; final integrated Quick Log correction/save acceptance within an authorized disposable account; live BYOK provider checks if included. Gemini/Claude remain deferred.
+
+
 ## Current remaining work — evening checkpoint
 
 - Manual muffin values are restored and protected; explicit recalculation remains available. The later restoration section supersedes the earlier provisional numbers.
