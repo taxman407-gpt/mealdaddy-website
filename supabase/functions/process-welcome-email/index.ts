@@ -14,7 +14,7 @@ Deno.serve(async request=>{
   // The isolated project accepts only the provider's documented test sink, never real recipients.
   if(url.includes('dkirmzthyynogkkaacmj')&&delivery.recipient!=='delivered@resend.dev')throw Object.assign(new Error('TEST_RECIPIENT_BLOCKED'),{permanent:true,code:'TEST_RECIPIENT_BLOCKED'});
   let payload=delivery.payload;
-  if(!payload){payload=welcomePayload({recipient:delivery.recipient,from,signInUrl});const saved=await save({payload});if(saved.error||!saved.data)throw new Error('WELCOME_PAYLOAD_NOT_SAVED');}
+  if(!payload){payload=welcomePayload({recipient:delivery.recipient,from,signInUrl,...(delivery.template_snapshot?{template:delivery.template_snapshot}:{})});const saved=await save({payload});if(saved.error||!saved.data)throw new Error('WELCOME_PAYLOAD_NOT_SAVED');}
   const {data:account,error:accountError}=await admin.auth.admin.getUserById(delivery.user_id);
   if(accountError||!account?.user?.email_confirmed_at||account.user.email!==delivery.recipient)throw Object.assign(new Error('ACCOUNT_UNAVAILABLE'),{permanent:true,code:'ACCOUNT_UNAVAILABLE'});
   const result=await sendWelcome({delivery:{...delivery,payload},key});

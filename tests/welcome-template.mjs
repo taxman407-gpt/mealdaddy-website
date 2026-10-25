@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import {DEFAULT_WELCOME_TEMPLATE,validateWelcomeTemplate,renderWelcomeTemplate} from '../supabase/functions/_shared/welcome-template.mjs';
+import {welcomePayload} from '../supabase/functions/_shared/welcome-email.mjs';
+const template={subject:'Welcome, friend',body:'Start here: {{signInUrl}}\nYour MealDaddy team'};
+assert.equal(renderWelcomeTemplate(template,'https://www.mealdaddy.ai/app/auth.html').text,'Start here: https://www.mealdaddy.ai/app/auth.html\nYour MealDaddy team');
+for(const bad of [{...template,subject:'Subject\nBcc: attacker@example.invalid'},{...template,body:'No sign-in link'},{...template,body:'{{secret}} {{signInUrl}}'},{...template,body:'x'.repeat(10001)},{...template,subject:''}]) assert.throws(()=>validateWelcomeTemplate(bad));
+const args={recipient:'delivered@resend.dev',from:'welcome@mealdaddy.ai',signInUrl:'https://www.mealdaddy.ai/app/auth.html'};
+assert.equal(welcomePayload({...args,template}).subject,template.subject);
+assert.equal(welcomePayload(args).subject,DEFAULT_WELCOME_TEMPLATE.subject);
+console.log('Welcome templates: validation, exact plain-text preview, custom queued snapshot and legacy fallback passed.');

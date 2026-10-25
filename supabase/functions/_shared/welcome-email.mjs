@@ -1,8 +1,9 @@
-export function welcomePayload({recipient,from,signInUrl}){
+import {DEFAULT_WELCOME_TEMPLATE,renderWelcomeTemplate} from './welcome-template.mjs';
+export function welcomePayload({recipient,from,signInUrl,template=DEFAULT_WELCOME_TEMPLATE}){
  const url=new URL(signInUrl);
  if(url.protocol!=='https:'||!['www.mealdaddy.ai','mealdaddy.ai','mealdaddy-october-test.taxman407.workers.dev'].includes(url.hostname)||url.pathname!=='/app/auth.html'||url.search||url.hash||url.username||url.password)throw new Error('WELCOME_URL_INVALID');
  if(typeof recipient!=='string'||!/^\S+@\S+\.\S+$/.test(recipient)||/[\r\n]/.test(recipient)||typeof from!=='string'||/[\r\n]/.test(from)||!from.includes('@'))throw new Error('WELCOME_ADDRESS_INVALID');
- return {from,to:[recipient],subject:"Welcome to MealDaddy™ — Let's Get Started!",text:`Welcome to MealDaddy! We're glad you're here.\n\nComplete your profile, log your first meal (description or photo), explore your nutrition and hydration dashboard, and save favorite foods.\n\nSign in: ${url.href}\n\nMealDaddy Team.\nGeneral wellness guidance; not medical advice.`};
+ return {from,to:[recipient],...renderWelcomeTemplate(template,url.href)};
 }
 export function welcomeRetry({attempts,firstAttemptAt,now=Date.now(),permanent=false}){
  if(permanent)return {status:'failed',nextAttemptAt:null};

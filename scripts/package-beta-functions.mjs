@@ -1,6 +1,6 @@
 import {readFileSync,readdirSync,writeFileSync} from 'node:fs';
 import {join,dirname,normalize} from 'node:path';
-const names=['beta-access','estimate-entry','coach-action','analyze-saved-food','adjust-leftovers','recipe-recreation','manage-byok','owner-access-status','manage-family-access','summarize-feedback','manage-referrals','owner-conversion-report','founding-availability'];
+const names=['beta-access','estimate-entry','coach-action','analyze-saved-food','adjust-leftovers','recipe-recreation','manage-byok','owner-access-status','manage-family-access','summarize-feedback','manage-referrals','owner-conversion-report','manage-welcome-template','founding-availability'];
 const shared=readdirSync('supabase/functions/_shared').filter(name=>/\.(mjs|ts)$/.test(name)).map(name=>({name:`_shared/${name}`,content:readFileSync(join('supabase/functions/_shared',name),'utf8')}));
 for(const file of shared){
  if(file.name==='_shared/beta-deployment.mjs')file.content=file.content.replace('= false','= true');

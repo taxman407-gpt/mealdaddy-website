@@ -19,7 +19,7 @@ client=client.replace('  // Mount only when the Quick Log form exists.',`  const
   data.session.betaPlan=beta.data.plan;
   // Mount only when the Quick Log form exists.`);
 client=client.replace('  const invokeWithToken =',`  const aiNames=new Set(['estimate-entry','coach-action','analyze-saved-food','adjust-leftovers','recipe-recreation']);
-  const allowed=new Set([...aiNames,'beta-access','owner-access-status','manage-family-access','summarize-feedback','manage-referrals','manage-byok','owner-conversion-report']);
+  const allowed=new Set([...aiNames,'beta-access','owner-access-status','manage-family-access','summarize-feedback','manage-referrals','manage-byok','owner-conversion-report','manage-welcome-template']);
   if(!allowed.has(functionName))return {data:null,error:new Error('Payments and account deletion are disabled during the private beta. No charge was made.')};
   if(aiNames.has(functionName)){
     try{

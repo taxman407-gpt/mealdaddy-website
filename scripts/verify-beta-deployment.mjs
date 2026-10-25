@@ -5,9 +5,9 @@ import assert from 'node:assert/strict';
 
 const origin = 'https://mealdaddy-october-test.taxman407.workers.dev';
 const hash = value => createHash('sha256').update(value).digest('hex');
-const files = ['auth.js', 'auth.html', 'supabase-client.js', 'app.js', 'app.html', 'saved-foods.js',
+const files = ['auth.js', 'auth.html', 'supabase-client.js', 'app.js', 'app.html', 'saved-foods.js', 'styles.css',
   'beta-connection.js', 'beta-controls.js', 'beta-admin.js', 'byok-vault.js',
-  'meal-drafts.js', 'draft-navigation.js', 'photo-review.js', 'meal-portion.js'];
+  'meal-drafts.js', 'draft-navigation.js', 'photo-review.js', 'meal-portion.js', 'welcome-email.html', 'welcome-email.js', 'welcome-email.css'];
 const get = path => fetch(`${origin}/${path}`, {
   cache: 'no-store', signal: AbortSignal.timeout(15000)
 });

@@ -243,6 +243,7 @@ h2 { font-size: clamp(1.65rem, 3vw, 2.6rem); line-height: 1.06; letter-spacing: 
 .saved-food-editor { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 20px; }
 .saved-food-editor-backdrop { position: absolute; inset: 0; border: 0; background: rgba(8,28,23,.68); cursor: default; }
 .saved-food-editor-panel { position: relative; width: min(760px, 100%); max-height: min(92vh, 900px); overflow-y: auto; border-radius: 26px; padding: 26px; background: var(--paper); box-shadow: 0 30px 90px rgba(8,28,23,.34); }
+.saved-food-editor-panel { color: var(--ink); }
 .saved-food-editor-panel > header { display: flex; align-items: start; justify-content: space-between; gap: 18px; }
 .saved-food-editor-panel h2 { margin-bottom: 18px; font-size: 2rem; }
 .saved-food-editor-close { display: grid; flex: 0 0 auto; width: 42px; height: 42px; place-items: center; border: 1px solid var(--line); border-radius: 50%; color: var(--forest); background: var(--soft); font-size: 1.5rem; }

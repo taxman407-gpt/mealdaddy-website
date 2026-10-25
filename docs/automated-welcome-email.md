@@ -43,3 +43,8 @@ Owner report monitoring shows failed/review-required deliveries and sent timesta
 Provider references: https://resend.com/changelog/idempotency-keys and https://resend.com/docs/dashboard/emails/send-test-emails . Stripe Directory documentation lookup was unavailable; its CLI was not retried after the earlier telemetry approval rejection. No vendor purchase or provisioning occurred.
 
 The connector recovered when the migration was split into outbox and report-column migrations: 20261022223106 and 20261022223111. Installed SQL acceptance passed with all fixtures rolled back. process-welcome-email v1 and welcome-aware owner-conversion-report v2 are deployed with JWT checks. Verified database defaults: enabled=false, started_at=null, zero delivery records. No cron or credentials were configured and no message was sent.
+
+## Owner editor — October 24
+Owner Tools → Welcome Email provides subject/body editing, plain-text preview, Save draft, and a separate action to activate the saved draft. Only {{signInUrl}} is substituted. Drafts and publication revisions are audited, with optimistic revision checks to reject stale overwrites. Beta templates use a separate channel; beta activation never alters production content or enables delivery. New outbox records snapshot the active live template, while legacy records retain the original default. The processor uses this frozen snapshot for idempotent retries.
+
+Verified sending still requires a configured sender/provider and scheduler. This editor does not send email or change delivery activation.
