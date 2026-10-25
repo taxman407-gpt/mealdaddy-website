@@ -1,6 +1,6 @@
 # MealDaddy October 2026 — isolated upgrade test plan
 
-Status: planning only. Production and customer records must not be modified.
+Status: implementation and acceptance in progress. See october-2026-release-matrix.md for the current whole-release status. Production and customer records must not be modified.
 Baseline: main commit 364f18d5ac4238d2dae0525c299d0d4297d6f7a4 (2026-10-16).
 Branch: feature/october-2026-upgrade.
 
@@ -41,7 +41,7 @@ Branch: feature/october-2026-upgrade.
 
 ## Priority 2 — billing and business model
 - Standard $9.99/month, BYOK $6.99/month; future Premium unpriced.
-- Founding lifetime Standard $350, BYOK $250, three years maintenance included; initial Year 4 maintenance $60/$36 with 60-day advance notice of reasonable changes, lapse/reactivation without back fees.
+- Founding lifetime Standard $350, BYOK $250, three years maintenance included; initial Year 4 maintenance $60/$42 (BYOK updated in commit e443f5a) with 60-day advance notice of reasonable changes, lapse/reactivation without back fees.
 - BYOK provider selection and key privacy; never expose keys in logs/client bundles beyond explicit user-managed device storage; no silent provider switching.
 - Approved affiliates: 15% eligible net subscription receipts for first 12 months; lifetime 15% of 50% eligible proceeds once.
 - Subscriber referrals: one reward only after first qualifying collected payment, up to $5/month discount redemption; conversion/award values still TBD.

@@ -2,7 +2,7 @@ import {createClient} from "npm:@supabase/supabase-js@2.54.0";
 import {requireConditionalMfa} from "../_shared/conditional-mfa.ts";
 import {requireOwnerAuthorization} from "../_shared/owner-authorization.ts";
 import {lifetimeAccess} from "../_shared/membership-policy.mjs";
-const headers={"access-control-allow-origin":"*","access-control-allow-headers":"authorization, x-client-info, apikey, content-type","access-control-allow-methods":"POST, OPTIONS","content-type":"application/json"};
+const headers={"access-control-allow-origin":"*","access-control-allow-headers":"authorization, x-client-info, apikey, content-type","access-control-allow-methods":"POST, OPTIONS","content-type":"application/json","cache-control":"no-store"};
 const json=(data:unknown,status=200)=>new Response(JSON.stringify(data),{status,headers});
 function namedKey(name:string,fallback:string){try{return JSON.parse(Deno.env.get(name)||"{}").default||Deno.env.get(fallback);}catch{return Deno.env.get(fallback);}}
 Deno.serve(async(request)=>{
@@ -15,6 +15,7 @@ Deno.serve(async(request)=>{
  if(authError||!user)return json({error:'Authentication required.'},401);
  const admin=createClient(url,service);const mfa=await requireConditionalMfa(admin,user.id,authorization);if(!mfa.ok)return json({error:mfa.error},mfa.status);
  let input:Record<string,any>;try{input=await request.json();}catch{return json({error:'Invalid request.'},400);}
+ if(!input||typeof input!=='object'||Array.isArray(input))return json({error:'Invalid request.'},400);
  const {data:settings,error:settingsError}=await admin.from('referral_program_settings').select('*').eq('id',true).maybeSingle();
  if(settingsError||!settings)return json({error:'Referral configuration is unavailable.'},503);
  const action=String(input.action||'status');
@@ -40,6 +41,15 @@ Deno.serve(async(request)=>{
    if(existing?.status==='approved'&&action==='owner_reject_affiliate')return json({error:'An existing approved affiliate requires a separate agreement review before revocation.'},409);
    const {error}=await admin.from('affiliate_members').upsert({user_id:input.userId,status:action==='owner_approve_affiliate'?'approved':'rejected',approved_at:action==='owner_approve_affiliate'?(existing?.approved_at||new Date().toISOString()):null},{onConflict:'user_id'});
    return error?json({error:'Affiliate approval could not be saved.'},503):json({ok:true});
+  }
+  if(action==='owner_commissions'){
+   if(input.after!==undefined&&(typeof input.after!=='string'||input.after.length>512||/[\u0000-\u001f]/.test(input.after)))return json({error:'Invalid commission cursor.'},400);
+   let query=admin.from('affiliate_commissions').select('receipt_key,referrer_user_id,amount_cents,paid_out_cents,rate_basis_points').order('receipt_key',{ascending:true}).limit(101);
+   if(input.after)query=query.gt('receipt_key',input.after);
+   const {data,error}=await query;
+   if(error)return json({error:'Commission ledger could not be loaded.'},503);
+   const rows=(data||[]).slice(0,100);
+   return json({ok:true,rows,nextCursor:(data||[]).length>100?rows[rows.length-1].receipt_key:null,currency:'usd'});
   }
   if(action==='owner_status'){
    const {data:applications,error}=await admin.from('affiliate_members').select('user_id,status,approved_at');

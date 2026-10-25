@@ -7,3 +7,28 @@ $('#owner-referral-settings').addEventListener('submit',async event=>{event.prev
 async function approval(action){try{await request({action,userId:$('#affiliate-user-id').value.trim()});await load();}catch(error){status.textContent=error.message;}}
 $('#affiliate-approval').addEventListener('submit',event=>{event.preventDefault();void approval('owner_approve_affiliate');});$('#reject-affiliate').addEventListener('click',()=>void approval('owner_reject_affiliate'));
 try{await load();}catch(error){$('#owner-referral-controls').hidden=true;status.textContent=error.message;}
+
+let commissionCursor = null, commissionLoading = false;
+const commissionMoney = cents => new Intl.NumberFormat('en-US', {style:'currency',currency:'USD'}).format(Number(cents)/100);
+async function loadCommissions(next=false) {
+ if(commissionLoading)return;
+ commissionLoading=true;
+ const message=$('#commission-status'),button=$('#load-commissions'),nextButton=$('#next-commissions');
+ button.disabled=true;nextButton.disabled=true;message.textContent='Loading commission records…';
+ try {
+  const data=await request({action:'owner_commissions',...(next&&commissionCursor?{after:commissionCursor}:{})});
+  if(!data?.ok||!Array.isArray(data.rows))throw Error('Commission ledger is unavailable.');
+  const rows=$('#commission-rows');rows.replaceChildren();
+  let balance=0;
+  for(const row of data.rows){
+   const tr=document.createElement('tr');const remaining=Number(row.amount_cents)-Number(row.paid_out_cents);balance+=remaining;
+   for(const value of [row.referrer_user_id,row.receipt_key,`${Number(row.rate_basis_points)/100}%`,commissionMoney(row.amount_cents),commissionMoney(row.paid_out_cents),commissionMoney(remaining)]){const td=document.createElement('td');td.textContent=value;tr.append(td);}
+   rows.append(tr);
+  }
+  commissionCursor=data.nextCursor;nextButton.hidden=!commissionCursor;
+  message.textContent=data.rows.length?`${data.rows.length} records on this page · Page balance ${commissionMoney(balance)}. These are page totals, not a payout authorization.`:'No commission records found.';
+ }catch(error){$('#commission-rows').replaceChildren();commissionCursor=null;nextButton.hidden=true;message.textContent=error.message;}
+ finally{commissionLoading=false;button.disabled=false;nextButton.disabled=false;}
+}
+$('#load-commissions').addEventListener('click',()=>void loadCommissions());
+$('#next-commissions').addEventListener('click',()=>void loadCommissions(true));
