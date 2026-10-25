@@ -24,7 +24,11 @@ The full scope is tracked in [the release matrix](october-2026-release-matrix.md
 
 ## Continue next
 
-1. Confirm the newest beta deployment matches all 36 public files and verify the owner commission page against isolated fixtures.
+1. Verify the owner commission page against isolated fixtures; public deployment matching is complete (see below).
 2. Resolve the three business-policy decisions above, then implement the payout/reward operational steps with audit/idempotency controls.
 3. Implement the local-first architecture as an explicit workstream rather than claiming it through UI wording.
 4. Complete the remaining sandbox/provider/device acceptance and production rollout/rollback review.
+
+## Final deployment result
+
+All 36 public beta files matched the tested local build byte for byte at source commit `d1d7fc2b5ef19d808c5c868b9a6a60953de20418`. Terms and Privacy redirects now work. Beta health still reports shared accounts, the beta API namespace, and billing disabled. The verification process exited successfully. This does not close authenticated owner/provider or physical-device acceptance.
