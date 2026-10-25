@@ -56,4 +56,6 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.process-welcome-email]
-verify_jwt = true
+# Application validates an exact server-configured secret (or legacy service key).
+# The gateway JWT parser cannot accept the modern apikey header.
+verify_jwt = false

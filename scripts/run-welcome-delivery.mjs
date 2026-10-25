@@ -10,7 +10,7 @@ export async function runWelcomeDelivery({enabled = false, project, serviceKey, 
     let response;
     try {
       response = await fetchImpl(`https://${project}.supabase.co/functions/v1/process-welcome-email`, {
-        method: 'POST', redirect: 'error', headers: {authorization: `Bearer ${serviceKey}`, 'content-type': 'application/json'},
+        method: 'POST', redirect: 'error', headers: {...(serviceKey.startsWith('sb_secret_') ? {apikey: serviceKey} : {authorization: `Bearer ${serviceKey}`}), 'content-type': 'application/json'},
         body: '{}', signal: AbortSignal.timeout(30000)
       });
     } catch { throw Error('Welcome worker request failed; delivery state must be checked before retrying manually.'); }

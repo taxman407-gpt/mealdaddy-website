@@ -1,10 +1,11 @@
 import {createClient} from "npm:@supabase/supabase-js@2.54.0";
 import {welcomePayload,welcomeRetry,sendWelcome} from "../_shared/welcome-email.mjs";
+import {welcomeServiceKey} from "../_shared/welcome-authorization.mjs";
 Deno.serve(async request=>{
  const json=(value:unknown,status=200)=>new Response(JSON.stringify(value),{status,headers:{'content-type':'application/json','cache-control':'no-store'}});
  if(request.method!=='POST')return json({error:'Method not allowed.'},405);
- const service=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
- if(!service||request.headers.get('authorization')!==`Bearer ${service}`)return json({error:'Service authorization required.'},403);
+ const service=welcomeServiceKey(request.headers,Deno.env);
+ if(!service)return json({error:'Service authorization required.'},403);
  if(Deno.env.get('ENABLE_WELCOME_EMAIL')!=='true')return json({ok:true,enabled:false});
  const url=Deno.env.get('SUPABASE_URL'),key=Deno.env.get('RESEND_API_KEY'),from=Deno.env.get('WELCOME_FROM'),signInUrl=Deno.env.get('WELCOME_SIGN_IN_URL');
  if(!url||!key||!from||!signInUrl||Deno.env.get('WELCOME_SENDER_VERIFIED')!=='true')return json({error:'Verified email delivery is not configured.'},503);

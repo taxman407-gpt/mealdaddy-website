@@ -10,6 +10,9 @@ let r = await runWelcomeDelivery({...base, fetchImpl: mock([reply({ok:true, proc
 assert.equal(r.processed,1); assert.equal(calls.length,2);
 assert.equal(calls[0].url,'https://dkirmzthyynogkkaacmj.supabase.co/functions/v1/process-welcome-email');
 assert.equal(calls[0].options.redirect,'error'); assert.equal(calls[0].options.headers.authorization,'Bearer synthetic-test-key');
+calls=[]; await runWelcomeDelivery({...base, serviceKey:'sb_secret_synthetic', fetchImpl:mock([reply({ok:true,processed:0})])});
+assert.equal(calls[0].options.headers.apikey,'sb_secret_synthetic');
+assert.equal(calls[0].options.headers.authorization,undefined);
 calls=[]; r=await runWelcomeDelivery({...base, fetchImpl:mock(Array.from({length:5},()=>reply({ok:true,processed:1})))});
 assert.equal(r.processed,5); assert.equal(calls.length,5); assert.equal(r.batchLimitReached,true);
 for (const response of [new Response('private provider details', {status:503}), new Error('synthetic-test-key'), reply({ok:false}), reply({ok:true,processed:999}), new Response('invalid')]) {

@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {welcomeServiceKey} from '../supabase/functions/_shared/welcome-authorization.mjs';
+const config={SUPABASE_SERVICE_ROLE_KEY:'legacy-fixture',SUPABASE_SECRET_KEYS:JSON.stringify({default:'sb_secret_fixture',worker:'sb_secret_worker'})};
+const env={get:name=>config[name]};
+const check=(headers,source=env)=>welcomeServiceKey(new Headers(headers),source);
+assert.equal(check({authorization:'Bearer legacy-fixture'}),'legacy-fixture');
+assert.equal(check({apikey:'sb_secret_fixture'}),'sb_secret_fixture');
+assert.equal(check({apikey:'sb_secret_worker'}),'sb_secret_worker');
+for (const headers of [{},{authorization:'Bearer ordinary-user'},{authorization:'Bearer sb_secret_fixture'},{apikey:'sb_publishable_fixture'},{apikey:'sb_secret_fixturE'},{apikey:'sb_secret_other_project'},{authorization:'Bearer '+btoa(JSON.stringify({role:'service_role'}))}]) assert.equal(check(headers),null);
+for (const raw of ['bad json','null','[]','"sb_secret_fixture"','{"default":""}']) assert.equal(check({apikey:'sb_secret_fixture'},{get:name=>name==='SUPABASE_SECRET_KEYS'?raw:undefined}),null);
+assert.equal(check({apikey:'sb_secret_fixture'},{get:()=>undefined}),null);
+console.log('Welcome authorization: modern/legacy server credentials accepted; user, forged, wrong-project, missing and malformed credentials rejected.');
