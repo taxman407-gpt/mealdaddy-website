@@ -2931,6 +2931,7 @@ $("#ledger-list").addEventListener("submit", async (event) => {
   const entry = entryById(review.dataset.photoReview);
   if (!entry) return;
   const button = review.querySelector('button[type="submit"]');
+  if (button.disabled) return;
   const status = review.querySelector('[data-review-status]');
   try {
     const decisions = entry.nutrition_estimate.photo_review.map((item, index) => ({
@@ -2942,12 +2943,14 @@ $("#ledger-list").addEventListener("submit", async (event) => {
     const nutrition_estimate = {
       input_authority: "edited_text", edit_revision: crypto.randomUUID(),
       ...photoMetadata(entry.nutrition_estimate),
+      ...(entry.nutrition_estimate.favorite_origin ? { favorite_origin: entry.nutrition_estimate.favorite_origin } : {}),
       photo_decisions: decisions
     };
     // Compare-and-swap also prevents a second click or another tab from replacing a newer edit.
     const { data, error } = await supabase.from("ledger_entries")
       .update({ description, nutrition_estimate, status: "pending_estimate" })
       .eq("id", entry.id).eq("user_id", user.id).eq("description", entry.description)
+      .eq("status", entry.status).eq("kind", entry.kind)
       .eq("nutrition_estimate", JSON.stringify(entry.nutrition_estimate)).select("id").maybeSingle();
     if (error || !data) throw new Error(error?.message || "This meal changed. Reload it before applying the correction.");
     await mealDrafts.remove(`photo-review:${entry.id}`);

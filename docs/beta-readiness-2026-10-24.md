@@ -94,3 +94,8 @@ Favorite updates preserve this explicit percentage instead of restoring full por
 ### Photo listed-item correction follow-up — October 25
 
 Fixed photo review so Correct replaces an existing matching semicolon-delimited item and Exclude removes it. Matching is case-insensitive and whole-item only to preserve unrelated written descriptions. A replacement already listed elsewhere is not duplicated. Excluding the only item requires a meal description. Added regression coverage; the full automated suite passed. This is automated coverage, not a real-account meal-save acceptance test.
+
+
+### Photo correction save-handler acceptance — October 25
+
+Executed the actual client photo-review submit handler in a simulated database environment. Correct, Add and Exclude update the existing row and request a fresh text-authoritative estimate. Stale writes and save failures preserve the correction draft and do not trigger estimation. Validation rejects incomplete choices before writes. Fixed the handler dropping favorite_origin, added status/kind concurrency checks, and ignored repeated submissions while a save is pending. Regression coverage verifies photo/favorite references remain intact and a repeated submission issues only one update. Full automated suite passed; no real meal records were created or changed for this check.
