@@ -1,7 +1,7 @@
 import Stripe from "npm:stripe@22.6.0";
 import { createClient } from "npm:@supabase/supabase-js@2.54.0";
 import { requireConditionalMfa } from "../_shared/conditional-mfa.ts";
-import { membershipPlans, assertPlanPrice, maintenanceQuote, lifetimePurchasePlan } from "../_shared/membership-policy.mjs";
+import { membershipPlans, assertPlanPrice, maintenanceQuote, lifetimePurchasePlan, addUtcYears } from "../_shared/membership-policy.mjs";
 const headers={"access-control-allow-origin":"*","access-control-allow-headers":"authorization, x-client-info, apikey, content-type","access-control-allow-methods":"POST, OPTIONS","content-type":"application/json"};
 const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers});
 function namedKey(name:string,fallback:string){try{return JSON.parse(Deno.env.get(name)||"{}").default||Deno.env.get(fallback);}catch{return Deno.env.get(fallback);}}
@@ -18,6 +18,7 @@ Deno.serve(async(request)=>{
  const {data:{user},error:authError}=await auth.auth.getUser();if(authError||!user)return json({error:'Authentication required.'},401);
  const admin=createClient(url,service);const mfa=await requireConditionalMfa(admin,user.id,authorization);if(!mfa.ok)return json({error:mfa.error},mfa.status);
  let input:{plan?:string;kind?:string};try{input=await request.json();}catch{return json({error:'Invalid request.'},400);}
+ if(!input||typeof input!=='object'||Array.isArray(input))return json({error:'Invalid request.'},400);
  const kind=input.kind==='maintenance'?'maintenance':'purchase';
  const planKey=input.plan==='core_lifetime'?'core':input.plan==='byo_lifetime'?'byo':null;
  if(!planKey)return json({error:'Unknown lifetime plan.'},400);
@@ -30,6 +31,7 @@ Deno.serve(async(request)=>{
  if(licenseError||subscriptionError||grantError)return json({error:'Membership could not be checked.'},503);
  if(kind==='purchase'&&(license||grant?.status==='active'||['active','trialing','incomplete','past_due','unpaid','paused'].includes(subscription?.status)))return json({error:'Current membership already exists. Resolve it before purchasing a lifetime license.'},409);
  if(kind==='maintenance'&&(!license||license.status!=='paid'||license.plan_key!==planKey))return json({error:'A matching valid lifetime license is required.'},409);
+ if(kind==='maintenance'&&Date.now()<Date.parse(addUtcYears(license.purchased_at,3)))return json({error:'Your first three years of maintenance are included. Renewal checkout opens after that included period ends.'},409);
  const stripe=new Stripe(stripeKey,{apiVersion:'2026-08-26.dahlia'});
  let priceId:string|undefined,expectedAmount:number,purchasePlan:any;
  if(kind==='purchase'){

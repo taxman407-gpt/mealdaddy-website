@@ -55,14 +55,14 @@ function cacheKey(userId, scope, id) {
 export function getSavedFoodStorageMode(userId) {
   try {
     const mode = localStorage.getItem(preferenceKey(userId));
-    return allowedStorageModes.has(mode) ? mode : "sync_cache";
+    return allowedStorageModes.has(mode) ? mode : "device_only";
   } catch {
-    return "sync_cache";
+    return "device_only";
   }
 }
 
 export function setSavedFoodStorageMode(userId, mode) {
-  const safeMode = allowedStorageModes.has(mode) ? mode : "sync_cache";
+  const safeMode = allowedStorageModes.has(mode) ? mode : "device_only";
   try {
     localStorage.setItem(preferenceKey(userId), safeMode);
   } catch {

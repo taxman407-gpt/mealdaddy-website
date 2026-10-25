@@ -1,6 +1,6 @@
 import { initializeReferrals } from "./referrals.js?v=20261022-1";
 import { createByokVault } from "./byok-vault.js?v=20261022-1";
-import { lifetimeAccess } from "./membership-policy.mjs?v=20261022-1";
+import { lifetimeAccess, addUtcYears } from "./membership-policy.mjs?v=20261022-1";
 import { invokeAuthenticated, supabase, requireSession } from "./supabase-client.js?v=20261004-1";
 import { clearLocalSavedFoods, getDeviceSavedFoods } from "./saved-foods-store.js?v=20260929-1";
 import { metricLabel, normalizeMetricOrder, normalizeOptionalMetrics } from "./metric-order.js?v=20261004-3";
@@ -544,7 +544,7 @@ async function loadMembership() {
     $("#membership-date").textContent = formatDate(access.accessThrough);
     $("#membership-date-row").hidden = false;
     $("#billing-actions").hidden = true;
-    $("#lifetime-renewal").hidden = false;
+    $("#lifetime-renewal").hidden = Date.now() < Date.parse(addUtcYears(licenseResult.data.purchased_at, 3));
     $("#membership-explainer").textContent = "The first three years include maintenance. Initial Year 4 annual maintenance is Standard $60 or BYOK $42; reasonable changes require 60 days advance notice. Renewal is optional and is not an automatic charge.";
     return;
   }
