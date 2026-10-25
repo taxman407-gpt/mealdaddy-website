@@ -59,3 +59,5 @@ Full `npm test` passed after adding owner commission-ledger runtime coverage. It
 Maintenance safeguard: runtime tests verify no Stripe access before the third anniversary, including leap-day boundaries; renewal is allowed at the exact end of the included period. Existing renewal pricing and no-back-fee behavior remain unchanged.
 
 Isolated deployments: manage-referrals v9 and sandbox-create-license-checkout v9, both with gateway JWT verification. Anonymous commission access returned HTTP 401. No live financial records were read and no payment was created. Expanded deployment verification now covers account/referrals/pricing/maintenance/storage assets and draft Terms/Privacy as well as input flows.
+
+Beta legal-document routing: expanded public asset checks exposed 404 responses after extensionless redirects. Worker routing now explicitly permits only the three legal pages with .html, extensionless or trailing-slash paths. Runtime tests confirm unrelated/private paths remain blocked. See october-2026-morning-handoff.md for the next workstreams.

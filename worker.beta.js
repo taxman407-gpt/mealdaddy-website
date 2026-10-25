@@ -8,7 +8,7 @@ export default{async fetch(request,env){
  if(!['GET','HEAD'].includes(request.method))return secure(new Response('Method not allowed',{status:405}));
  if(url.pathname==='/health')return secure(Response.json({environment:'private-beta',accounts:'shared',billing:'disabled',apiNamespace:'beta-',providerReadiness:'requires-credentials'}));
  if(url.pathname==='/')return secure(Response.redirect(new URL('/app/auth.html',url),302));
- if(!/^\/(?:app\/|assets\/|(?:privacy|terms|health-disclaimer)\.html$)/.test(url.pathname)||url.pathname.includes('..')||url.pathname.endsWith('.map'))return secure(new Response('Not found',{status:404}));
+ if(!/^\/(?:app\/|assets\/|(?:privacy|terms|health-disclaimer)(?:\.html|\/)?$)/.test(url.pathname)||url.pathname.includes('..')||url.pathname.endsWith('.map'))return secure(new Response('Not found',{status:404}));
  if(!env?.ASSETS)return secure(new Response('Beta assets unavailable',{status:503}));
  return secure(await env.ASSETS.fetch(request));
 }};
