@@ -575,6 +575,7 @@ export async function initializeSavedFoods({
   function populateReview(food, editingFood = null) {
     const normalized = normalizedFood(food);
     state.editingFood = editingFood;
+    state.reviewBaseline = normalized;
     $("#favorite-update-scope").hidden = !editingFood;
     const defaultUpdateScope = document.querySelector('input[name="favorite_update_scope"][value="today"]');
     if (defaultUpdateScope) defaultUpdateScope.checked = true;
@@ -956,10 +957,10 @@ export async function initializeSavedFoods({
       return;
     }
     const previousFood = state.editingFood ? { ...state.editingFood } : null;
-    const recipeDescriptionChanged = previousFood && ["name", "brand_or_restaurant", "serving_description", "notes"].some((field) =>
-      String(food[field] || "").trim() !== String(previousFood[field] || "").trim()
-    );
-    const needsRecalculation = needsFavoriteRecalculation(food, previousFood, event.submitter?.id === "recalculate-saved-food");
+    const previewOnly = event.submitter?.id === "recalculate-saved-food";
+    const reviewBaseline = state.reviewBaseline || previousFood;
+    const submittedFood = JSON.stringify(food);
+    const needsRecalculation = needsFavoriteRecalculation(food, reviewBaseline, previewOnly);
     const recalculateButton = $("#recalculate-saved-food");
     let recalculationSummary = "";
     const mode = previousFood
@@ -1002,7 +1003,21 @@ export async function initializeSavedFoods({
           notes: food.notes
         });
       }
-      if (!needsRecalculation && (hasManualNutritionChanges(food, previousFood) || food.evidence_type === "manual")) food = manualFavoriteNutrition(food, previousFood);
+      if (needsRecalculation && JSON.stringify(reviewFormFood()) !== submittedFood) {
+        status.textContent = "Your edits changed during analysis. Nothing was saved. Recalculate again to use your latest changes.";
+        return;
+      }
+      if (previewOnly) {
+        numericFields.forEach((field) => setReviewField(field, food[field]));
+        setReviewField("evidence_type", food.evidence_type);
+        setReviewField("confidence", food.confidence);
+        state.reviewComponents = food.components;
+        state.reviewBaseline = food;
+        $("#saved-food-review-source").textContent = evidenceLabels[food.evidence_type];
+        status.textContent = "Nutrition recalculated for review. Nothing saved or logged. Select Save when you are ready.";
+        return;
+      }
+      if (!needsRecalculation && (hasManualNutritionChanges(food, reviewBaseline) || food.evidence_type === "manual")) food = manualFavoriteNutrition(food, reviewBaseline);
       if (mode === "one_time") {
         await logFood({ ...food, storage_scope: "one_time" }, 1, defaultMealLabel());
         closeEditor();
