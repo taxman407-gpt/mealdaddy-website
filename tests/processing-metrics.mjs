@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import {processingUsage,trackedAiCall} from '../supabase/functions/_shared/processing-metrics.mjs';
+const request={model:'gpt-5.6-luna',input:[{content:[{type:'input_image',image_url:'private-photo'},{type:'input_image',image_url:'private-photo-2'},{type:'input_text',text:'private meal'}]}]};
+const response={usage:{input_tokens:1000,input_tokens_details:{cached_tokens:200},output_tokens:100},output:[{type:'web_search_call'}]};
+assert.equal(processingUsage(request,response,'openai').estimated_cost_micros,10284);
+assert.equal(processingUsage(request,response,'anthropic').estimated_cost_micros,null);
+assert.equal(processingUsage(request,{},'openai').estimated_cost_micros,null);
+assert.equal(processingUsage({...request,model:'unknown'},response,'openai').estimated_cost_micros,null);
+const inserts=[],updates=[];let providerCalls=0,failInsert=false;
+const admin={from:()=>({insert:async record=>{inserts.push(record);return {error:failInsert?'unavailable':null};},update:patch=>({eq:async()=>{updates.push(patch);return {error:null};}})})};
+const options={admin,userId:'fixture-user',reservationId:'request-group',category:'meal_estimate',provider:'openai',request,call:async()=>{providerCalls++;return Response.json(response);}};
+const result=await trackedAiCall(options);assert.deepEqual(await result.json(),response);assert.equal(inserts[0].photos_submitted,2);assert.equal(updates[0].photos_processed,2);assert.equal(inserts[0].category,'photo_analysis');assert.ok(!JSON.stringify(inserts).includes('private-photo'));assert.ok(!JSON.stringify(inserts).includes('private meal'));
+await trackedAiCall({...options,call:async()=>Response.json({error:'rejected'},{status:400})});assert.equal(updates.at(-1).status,'rejected');assert.equal(updates.at(-1).photos_processed,0);assert.equal(updates.at(-1).estimated_cost_micros,null);
+await assert.rejects(trackedAiCall({...options,call:async()=>{throw new Error('timeout');}}));assert.equal(updates.at(-1).status,'unknown');
+failInsert=true;await assert.rejects(trackedAiCall(options),/no provider request/);assert.equal(providerCalls,1);
+console.log('Processing telemetry: photo counts, privacy, cached-token pricing, unknown costs, rejected/time-out calls, intact response and pre-dispatch recording passed.');

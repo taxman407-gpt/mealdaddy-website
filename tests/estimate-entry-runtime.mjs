@@ -1,3 +1,5 @@
+import {trackedAiCall} from "../supabase/functions/_shared/processing-metrics.mjs";
+import { validatedMealPhotoPaths } from "../supabase/functions/_shared/meal-photo-paths.mjs";
 import {createSponsoredBetaConnection} from "../supabase/functions/_shared/beta-sponsored-provider.mjs";
 import {sealByokCredentials, openByokCredentials} from "../supabase/functions/_shared/byok-cloud-vault.mjs";
 import { lifetimeAccess } from "../supabase/functions/_shared/membership-policy.mjs";
@@ -27,6 +29,7 @@ async function exercise({ description = '1 oz vinaigrette', metadata = {}, kind 
     const filters = [];
     const q = {
       select() { return q; },
+      insert() { return q; },
       update(value) { patch = value; return q; },
       eq(key, value) { filters.push([key, key === 'nutrition_estimate' ? JSON.parse(value) : value]); return q; },
       is(key, value) { filters.push([key, value]); return q; },
@@ -56,7 +59,7 @@ async function exercise({ description = '1 oz vinaigrette', metadata = {}, kind 
     }
   };
   const context = {
-    PRIVATE_BETA_DEPLOYMENT:false, ...contract, applyComponentTotals, gatePhotoComponents, openByokCredentials, validateByok, callByokProvider, lifetimeAccess,
+    trackedAiCall, PRIVATE_BETA_DEPLOYMENT:false, validatedMealPhotoPaths, ...contract, applyComponentTotals, gatePhotoComponents, openByokCredentials, validateByok, callByokProvider, lifetimeAccess,
     createClient: () => client,
     requireConditionalMfa: async () => mfa ? { ok: true } : { ok: false, status: 403, error: 'MFA required.' },
     Deno: { env: { get(name) { if(name === 'ENABLE_BYOK_CLOUD') return cloudEnabled ? 'true' : 'false'; if(name === 'BYOK_VAULT_MASTER_KEY') return masterSecret; if(name === 'ENABLE_BYOK') return enableByok ? 'true' : 'false'; if(name === 'OPENAI_API_KEY' && !hostedConfigured) return undefined; return name === 'SUPABASE_URL' ? 'https://synthetic.example.test' : name === 'SUPABASE_PUBLISHABLE_KEYS' ? '{}' : 'test-value'; } }, serve(fn) { handler = fn; } },
@@ -187,3 +190,26 @@ for(const options of [{sponsorEnabled:false},{sponsorAllowed:false},{body:{byok:
  assert.ok(r.status>=400);assert.equal(r.providerCalls,0);assert.equal(r.writes,0);
 }
 console.log('Sponsored estimator: explicit Claude path, sponsor billing, no key persistence, disabled/denied/ambiguous funding blocked.');
+
+// Explicit photo review analyzes all attached views once, retaining the restaurant context.
+const photos = [`${owner}/front.jpg`, `${owner}/side.jpg`];
+r = await exercise({description:'50% grilled chicken, no sauce', metadata:{input_authority:'edited_text', analyze_photos:true, photo_path:photos[0], photo_paths:photos, restaurant:'Fixture Cafe', substitutions:['no sauce']}, response:answer([component('Chicken',400,{protein_g:60,evidence_type:'photo_estimate',confirmation_required:false})])});
+assert.equal(r.status,200);
+assert.equal(r.photoDownloads,2);
+assert.equal(r.submitted.input[1].content.filter(item=>item.type==='input_image').length,2);
+assert.equal(r.row.nutrition_estimate.calories,200);
+assert.equal(r.row.nutrition_estimate.protein_g,30);
+assert.deepEqual(r.row.nutrition_estimate.photo_paths,photos);
+assert.equal(r.row.nutrition_estimate.restaurant,'Fixture Cafe');
+assert.deepEqual(r.row.nutrition_estimate.substitutions,['no sauce']);
+assert.equal(r.row.nutrition_estimate.analyze_photos,undefined);
+assert.equal(r.writes,1);
+assert.match(JSON.stringify(r.submitted),/count them once/);
+r = await exercise({metadata:{input_authority:'edited_text',photo_paths:photos}});
+assert.equal(r.photoDownloads,0);
+assert.deepEqual(r.row.nutrition_estimate.photo_paths,photos);
+for(const paths of [['other-user/private.jpg'],Array.from({length:5},(_,i)=>`${owner}/${i}.jpg`),[`${owner}/../private.jpg`]]) {
+ r=await exercise({metadata:{photo_paths:paths,analyze_photos:true}});
+ assert.equal(r.status,400); assert.equal(r.photoDownloads,0); assert.equal(r.providerCalls,0); assert.equal(r.writes,0);
+}
+console.log('Multiple meal photos: private paths, four-photo cap, one meal/portion, text-only edits and restaurant context passed.');

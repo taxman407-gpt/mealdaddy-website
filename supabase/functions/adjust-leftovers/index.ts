@@ -1,3 +1,4 @@
+import {trackedAiCall} from "../_shared/processing-metrics.mjs";
 import {resolveAiConnection} from "../_shared/ai-connection.mjs";
 import { createClient } from "npm:@supabase/supabase-js@2.54.0";
 import { requireConditionalMfa } from "../_shared/conditional-mfa.ts";
@@ -237,7 +238,8 @@ Deno.serve(async (request) => {
     reservationId = reservationRows[0].reservation_id;
     const usedMicros = Number(reservationRows[0].used_monthly_micros || 0);
 
-    const openAiResponse = await ai.call({
+    const trackedCall = request => trackedAiCall({admin,userId:user.id,reservationId,entryId:entry.id,category:"adjust_leftovers",provider:ai.provider,funding:ai.billing==="beta_sponsor"?"sponsor":ai.byok?"personal":"hosted",request,call:request=>ai.call(request)});
+    const openAiResponse = await trackedCall({
         model,
         store: false,
         reasoning: { effort: "none" },

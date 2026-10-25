@@ -15,6 +15,16 @@ Deno.serve(async request=>{
  const admin=createClient(url,service);const owner=await requireOwnerAuthorization(admin,user,authorization);if(!owner.ok)return json({error:owner.error},owner.status);
  let body;try{body=await request.json();}catch{return json({error:'Invalid request.'},400);}
  const action=body.action||'view';
+ if(action==='ai_processing'){
+  const from=body.from?new Date(body.from):new Date(Date.now()-30*86400000),to=body.to?new Date(body.to):new Date();
+  if(!Number.isFinite(from.getTime())||!Number.isFinite(to.getTime())||from>=to||to.getTime()-from.getTime()>366*86400000)return json({error:'Choose a valid date range of at most 366 days.'},400);
+  const {data,error}=await admin.rpc('owner_ai_processing_report',{requested_from:from.toISOString(),requested_to:to.toISOString()});
+  if(error||!data)return json({error:'Processing report is unavailable.'},503);
+  const {error:auditError}=await admin.from('owner_report_audit').insert({owner_id:user.id,action:'view',filters:{report:'ai_processing',from:from.toISOString(),to:to.toISOString()},row_count:data.rows.length});
+  if(auditError)return json({error:'Report access could not be audited.'},503);
+  return json({ok:true,...data});
+ }
+
  if(action==='welcome_status'){
   const [{data:settings,error:settingsError},{data:alerts,error:alertError},{count,error:countError}]=await Promise.all([
    admin.from('welcome_email_settings').select('enabled,started_at').eq('id',true).maybeSingle(),

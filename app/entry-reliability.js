@@ -188,7 +188,7 @@ export function initializeEntryFeedback() {
   form.addEventListener("submit", (event) => {
     const stop = () => { event.preventDefault(); event.stopImmediatePropagation(); };
     if (submission?.busy) { stop(); return; }
-    const file = photo.files?.[0] || null;
+    const file = form.mealPhotoFiles?.[0] || photo.files?.[0] || null;
     if (!input.value.trim() && !file) {
       stop(); show("Add a meal description or choose a photo before selecting Log.", "error"); input.focus(); return;
     }

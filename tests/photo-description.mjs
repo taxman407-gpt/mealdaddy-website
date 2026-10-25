@@ -13,7 +13,7 @@ assert.match(edge, /Never count a pictured item once from the image and again fr
 assert.match(edge, /applyComponentTotals/);
 // Initial photo analysis can describe the image, but an edited description and
 // explicit consumed percentage must remain authoritative and survive retries.
-assert.match(edge, /const photoPath = editedText \? null : retainedPhotoPath/);
+assert.match(edge, /editedText && entry.nutrition_estimate\?\.analyze_photos !== true \? \[\] : retainedPhotoPaths/);
 assert.match(edge, /const finalDescription = photoPath && generatedDescription && !portion\.explicit && !hasUserDescription/);
 assert.match(edge, /description: finalDescription/);
 assert.match(edge, /entryDescription: finalDescription/);

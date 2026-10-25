@@ -1,3 +1,4 @@
+import {trackedAiCall} from "../_shared/processing-metrics.mjs";
 import {resolveAiConnection} from "../_shared/ai-connection.mjs";
 import { createClient } from "npm:@supabase/supabase-js@2.54.0";
 import { requireConditionalMfa } from "../_shared/conditional-mfa.ts";
@@ -375,7 +376,7 @@ Deno.serve(async (request) => {
     requestBody.include = ["web_search_call.action.sources"];
   }
 
-  const callOpenAi = (body: Record<string, unknown>) => ai.call({...body,model:ai.modelFor(body.model)});
+  const callOpenAi = (body: Record<string, unknown>) => trackedAiCall({admin,userId:user.id,reservationId,category:mode==="restaurant"?"restaurant_research":"meal_planning",provider:ai.provider,funding:ai.billing==="beta_sponsor"?"sponsor":ai.byok?"personal":"hosted",request:{...body,model:ai.modelFor(body.model)},call:request=>ai.call(request)});
 
   const monthlyLimitMicros = ai.monthlyLimit(membership?.status === "trialing" ? 500_000 : monthlyBudgetMicros);
   const dailyCallLimit = membership?.status === "trialing" ? 30 : 50;

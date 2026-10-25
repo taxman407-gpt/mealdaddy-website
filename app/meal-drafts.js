@@ -36,7 +36,8 @@ export function createMealDrafts(namespace, { storage = globalThis.localStorage,
     save(key, value) {
       const draft = { ...value, savedAt: Date.now() };
       // Immediate text backup survives pagehide even when the IDB task is suspended.
-      const { photo, ...text } = draft;
+      const { photo, photos = [], ...text } = draft;
+      text.photoIdentities = photos.map(file => `${file.name}:${file.size}:${file.lastModified}`);
       text.photoIdentity = photo ? `${photo.name}:${photo.size}:${photo.lastModified}` : null;
       let textStored = false;
       try {
@@ -45,12 +46,12 @@ export function createMealDrafts(namespace, { storage = globalThis.localStorage,
       return serial(async () => {
         let db;
         try { db = await open(); } catch { /* A blocked IDB must not prevent the text fallback. */ }
-        if (!db && photo) throw new Error('This browser cannot preserve draft photos. Keep this page open.');
+        if (!db && (photo || photos.length)) throw new Error('This browser cannot preserve draft photos. Keep this page open.');
         if (!db && !textStored) throw new Error('Draft storage is unavailable. Keep this page open.');
         if (db) {
           try { await transact(key, 'put', draft); }
           catch {
-            if (photo) throw new Error('This browser cannot preserve draft photos. Keep this page open.');
+            if (photo || photos.length) throw new Error('This browser cannot preserve draft photos. Keep this page open.');
             if (!textStored) throw new Error('Draft storage is unavailable. Keep this page open.');
           }
         }
@@ -64,7 +65,7 @@ export function createMealDrafts(namespace, { storage = globalThis.localStorage,
         let saved = null;
         try { saved = await transact(key, 'get'); } catch { /* Fall back to text. */ }
         if (text?.deleted) return null;
-        if (text && text.savedAt >= (saved?.savedAt || 0)) return { ...text, ...(saved?.photo && text.photoIdentity === `${saved.photo.name}:${saved.photo.size}:${saved.photo.lastModified}` ? { photo: saved.photo } : {}) };
+        if (text && text.savedAt >= (saved?.savedAt || 0)) return { ...text, photos: (saved?.photos || []).filter(file => text.photoIdentities?.includes(`${file.name}:${file.size}:${file.lastModified}`)), ...(saved?.photo && text.photoIdentity === `${saved.photo.name}:${saved.photo.size}:${saved.photo.lastModified}` ? { photo: saved.photo } : {}) };
         return saved || text;
       });
     },

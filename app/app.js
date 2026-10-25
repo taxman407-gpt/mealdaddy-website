@@ -1,3 +1,4 @@
+import { mealPhotoPaths, photoMetadata, mealPhotoControls, renderPendingPhotos, addMealPhotos, showSavedPhotos, uploadMealPhotos } from "./meal-photos.js?v=20261024-1";
 import { claimPendingReferral } from "./referral-client.js?v=20261022-1";
 import { lifetimeAccess } from "./membership-policy.mjs?v=20261022-1";
 import { createByokVault } from "./byok-vault.js?v=20261022-1";
@@ -108,6 +109,7 @@ const mealDrafts = createMealDrafts(user.id);
 const draftNavigation = createDraftNavigation();
 let restoringDraft = false;
 let quickRequestId = crypto.randomUUID();
+let restaurantQuickContext = null;
 const allowedPlans = new Set(["core", "byo", "core_lifetime", "byo_lifetime"]);
 const mealLabels = new Set(["Breakfast", "Brunch", "Lunch", "Dinner", "Snack"]);
 const entryCategories = [...mealLabels, "Hydration"];
@@ -1079,6 +1081,7 @@ function renderLedger() {
           <label><span>Log as</span><select name="entry_category">${entryCategories.map((option) => `<option${option === currentCategory ? " selected" : ""}>${option}</option>`).join("")}</select></label>
           <label><span>Description</span><input name="description" value="${escapeHtml(entry.kind === "meal" ? splitMealPortion(entry.description).description : entry.description)}" required maxlength="1200" /></label>
           <label${entry.kind === "meal" ? "" : " hidden"} data-meal-portion><span>% of meal consumed</span><input name="consumed_percentage" type="number" min="0" max="1000" step="0.1" value="${entry.kind === "meal" ? splitMealPortion(entry.description).percentage : 100}" /><small>100 = the full described meal. No photograph required.</small></label>
+          ${entry.kind === "meal" ? mealPhotoControls(estimate) : ""}
           <div><button class="button button-primary" type="submit">Save</button><button class="button button-quiet" type="button" data-cancel-edit="${entry.id}">Cancel</button>${adjustPortion}${undoPortion}<button class="button button-delete-entry" type="button" data-delete-entry="${entry.id}">Delete entry</button></div>
         </form>`;
     return `<li class="ledger-item">
@@ -2128,22 +2131,31 @@ function startVoiceCapture() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) { toast("Voice entry is not supported in this browser. You can type instead."); return; }
   const recognition = new SpeechRecognition(); recognition.lang = "en-US"; recognition.interimResults = false;
-  recognition.onresult = (event) => { $("#quick-entry").value = event.results[0][0].transcript; saveQuickDraft(); };
+  recognition.onresult = (event) => { const current = $("#quick-entry").value.trim(); $("#quick-entry").value = [current, event.results[0][0].transcript].filter(Boolean).join(". "); saveQuickDraft(); };
   recognition.onerror = () => toast("Voice entry could not start. You can type instead.");
   recognition.start(); toast("Listening...");
 }
 
 $("#photo-input").addEventListener("change", (event) => {
-  const file = event.target.files[0] || null;
-  const validationMessage = mealPhotoValidationMessage(file);
-  if (validationMessage) {
-    state.photo = null;
-    event.target.value = "";
-    toast(validationMessage);
-    return;
+  const form = $("#entry-form");
+  // Clearing the picker is also used by the text-only fallback.
+  if (!event.target.files.length) form.mealPhotoFiles = [];
+  else {
+    try { addMealPhotos(form, {}, [...event.target.files]); }
+    catch (error) { toast(error.message); }
   }
-  state.photo = file;
-  if (file) toast("Meal or label photo ready. This can be the before image if you later photograph leftovers.");
+  state.photo = form.mealPhotoFiles?.[0] || null;
+  renderPendingPhotos(form);
+  if (state.photo) toast(`${form.mealPhotoFiles.length} meal photo(s) ready. Add details, then Log.`);
+});
+$("#entry-form").addEventListener("click", (event) => {
+  const remove = event.target.closest('[data-remove-pending-photo]');
+  if (!remove) return;
+  const form = $("#entry-form");
+  form.mealPhotoFiles.splice(Number(remove.dataset.removePendingPhoto), 1);
+  state.photo = form.mealPhotoFiles[0] || null;
+  $("#photo-input").value = "";
+  renderPendingPhotos(form); saveQuickDraft();
 });
 
 function clearCoachPhoto() {
@@ -2294,6 +2306,7 @@ function renderRestaurantPlan(rawPlan) {
         <div class="restaurant-choice-metrics"><span><strong>${formatEstimateNumber(option.calories)} cal</strong>Energy</span><span><strong>${formatEstimateNumber(option.protein_g)}g</strong>Protein</span><span><strong>${formatEstimateNumber(option.net_carbs_g)}g</strong>Net carbs</span><span><strong>${formatEstimateNumber(option.fiber_g)}g</strong>Fiber</span></div>
         <p class="restaurant-choice-why">${escapeHtml(String(option.why || ""))}</p>
         <p class="restaurant-choice-source">${published ? `Restaurant-published values · <a href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener noreferrer">view source</a>` : "Meal Daddy estimate · published values were not confirmed"}</p>
+        <button class="button button-quiet" type="button" data-review-restaurant-option="${index}">Add photos / review ${restaurantChoiceLetters[index]}</button>
         <button class="button" type="button" data-log-restaurant-option="${index}">Add ${restaurantChoiceLetters[index]} to Today’s Entries</button>
       </article>`;
     }).join("")}
@@ -2334,6 +2347,22 @@ $("#coach-action-result").addEventListener("click", async (event) => {
     } catch {
       toast("The address could not be copied automatically. Press and hold the address to copy it.");
     }
+    return;
+  }
+  const reviewButton = event.target.closest('[data-review-restaurant-option]');
+  if (reviewButton && state.restaurantPlan) {
+    if ($("#quick-entry").value.trim() || state.photo) { toast("Finish or clear your current Log draft first. It has been preserved."); return; }
+    const option = state.restaurantPlan.options[Number(reviewButton.dataset.reviewRestaurantOption)];
+    if (!option) return;
+    const planned = restaurantOptionToLedgerEntry(state.restaurantPlan, option);
+    restaurantQuickContext = photoMetadata(planned.nutrition_estimate);
+    $("#quick-entry").value = planned.description;
+    $("#meal-label").value = defaultMealLabel();
+    resetQuickEntryDate();
+    $("#coach-action-form").hidden = true;
+    showAppView("log"); saveQuickDraft();
+    $("#quick-entry").focus();
+    toast("Order and substitutions copied to your draft. Add photos or dictate changes, then Log once.");
     return;
   }
   const button = event.target.closest("[data-log-restaurant-option]");
@@ -2470,7 +2499,7 @@ $("#coach-action-form").addEventListener("submit", async (event) => {
       : baseMessage;
   } finally {
     if (photoPath) {
-      const { error: removeError } = await supabase.storage.from("meal-photos").remove([photoPath]);
+      const { error: removeError } = await supabase.storage.from("meal-photos").remove(uploadedPhotoPaths);
       if (removeError) console.warn("Temporary coach photo cleanup failed.", removeError);
     }
     button.disabled = false;
@@ -2651,7 +2680,7 @@ $("#leftover-analysis-form").addEventListener("submit", async (event) => {
     }
   } finally {
     if (photoPath) {
-      const { error: cleanupError } = await supabase.storage.from("meal-photos").remove([photoPath]);
+      const { error: cleanupError } = await supabase.storage.from("meal-photos").remove(uploadedPhotoPaths);
       if (cleanupError) console.warn("Temporary after-meal photo cleanup failed.", cleanupError);
     }
     button.disabled = false;
@@ -2829,6 +2858,14 @@ $("#ledger-list").addEventListener("click", async (event) => {
       editForm.elements.consumed_percentage.value = draft.percentage;
       editForm.querySelector("[data-meal-portion]").hidden = draft.category === "Hydration";
     }
+    if (editForm.querySelector('[data-meal-photos]')) {
+      if (draft && !editForm.dataset.draftTouched && draft.originalDescription === entry?.description) {
+        editForm.mealPhotoFiles = draft.photos || [];
+        editForm.elements.analyze_photos.checked = Boolean(draft.analyzePhotos);
+      }
+      renderPendingPhotos(editForm);
+      void showSavedPhotos(editForm, entry.nutrition_estimate, supabase.storage.from('meal-photos'));
+    }
     editForm.elements.description.focus();
     editButton.hidden = true;
   }
@@ -2857,20 +2894,29 @@ $("#ledger-list").addEventListener("click", async (event) => {
       deleteButton.textContent = "Delete entry";
       return;
     }
-    const photoPath = entry.nutrition_estimate?.photo_path;
-    if (
-      typeof photoPath === "string" &&
-      photoPath.startsWith(`${user.id}/`) &&
-      !photoPath.includes("..")
-    ) {
-      const { error: photoError } = await supabase.storage.from("meal-photos").remove([photoPath]);
-      if (photoError) console.warn("Deleted entry photo cleanup failed.", photoError);
-    }
+    const photoPaths = mealPhotoPaths(entry.nutrition_estimate).filter(path => path.startsWith(`${user.id}/`) && !path.includes('..'));
+    if (photoPaths.length) await supabase.storage.from('meal-photos').remove(photoPaths);
     await loadLedger();
     toast("Entry deleted. You can log it again whenever you’re ready.");
   }
 });
 
+$("#ledger-list").addEventListener("click", (event) => {
+  const remove = event.target.closest('[data-remove-pending-photo]');
+  if (!remove) return;
+  const form = remove.closest('[data-edit-form]');
+  form.mealPhotoFiles.splice(Number(remove.dataset.removePendingPhoto), 1);
+  renderPendingPhotos(form); saveOpenEditDrafts();
+});
+$("#ledger-list").addEventListener("change", (event) => {
+  if (event.target.name !== "meal_photos") return;
+  const form = event.target.closest('[data-edit-form]');
+  const entry = entryById(form.dataset.editForm);
+  const status = form.querySelector('[data-meal-photo-status]');
+  try { addMealPhotos(form, entry.nutrition_estimate, [...event.target.files]); status.textContent = "Photos ready. Save to attach them to this meal."; }
+  catch (error) { status.textContent = error.message; }
+  event.target.value = "";
+});
 $("#ledger-list").addEventListener("change", (event) => {
   if (event.target.name === "entry_category") {
     const form = event.target.closest("[data-edit-form]");
@@ -2895,7 +2941,7 @@ $("#ledger-list").addEventListener("submit", async (event) => {
     button.disabled = true;
     const nutrition_estimate = {
       input_authority: "edited_text", edit_revision: crypto.randomUUID(),
-      ...(entry.nutrition_estimate.photo_path ? { photo_path: entry.nutrition_estimate.photo_path } : {}),
+      ...photoMetadata(entry.nutrition_estimate),
       photo_decisions: decisions
     };
     // Compare-and-swap also prevents a second click or another tab from replacing a newer edit.
@@ -2936,15 +2982,32 @@ $("#ledger-list").addEventListener("submit", async (event) => {
   let scaledPortion = null;
   try { if (targetKind === "meal") scaledPortion = scaleSavedMealPortion(entry, description); }
   catch (error) { toast(error.message); return; }
+  const files = form.mealPhotoFiles || [];
+  const analyzePhotos = targetKind === "meal" && Boolean(form.elements.analyze_photos?.checked);
+  if (files.length && targetKind !== "meal") { toast("Choose a meal category to attach photos."); return; }
+  if (analyzePhotos && !files.length && !mealPhotoPaths(entry.nutrition_estimate).length) { toast("Add a photo before selecting photo analysis."); return; }
+  if (analyzePhotos) scaledPortion = null;
   const descriptionChanged = description !== entry.description;
   const kindChanged = targetKind !== entry.kind;
   const saveButton = form.querySelector('button[type="submit"]');
+  if (saveButton.disabled) return;
   saveButton.disabled = true;
   const changes = {
     description,
     kind: targetKind,
     meal_label: targetKind === "meal" ? category : null
   };
+  const uploadedPhotos = [];
+  const photoStatus = form.querySelector('[data-meal-photo-status]');
+  try {
+    if (files.length) {
+      if (photoStatus) photoStatus.textContent = "Uploading photos…";
+      uploadedPhotos.push(...await uploadMealPhotos(files, mealPhotoPaths(entry.nutrition_estimate), user.id, supabase.storage.from('meal-photos')));
+    }
+  } catch (error) {
+    if (photoStatus) photoStatus.textContent = error.message;
+    toast(error.message); saveButton.disabled = false; return;
+  }
   const estimateHydration = targetKind === "hydration" && hydrationNeedsNutritionEstimate(description);
   if (targetKind === "hydration") {
     changes.nutrition_estimate = { ounces };
@@ -2952,7 +3015,7 @@ $("#ledger-list").addEventListener("submit", async (event) => {
   } else if (scaledPortion) {
     changes.nutrition_estimate = scaledPortion;
     changes.status = "estimated";
-  } else if (descriptionChanged || kindChanged) {
+  } else if (descriptionChanged || kindChanged || analyzePhotos) {
     const retainedPhotoPath = typeof entry.nutrition_estimate?.photo_path === "string" ? entry.nutrition_estimate.photo_path : null;
     const favoriteOrigin = entry.nutrition_estimate?.favorite_origin || (
       entry.nutrition_estimate?.source === "saved_food"
@@ -2966,10 +3029,18 @@ $("#ledger-list").addEventListener("submit", async (event) => {
     changes.nutrition_estimate = {
       input_authority: "edited_text",
       edit_revision: crypto.randomUUID(),
-      ...(retainedPhotoPath ? { photo_path: retainedPhotoPath } : {}),
+      ...photoMetadata(entry.nutrition_estimate),
       ...(favoriteOrigin ? { favorite_origin: favoriteOrigin } : {})
     };
     changes.status = "pending_estimate";
+  }
+  if (targetKind === "meal" && (uploadedPhotos.length || analyzePhotos)) {
+    const paths = [...mealPhotoPaths(entry.nutrition_estimate), ...uploadedPhotos];
+    changes.nutrition_estimate = {
+      ...(changes.nutrition_estimate || entry.nutrition_estimate || {}),
+      ...photoMetadata(entry.nutrition_estimate), photo_path: paths[0], photo_paths: paths,
+      ...(analyzePhotos ? { analyze_photos: true, input_authority: "edited_text", edit_revision: crypto.randomUUID() } : {})
+    };
   }
   let editUpdate = supabase.from("ledger_entries").update(changes)
     .eq("id", entry.id).eq("user_id", user.id)
@@ -2977,8 +3048,10 @@ $("#ledger-list").addEventListener("submit", async (event) => {
   editUpdate = entry.nutrition_estimate == null
     ? editUpdate.is("nutrition_estimate", null)
     : editUpdate.eq("nutrition_estimate", JSON.stringify(entry.nutrition_estimate));
-  const { data: editedRow, error } = await editUpdate.select("id").maybeSingle();
+  // On an uncertain network result keep uploads: the write may have committed.
+  const { data: editedRow, error } = await editUpdate.select("id").maybeSingle().catch(error => ({ data: null, error }));
   if (error || !editedRow) {
+    if (!error && uploadedPhotos.length) await supabase.storage.from('meal-photos').remove(uploadedPhotos);
     toast(error?.message || "This entry changed in another tab or while calculating. Your draft is preserved; reload the latest meal before saving.");
     saveOpenEditDrafts();
     saveButton.disabled = false;
@@ -2989,13 +3062,13 @@ $("#ledger-list").addEventListener("submit", async (event) => {
   await loadLedger();
   if (scaledPortion) {
     toast("Portion updated using your saved nutrition values.");
-  } else if ((targetKind === "meal" && (descriptionChanged || kindChanged)) || estimateHydration) {
+  } else if ((targetKind === "meal" && (descriptionChanged || kindChanged || analyzePhotos)) || estimateHydration) {
     toast(targetKind === "hydration" ? "Drink updated. Estimating its nutrition..." : "Meal updated. Recalculating nutrition...");
     await retryEstimateEntry(entry.id, { announceStart: false });
   } else if (targetKind === "hydration") {
     toast(`Hydration updated: ${ounces} fl oz.`);
   } else {
-    toast("Meal label updated.");
+    toast(uploadedPhotos.length ? "Photos added to this meal. Saved nutrition was preserved." : "Meal label updated.");
   }
 });
 
@@ -3111,7 +3184,7 @@ $("#entry-form").addEventListener("submit", async (event) => {
     toast("Favorite Meals are for meals and snacks. Use Log for a Hydration-only entry.");
     return;
   }
-  if (kind === "meal" && !state.photo && !state.skipSavedFoodMatch && state.savedFoodsApi) {
+  if (kind === "meal" && !state.photo && !restaurantQuickContext && !state.skipSavedFoodMatch && state.savedFoodsApi) {
     const match = state.savedFoodsApi.findBestMatch(description);
     if (match) {
       showSavedFoodMatchPrompt(description, selectedCategory, selectedDate, match, wantsFavorite);
@@ -3122,7 +3195,8 @@ $("#entry-form").addEventListener("submit", async (event) => {
   state.skipSavedFoodMatch = false;
   hideSavedFoodMatchPrompt();
   setQuickLogBusy(true);
-  const submittedPhoto = state.photo;
+  const submittedPhotos = $("#entry-form").mealPhotoFiles || (state.photo ? [state.photo] : []);
+  const submittedPhoto = submittedPhotos[0] || null;
   const photoValidationMessage = mealPhotoValidationMessage(submittedPhoto);
   if (photoValidationMessage) {
     state.photo = null;
@@ -3132,22 +3206,20 @@ $("#entry-form").addEventListener("submit", async (event) => {
     return;
   }
   let photoPath = null;
+  let uploadedPhotoPaths = [];
   let photoUploaded = false;
   let photoAttachedToEntry = false;
+  let photoSaveAttempted = false;
   try {
-    if (submittedPhoto) {
-      const preparedPhoto = await preparePrivateImage(submittedPhoto);
-      const safeName = preparedPhoto.name.replace(/[^a-z0-9._-]/gi, "-");
-      photoPath = `${user.id}/${crypto.randomUUID()}-${safeName}`;
-      const { error: uploadError } = await supabase.storage.from("meal-photos").upload(photoPath, preparedPhoto, { upsert: false, contentType: preparedPhoto.type });
-      if (uploadError) {
-        throw new Error(`Photo was not uploaded: ${uploadError.message}`);
-      }
+    if (submittedPhotos.length) {
+      uploadedPhotoPaths = await uploadMealPhotos(submittedPhotos, [], user.id, supabase.storage.from('meal-photos'));
+      photoPath = uploadedPhotoPaths[0];
       photoUploaded = true;
     }
     const estimateHydration = kind === "hydration" && hydrationNeedsNutritionEstimate(description);
-    const nutrition = kind === "hydration" ? { ounces } : photoPath ? { photo_path: photoPath } : null;
+    const nutrition = kind === "hydration" ? { ounces } : { ...(restaurantQuickContext || {}), ...(photoPath ? { photo_path: photoPath, photo_paths: uploadedPhotoPaths } : {}) };
     const mealLabel = mealLabels.has(selectedCategory) ? selectedCategory : defaultMealLabel();
+    photoSaveAttempted = true;
     let { data: savedEntry, error } = await supabase.from("ledger_entries")
       .insert({ user_id: user.id, client_request_id: quickRequestId, kind, occurred_at: occurredAt, description, meal_label: kind === "meal" ? mealLabel : null, nutrition_estimate: nutrition, status: kind === "hydration" && !estimateHydration ? "estimated" : "pending_estimate" })
       .select("id")
@@ -3156,7 +3228,7 @@ $("#entry-form").addEventListener("submit", async (event) => {
       const previous = await supabase.from("ledger_entries").select("id,description,kind,nutrition_estimate").eq("user_id", user.id).eq("client_request_id", quickRequestId).maybeSingle();
       if (!previous.error && previous.data?.description === description && previous.data?.kind === kind) {
         if (photoUploaded && photoPath && photoPath !== previous.data.nutrition_estimate?.photo_path) {
-          await supabase.storage.from("meal-photos").remove([photoPath]);
+          await supabase.storage.from("meal-photos").remove(uploadedPhotoPaths);
           photoUploaded = false;
         }
         photoPath = previous.data.nutrition_estimate?.photo_path || null;
@@ -3171,6 +3243,9 @@ $("#entry-form").addEventListener("submit", async (event) => {
     await mealDrafts.remove("quick");
     quickRequestId = crypto.randomUUID();
     input.value = "";
+    restaurantQuickContext = null;
+    $("#entry-form").mealPhotoFiles = [];
+    renderPendingPhotos($("#entry-form"));
     state.photo = null;
     $("#photo-input").value = "";
     $("#meal-label").value = defaultMealLabel();
@@ -3216,9 +3291,9 @@ $("#entry-form").addEventListener("submit", async (event) => {
   } catch (error) {
     toast(error.message || "The meal could not be logged.");
   } finally {
-    if (photoUploaded && !photoAttachedToEntry && photoPath) {
+    if (photoUploaded && !photoAttachedToEntry && !photoSaveAttempted && photoPath) {
       try {
-        const { error: cleanupError } = await supabase.storage.from("meal-photos").remove([photoPath]);
+        const { error: cleanupError } = await supabase.storage.from("meal-photos").remove(uploadedPhotoPaths);
         if (cleanupError) console.warn("Failed Quick Log photo cleanup.", cleanupError);
       } catch (cleanupError) {
         console.warn("Failed Quick Log photo cleanup.", cleanupError);
@@ -3327,7 +3402,7 @@ supabase.auth.onAuthStateChange((event) => { if (event === "SIGNED_OUT") locatio
 function saveQuickDraft() {
   if (restoringDraft) return;
   if (!$("#quick-entry").value.trim() && !state.photo) { void mealDrafts.remove("quick"); return; }
-  void mealDrafts.save("quick", { description: $("#quick-entry").value, category: $("#meal-label").value, date: selectedQuickEntryDate(), photo: state.photo, requestId: quickRequestId }).catch(() => toast("Draft could not be fully saved. Keep this page open to preserve your photo."));
+  void mealDrafts.save("quick", { description: $("#quick-entry").value, category: $("#meal-label").value, date: selectedQuickEntryDate(), photo: state.photo, photos: $("#entry-form").mealPhotoFiles || [], restaurantContext: restaurantQuickContext, requestId: quickRequestId }).catch(() => toast("Draft could not be fully saved. Keep this page open to preserve your photo."));
 }
 function saveLeftoverDraft() {
   const entry = entryById(state.leftoverEntryId);
@@ -3381,7 +3456,7 @@ function saveOpenEditDrafts() {
   for (const form of document.querySelectorAll("[data-edit-form]:not([hidden])")) {
     const entry = entryById(form.dataset.editForm);
     if (!entry) continue;
-    void mealDrafts.save(`edit:${entry.id}`, { originalDescription: entry.description, description: form.elements.description.value, category: form.elements.entry_category.value, percentage: form.elements.consumed_percentage.value }).catch(() => toast("This edit draft could not be saved on your device."));
+    void mealDrafts.save(`edit:${entry.id}`, { originalDescription: entry.description, description: form.elements.description.value, category: form.elements.entry_category.value, percentage: form.elements.consumed_percentage.value, photos: form.mealPhotoFiles || [], analyzePhotos: Boolean(form.elements.analyze_photos?.checked) }).catch(() => toast("This edit draft could not be saved on your device."));
   }
 }
 $("#entry-form").addEventListener("input", saveQuickDraft);
@@ -3397,7 +3472,10 @@ async function restoreQuickDraft() {
   $("#quick-entry").value = draft.description || "";
   if (entryCategories.includes(draft.category)) $("#meal-label").value = draft.category;
   if (draft.date && draft.date <= localEntryDateValue()) setQuickEntryDate(draft.date);
-  state.photo = draft.photo || null;
+  $("#entry-form").mealPhotoFiles = draft.photos?.length ? draft.photos : draft.photo ? [draft.photo] : [];
+  state.photo = $("#entry-form").mealPhotoFiles[0] || null;
+  restaurantQuickContext = draft.restaurantContext || null;
+  renderPendingPhotos($("#entry-form"));
   if (typeof draft.requestId === "string" && /^[a-f0-9-]{36}$/i.test(draft.requestId)) quickRequestId = draft.requestId;
   restoringDraft = false;
   toast(state.photo ? "Your unfinished draft and photo were restored. Nothing was submitted." : "Your unfinished draft was restored. Nothing was submitted.");

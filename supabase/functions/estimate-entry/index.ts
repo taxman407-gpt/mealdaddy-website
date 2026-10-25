@@ -1,3 +1,5 @@
+import {trackedAiCall} from "../_shared/processing-metrics.mjs";
+import { validatedMealPhotoPaths } from "../_shared/meal-photo-paths.mjs";
 import {PRIVATE_BETA_DEPLOYMENT} from "../_shared/beta-deployment.mjs";
 import { createSponsoredBetaConnection } from "../_shared/beta-sponsored-provider.mjs";
 import { openByokCredentials } from "../_shared/byok-cloud-vault.mjs";
@@ -222,19 +224,24 @@ Deno.serve(async (request) => {
     return json({ ok: true, alreadyEstimated: true, estimate: entry.nutrition_estimate, entryDescription: entry.description });
   }
 
-  const retainedPhotoPath = entry.kind === "meal" && typeof entry.nutrition_estimate?.photo_path === "string" && entry.nutrition_estimate.photo_path.startsWith(`${user.id}/`) && !entry.nutrition_estimate.photo_path.includes("..") ? entry.nutrition_estimate.photo_path : null;
-  // Keep a historical photo available for reference without reintroducing removed foods.
-  const photoPath = editedText ? null : retainedPhotoPath;
-  let photoInput: Record<string, unknown> | null = null;
-  if (photoPath) {
-    const { data: photo, error: photoError } = await admin.storage.from("meal-photos").download(photoPath);
-    if (photoError || !photo) return json({ error: "The private meal photo could not be read." }, 400);
-    if (photo.size > maxPhotoBytes) return json({ error: "The meal photo must be no larger than 8 MB." }, 400);
+  let retainedPhotoPaths: string[];
+  try { retainedPhotoPaths = entry.kind === "meal" ? validatedMealPhotoPaths(entry.nutrition_estimate, user.id) : []; }
+  catch (error) { return json({ error: error.message }, 400); }
+  const retainedPhotoPath = retainedPhotoPaths[0] || null;
+  // Historical images cannot reintroduce deleted foods. Only an explicit photo review opts in.
+  const photoPaths = editedText && entry.nutrition_estimate?.analyze_photos !== true ? [] : retainedPhotoPaths;
+  const photoPath = photoPaths[0] || null;
+  const photoInputs: Array<Record<string, unknown>> = [];
+  for (const path of photoPaths) {
+    const { data: photo, error: photoError } = await admin.storage.from("meal-photos").download(path);
+    if (photoError || !photo) return json({ error: "A private meal photo could not be read." }, 400);
+    if (photo.size > maxPhotoBytes) return json({ error: "Each meal photo must be no larger than 8 MB." }, 400);
     const photoType = photo.type.toLowerCase();
-    if (!supportedPhotoTypes.has(photoType)) return json({ error: "Use a JPG, PNG, WebP, or GIF meal photo." }, 400);
+    if (!supportedPhotoTypes.has(photoType)) return json({ error: "Use JPG, PNG, WebP, or GIF meal photos." }, 400);
     const photoBytes = new Uint8Array(await photo.arrayBuffer());
-    photoInput = { type: "input_image", image_url: `data:${photoType};base64,${bytesToBase64(photoBytes)}`, detail: saveFavorite ? "original" : "high" };
+    photoInputs.push({ type: "input_image", image_url: `data:${photoType};base64,${bytesToBase64(photoBytes)}`, detail: saveFavorite ? "original" : "high" });
   }
+  const photoInput = photoInputs[0] || null;
   let portion;
   try { portion = consumedPortion(entry.description, itemizeExisting); }
   catch (error) { return json({ error: error.message }, 400); }
@@ -314,7 +321,10 @@ Deno.serve(async (request) => {
   const confirmationInstructions = " Assess photo sharpness, light, obstruction and suitability in photo_quality before estimating. Set suitable false with an actionable reason when the food cannot be meaningfully identified; never invent hidden ingredients. For text-only requests set suitable true and reason empty. For EVERY component, set confirmation_required true if its identity is uncertain OR it is visible but not explicitly included in the user's written description. With no written description, every image item needs confirmation. Name the suspected item and explain the uncertainty in confirmation_reason; otherwise use false and an empty reason. A visual inability to verify a stated ingredient is not a contradiction: honor the user's text. Never infer that a visible drink was consumed. For text-only estimates set confirmation_required false and confirmation_reason empty. Treat herbs, spices, olive oil, garlic and vegetables according to their actual ingredients and amounts; do not classify herbs as inflammatory merely for being additions. A composition score describes the food pattern, not a clinical result, and is not multiplied by the percentage eaten.";
   const inputInstructions = photoInput ? mealPhotoInstructions + (portion.explicit ? " Estimate one full portion of this meal; the application will apply the consumed percentage once afterward." : "") : textOnlyInstructions(portion);
   const userContent: Array<Record<string, unknown>> = [{ type: "input_text", text: estimateInputText(entry, Boolean(photoInput), portion) }];
-  if (photoInput) userContent.push(photoInput);
+  if (photoInput) {
+    userContent[0].text += "\nThese photos belong to ONE meal. Repeated items across angles are the same food: count them once. The written description, exclusions, and restaurant substitutions are authoritative. Ask for confirmation of any unmentioned or uncertain item; do not silently add it. Restaurant context: " + JSON.stringify({ restaurant: entry.nutrition_estimate?.restaurant, substitutions: entry.nutrition_estimate?.substitutions });
+    userContent.push(...photoInputs);
+  }
 
   const monthlyLimitMicros = (byok || sponsored) ? 1_000_000_000 : membership?.status === "trialing" ? 500_000 : monthlyBudgetMicros;
   const dailyCallLimit = membership?.status === "trialing" ? 30 : 50;
@@ -342,12 +352,12 @@ Deno.serve(async (request) => {
           : "Estimate nutrition for the complete described meal, including every food and drink in the same entry. Return approximate calories, protein, total carbohydrates, net carbohydrates, fat, fiber, and hydration ounces from described water or other non-alcoholic beverages. Also itemize each distinct food, beverage, sauce, and meaningful addition as a short named component with its own estimates; combine negligible herbs or spices when useful. Every component must state whether it uses nutrition_label, photo_estimate, or description_estimate evidence and include its own confidence. Set every top-level numeric total equal to the sum of that field across the components, allowing only ordinary decimal rounding. Net carbohydrates should subtract fiber and applicable sugar alcohols or allulose when the description or ordinary product information supports that adjustment. Honor explicit labels such as 0 net carbs. Apply the Meal Daddy Inflammation Score System from 1 strongly anti-inflammatory to 10 highly inflammatory, considering processing level, refined carbohydrates, added sugars, seed oils, alcohol, and whole-food ratio. Give every component its own score, helpful/neutral/watch impact, and a concise reason. The top-level score reflects the complete meal rather than adding the component scores. Do not invent an oil, sauce, or processing method that is not described or visible; lower confidence and identify important uncertainty in the summary. The score is a food-pattern guidance estimate, not a biomarker, diagnosis, or medical result. Do not count fluid contained inside solid foods, sauces, or soup as hydration. Do not provide medical advice. If quantity is unclear, use a typical serving and explain the key assumption briefly.") + " " + inputInstructions + confirmationInstructions }] }, { role: "user", content: userContent }],
         text: { verbosity: "low", format: { type: "json_schema", name: "nutrition_estimate", strict: true, schema } }
       };
-    openAiResponse = sponsored ? await sponsored.call(providerRequest) : byok
+    openAiResponse = await trackedAiCall({admin,userId:user.id,reservationId,entryId:entry.id,category:"meal_estimate",provider:sponsored?.provider || byok?.provider || "openai",funding:sponsored?"sponsor":byok?"personal":"hosted",request:providerRequest,call:async () => sponsored ? await sponsored.call(providerRequest) : byok
       ? await callByokProvider(byok, providerRequest)
       : await fetch("https://api.openai.com/v1/responses", {
           method: "POST", headers: { "authorization": `Bearer ${openAiKey}`, "content-type": "application/json" },
           body: JSON.stringify(providerRequest), signal: AbortSignal.timeout(45000)
-        });
+        })});
   } catch (error) {
     await releaseReservation();
     if (sponsored) return json({error:error.message || "Sponsor-paid estimation is unavailable. No personal key was used."},error.status || 502);
@@ -416,8 +426,8 @@ Deno.serve(async (request) => {
     applyConsumedPortion(estimate, portion);
     applyComponentTotals(estimate);
   }
-  if (retainedPhotoPath) estimate.photo_path = retainedPhotoPath;
-  for (const field of ["favorite_origin", "input_authority", "edit_revision", "photo_decisions"]) {
+  if (retainedPhotoPath) { estimate.photo_path = retainedPhotoPath; estimate.photo_paths = retainedPhotoPaths; }
+  for (const field of ["favorite_origin", "input_authority", "edit_revision", "photo_decisions", "restaurant", "restaurant_address", "restaurant_order", "substitutions", "source_url", "source_checked_on"]) {
     if (entry.nutrition_estimate?.[field] !== undefined) estimate[field] = entry.nutrition_estimate[field];
   }
   if (entry.kind === "hydration") estimate.ounces = Number(entry.nutrition_estimate?.ounces || 0);

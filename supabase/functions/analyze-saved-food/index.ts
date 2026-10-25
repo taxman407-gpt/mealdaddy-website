@@ -1,3 +1,4 @@
+import {trackedAiCall} from "../_shared/processing-metrics.mjs";
 import {validateSavedFoodAnalysis,totalSavedFoodComponents,applyWrittenLabelValues} from "../_shared/saved-food-validation.mjs";
 import {resolveAiConnection} from "../_shared/ai-connection.mjs";
 import { createClient } from "npm:@supabase/supabase-js@2.54.0";
@@ -258,7 +259,8 @@ Deno.serve(async (request) => {
     }
     reservationId = reservationRows[0].reservation_id;
 
-    const openAiResponse = await ai.call({
+    const trackedCall = request => trackedAiCall({admin,userId:user.id,reservationId,category:"analyze_saved_food",provider:ai.provider,funding:ai.billing==="beta_sponsor"?"sponsor":ai.byok?"personal":"hosted",request,call:request=>ai.call(request)});
+    const openAiResponse = await trackedCall({
         model,
         store: false,
         reasoning: { effort: "none" },
