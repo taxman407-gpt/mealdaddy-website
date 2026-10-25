@@ -90,3 +90,7 @@ Favorite updates preserve this explicit percentage instead of restoring full por
 - At 390 x 844 CSS pixels, the dialog width was approximately 375 pixels and no horizontal document overflow was observed. Screenshot leftover-phone-check.png records the pre-copy-update view. Restored the regular viewport.
 - Updated photo processing disclosures to refer to the selected AI provider. OpenAI remains selected; no Claude/Gemini credentials were activated.
 - No real meal insert, edit, deletion, or provider photo request occurred in this walkthrough. Actual photo upload/provider correctness and Android hardware Back remain separate acceptance gates.
+
+### Photo listed-item correction follow-up — October 25
+
+Fixed photo review so Correct replaces an existing matching semicolon-delimited item and Exclude removes it. Matching is case-insensitive and whole-item only to preserve unrelated written descriptions. A replacement already listed elsewhere is not duplicated. Excluding the only item requires a meal description. Added regression coverage; the full automated suite passed. This is automated coverage, not a real-account meal-save acceptance test.

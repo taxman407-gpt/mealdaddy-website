@@ -1,13 +1,17 @@
 export function reviewedPhotoDescription(description, decisions) {
   const base = String(description || '').trim();
-  const parts = base.toLowerCase() === 'meal photo' ? [] : base.split(';').map((part) => part.trim()).filter(Boolean);
-  const included = new Set(parts.map((part) => part.toLowerCase()));
+  let parts = base.toLowerCase() === 'meal photo' ? [] : base.split(';').map((part) => part.trim()).filter(Boolean);
   for (const { choice, name, correction } of decisions) {
     if (!['add', 'exclude', 'correct'].includes(choice)) throw new Error('Choose Add, Exclude, or Correct for each suspected item.');
+    const original = String(name || '').trim().toLowerCase();
+    // Replace whole listed items only: a guessed name must not rewrite unrelated prose.
+    if (choice === 'exclude' || choice === 'correct') {
+      parts = parts.filter((part) => part.toLowerCase() !== original);
+    }
     if (choice === 'exclude') continue;
     const item = String(choice === 'correct' ? correction || '' : name || '').trim();
     if (!item) throw new Error('Enter the corrected food or drink and amount.');
-    if (!included.has(item.toLowerCase())) { parts.push(item); included.add(item.toLowerCase()); }
+    if (!parts.some((part) => part.toLowerCase() === item.toLowerCase())) parts.push(item);
   }
   const result = parts.join('; ');
   if (!result) throw new Error('Describe what you ate before calculating this meal.');

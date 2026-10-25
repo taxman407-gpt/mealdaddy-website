@@ -18,3 +18,11 @@ assert.equal(gatePhotoComponents({ components: [{ name: 'Unknown drink', calorie
 console.log('Photo review: unconfirmed nutrients excluded; correction, exclusion, deduplication and missing classification passed.');
 
 assert.equal(reviewedPhotoDescription('3 eggs; toast', [{ name: 'toast', choice: 'add' }]), '3 eggs; toast');
+
+// A photo decision must replace or remove an existing listed item, not duplicate it.
+assert.equal(reviewedPhotoDescription('3 eggs; sweet tea', [{ name: 'Sweet tea', choice: 'correct', correction: 'Diet Dr Pepper, 2 oz' }]), '3 eggs; Diet Dr Pepper, 2 oz');
+assert.equal(reviewedPhotoDescription('3 eggs; SWEET TEA', [{ name: 'Sweet tea', choice: 'exclude' }]), '3 eggs');
+assert.equal(reviewedPhotoDescription('3 eggs; sweet tea; water', [{ name: 'Sweet tea', choice: 'correct', correction: 'water' }]), '3 eggs; water');
+assert.equal(reviewedPhotoDescription('steak; tea', [{ name: 'tea', choice: 'exclude' }]), 'steak');
+assert.throws(() => reviewedPhotoDescription('sweet tea', [{ name: 'Sweet tea', choice: 'exclude' }]), /Describe what you ate/);
+assert.equal(reviewedPhotoDescription('sweet tea', [{ name: 'Sweet tea', choice: 'correct', correction: 'water' }]), 'water');
