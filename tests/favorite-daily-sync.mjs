@@ -11,7 +11,7 @@ assert.match(source, /origin\.id === previousFood\.id \|\| origin\.key === previ
 assert.match(source, /Promise\.all\(matches\.slice\(index, index \+ 25\)\.map/, "all matching favorite entries should be updated in safe batches");
 assert.match(source, /favorite_origin:[\s\S]*?servings: multiplier/, "new favorite entries should retain their serving multiplier for later corrections");
 assert.match(source, /updateScope !== "future"[\s\S]*?syncFavoriteEntries\(currentFood, previousFood, updateScope\)/, "future-only edits should preserve history while selected scopes synchronize linked entries");
-assert.match(source, /recipeDescriptionChanged[\s\S]*?textOnly: true/, "meaningful favorite description edits should request a fresh nutrition estimate");
+assert.match(source, /needsRecalculation[\s\S]*?textOnly: true/, "meaningful favorite description edits should request a fresh nutrition estimate");
 assert.match(source, /nutritionChangeSummary\(previousFood, recalculated\)/, "favorite recalculation should tell the user what nutrition changed");
 assert.match(source, /food = normalizedFood\(\{[\s\S]*?\.\.\.food,[\s\S]*?\.\.\.recalculated,[\s\S]*?item_type: food\.item_type/, "the fresh estimate should replace every nutrition field and component before saving");
 for (const field of ["calories", "protein_g", "carbs_g", "net_carbs_g", "fat_g", "fiber_g", "sodium_mg", "added_sugar_g", "saturated_fat_g", "hydration_ounces", "inflammation_score"]) {
