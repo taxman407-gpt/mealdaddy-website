@@ -1,0 +1,30 @@
+name: Welcome email delivery
+on:
+  schedule:
+    - cron: '3-58/5 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: welcome-email-production
+  cancel-in-progress: false
+jobs:
+  deliver:
+    if: github.ref == 'refs/heads/main' && vars.WELCOME_EMAIL_SCHEDULER_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: welcome-email-production
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '24.21.0'
+          package-manager-cache: false
+      - name: Process a bounded welcome batch
+        env:
+          WELCOME_EMAIL_SCHEDULER_ENABLED: 'true'
+          WELCOME_PROJECT_REF: egbieqvbwniaxgqjzqkp
+          WELCOME_SERVICE_ROLE_KEY: ${{ secrets.WELCOME_SERVICE_ROLE_KEY }}
+        run: node scripts/run-welcome-delivery.mjs

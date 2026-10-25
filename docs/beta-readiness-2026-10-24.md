@@ -99,3 +99,7 @@ Fixed photo review so Correct replaces an existing matching semicolon-delimited 
 ### Photo correction save-handler acceptance — October 25
 
 Executed the actual client photo-review submit handler in a simulated database environment. Correct, Add and Exclude update the existing row and request a fresh text-authoritative estimate. Stale writes and save failures preserve the correction draft and do not trigger estimation. Validation rejects incomplete choices before writes. Fixed the handler dropping favorite_origin, added status/kind concurrency checks, and ignored repeated submissions while a save is pending. Regression coverage verifies photo/favorite references remain intact and a repeated submission issues only one update. Full automated suite passed; no real meal records were created or changed for this check.
+
+### Welcome scheduler preparation — October 25
+
+Added a disabled-by-default production delivery workflow and bounded worker caller. It cannot run from the October test branch and requires an explicit repository enable flag plus a protected environment secret. Runtime tests and the full regression suite passed; default CLI execution returned enabled=false/processed=0 without networking. No provider credentials, scheduler enable flag or production sending setting was changed. Resend is open at its sign-in screen; provider setup and a real isolated delivery test require owner sign-in before completion.

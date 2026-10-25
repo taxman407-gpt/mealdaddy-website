@@ -48,3 +48,20 @@ The connector recovered when the migration was split into outbox and report-colu
 Owner Tools → Welcome Email provides subject/body editing, plain-text preview, Save draft, and a separate action to activate the saved draft. Only {{signInUrl}} is substituted. Drafts and publication revisions are audited, with optimistic revision checks to reject stale overwrites. Beta templates use a separate channel; beta activation never alters production content or enables delivery. New outbox records snapshot the active live template, while legacy records retain the original default. The processor uses this frozen snapshot for idempotent retries.
 
 Verified sending still requires a configured sender/provider and scheduler. This editor does not send email or change delivery activation.
+
+## Scheduler prepared — October 25
+
+`.github/workflows/welcome-delivery.yml` supplies the previously missing scheduler. It runs only from `main` and only when the repository variable `WELCOME_EMAIL_SCHEDULER_ENABLED` is exactly `true`. It is inert on the October test branch. The protected GitHub environment is `welcome-email-production`; its `WELCOME_SERVICE_ROLE_KEY` secret must be configured directly in GitHub, never in source or chat. No secret or enablement variable was configured during preparation.
+
+The scheduled job calls the existing production worker every five minutes, offset from the hour. Each run processes at most five deliveries sequentially, stops on an empty/disabled queue or any error, blocks redirects, times out requests, and never prints payloads, recipients, credentials or provider response bodies. There is no immediate scheduler retry of an ambiguous send; the outbox controls retry timing and idempotency. GitHub concurrency prevents overlapping scheduler runs; database leases cover other authorized invocations. GitHub scheduling is best-effort and can be delayed; this is not an immediate delivery SLA.
+
+Activation order:
+1. Sign in to Resend, verify the selected sending domain and configure the sender authentication records. Create a sending-only provider key and enter it directly into Supabase secrets. Never paste credentials in chat.
+2. Complete delivery acceptance using the isolated development project and only `delivered@resend.dev`. Use a synthetic verified test account; confirm the frozen template and repeat-invocation behavior. Do not enable production as a test shortcut.
+3. As part of the approved production release, deploy the snapshot-aware worker, merge the approved code, configure the protected GitHub environment secret, and verify the active welcome copy and sender.
+4. With explicit owner activation approval, enable the server flag and database settings with a fresh activation cutoff, then set the repository scheduler variable to `true`. Existing registrations must remain excluded.
+5. Inspect the first run and owner delivery status. To pause, set the repository variable to `false` and disable the server/database delivery flags. Do not reset uncertain deliveries after the provider idempotency window.
+
+Preparation verified the isolated database currently has Vault but no pg_cron/pg_net installed. The GitHub scheduler avoids introducing those database extensions or putting a service credential into a database HTTP request queue. No production configuration was changed and no email was sent.
+
+References: https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule and https://supabase.com/docs/guides/functions/schedule-functions . Runtime regression tests cover disabled defaults, fixed destinations, bounded batches, stopped retries and sanitized errors.
