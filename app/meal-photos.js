@@ -27,6 +27,7 @@ export function mealPhotoControls(estimate) {
 }
 export function renderPendingPhotos(form) {
   const list = form.querySelector('[data-pending-photos]');
+  if (!list) return;
   list.replaceChildren();
   for (const [index, file] of (form.mealPhotoFiles || []).entries()) {
     const li = document.createElement('li');

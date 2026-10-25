@@ -2982,7 +2982,7 @@ $("#ledger-list").addEventListener("submit", async (event) => {
   let scaledPortion = null;
   try { if (targetKind === "meal") scaledPortion = scaleSavedMealPortion(entry, description); }
   catch (error) { toast(error.message); return; }
-  const files = form.mealPhotoFiles || [];
+  const files = [...(form.mealPhotoFiles || [])];
   const analyzePhotos = targetKind === "meal" && Boolean(form.elements.analyze_photos?.checked);
   if (files.length && targetKind !== "meal") { toast("Choose a meal category to attach photos."); return; }
   if (analyzePhotos && !files.length && !mealPhotoPaths(entry.nutrition_estimate).length) { toast("Add a photo before selecting photo analysis."); return; }
@@ -3016,7 +3016,6 @@ $("#ledger-list").addEventListener("submit", async (event) => {
     changes.nutrition_estimate = scaledPortion;
     changes.status = "estimated";
   } else if (descriptionChanged || kindChanged || analyzePhotos) {
-    const retainedPhotoPath = typeof entry.nutrition_estimate?.photo_path === "string" ? entry.nutrition_estimate.photo_path : null;
     const favoriteOrigin = entry.nutrition_estimate?.favorite_origin || (
       entry.nutrition_estimate?.source === "saved_food"
         ? {
@@ -3195,7 +3194,7 @@ $("#entry-form").addEventListener("submit", async (event) => {
   state.skipSavedFoodMatch = false;
   hideSavedFoodMatchPrompt();
   setQuickLogBusy(true);
-  const submittedPhotos = $("#entry-form").mealPhotoFiles || (state.photo ? [state.photo] : []);
+  const submittedPhotos = [...($("#entry-form").mealPhotoFiles || (state.photo ? [state.photo] : []))];
   const submittedPhoto = submittedPhotos[0] || null;
   const photoValidationMessage = mealPhotoValidationMessage(submittedPhoto);
   if (photoValidationMessage) {
