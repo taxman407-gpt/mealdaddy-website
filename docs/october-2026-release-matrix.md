@@ -14,7 +14,7 @@ Updated October 25, 2026. This is the whole-release checklist, not just meal-inp
 | Affiliate calculation | 15% of collected eligible net subscription receipts for first 12 months; 7.5% lifetime once; no maintenance commission | Integrated sandbox affiliate invoice/refund acceptance remains distinct from monthly/lifetime purchase tests |
 | Commission review | Added owner/MFA-protected paginated ledger with adjusted commission, recorded paid amount and signed balance; no payout action | Isolated API deployed as manage-referrals v9 with JWT verification; authenticated owner UI acceptance remains. No actual affiliate records read during implementation |
 | Affiliate payouts | Ledger contains recorded paid amounts; refunds can leave a negative balance for reconciliation | Payout method, cadence, minimum, refund hold and recording/approval process are not implemented as a complete workflow. Never treat displayed earnings as money sent |
-| Subscriber referrals | One reward per referred customer's first qualifying collected payment; immutable promised conversion; invoice credit cap $5/month; replay/refund tests | Owner must choose points awarded and cents per point. Both remain unset; do not invent values or enable rewards |
+| Subscriber referrals | One reward per referred customer's first qualifying collected payment; immutable promised conversion; invoice credit cap $5/month; replay/refund tests | Owner decision October 31: each verified referral earns $5 once its first qualifying payment is collected. Credits accumulate and carry forward for future monthly memberships (existing $5/month cap retained), future swag redemption once available, and up to 50% of each annual maintenance fee. Implement dollar-credit accounting and these redemption paths; swag is not set up. Program activation and integrated acceptance remain open |
 | Referral discounts | Invoice-bound discount items preserve existing promotions; cancellation/release, partial credit and replay tests | End-to-end sandbox discount application and invoice/refund reconciliation |
 | Billing | Prior isolated sandbox acceptance covered monthly/lifetime purchase, trial conversion, cancellation, refund and replay | Maintenance, referrals, discounts and production deployment/configuration are separate gates |
 | Welcome email | Verified sender, isolated test-sink delivery, repeat invocation processed zero; modern-key authorization; disabled-by-default scheduler | Production credentials/configuration and explicit activation; real-inbox deliverability not established by test sink |
@@ -43,7 +43,7 @@ Updated October 25, 2026. This is the whole-release checklist, not just meal-inp
 
 ## Decisions that must not be guessed
 
-1. Subscriber reward points and cents per point.
+1. Subscriber reward value resolved October 31: $5 per verified and paid referral, awarded once at the first qualifying payment. Balance accumulates for future monthly memberships, future swag, and up to half of annual maintenance fees. Existing $5/month membership redemption cap remains in effect. Implementation and acceptance remain pending; no points conversion decision is needed for the dollar-denominated policy.
 2. Affiliate payout method, timing/minimum and refund hold/reconciliation policy.
 3. BYOK sellout behavior: older hide instruction versus later $295 replacement offer.
 4. Whether local-first storage is required before this release. It remains a requirement until explicitly changed; do not call the current cloud ledger compliant.
