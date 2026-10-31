@@ -14,7 +14,7 @@ The full scope is tracked in [the release matrix](october-2026-release-matrix.md
 
 ## Parked for decisions or separate implementation
 
-- Subscriber referral points awarded and cents-per-point conversion are still unset. No values were invented and the program was not enabled.
+- Resolved October 31: each verified and paid referral earns $5 once at the first qualifying collected payment. Credit accumulates and carries forward for future monthly memberships (existing $5/month redemption cap retained), swag once that program is set up, and up to 50% of each annual maintenance fee. Dollar-credit accounting and the redemption paths still need implementation and integrated acceptance; the program has not been enabled.
 - Affiliate payout cadence, method, minimum and refund hold remain undecided. Commission accrual/reporting is implemented; payout execution and audited recording are not a complete operational workflow.
 - BYOK sellout policy conflicts: the older monitor says hide the offer; later source implements a $295 regular lifetime replacement. Preserve existing behavior until reconciled.
 - Main meal history, profile and progress still use the account database. Full device-local storage/offline lifetime functionality needs a storage abstraction, local persistence and migration, backup/import, and transient AI interfaces. Device-only favorites are not a substitute. No existing customer data was migrated or deleted.
@@ -25,7 +25,7 @@ The full scope is tracked in [the release matrix](october-2026-release-matrix.md
 ## Continue next
 
 1. Verify the owner commission page against isolated fixtures; public deployment matching is complete (see below).
-2. Resolve the three business-policy decisions above, then implement the payout/reward operational steps with audit/idempotency controls.
+2. Resolve the remaining business-policy decisions above, then implement the payout/reward operational steps with audit/idempotency controls.
 3. Implement the local-first architecture as an explicit workstream rather than claiming it through UI wording.
 4. Complete the remaining sandbox/provider/device acceptance and production rollout/rollback review.
 
