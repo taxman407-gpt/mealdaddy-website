@@ -4,6 +4,7 @@ These decisions supersede conflicting unresolved-policy entries in the October 2
 
 ## Subscriber referral credit
 
+- Referral credits have no cash value and are redeemable only toward eligible MealDaddy offerings. They cannot be cashed out or redeemed for money. Apply this wording consistently to referral screens, reward balances, onboarding and program terms when implementing the program.
 - $5 credit per verified referred customer, awarded once after the second qualifying payment (supersedes first-payment award).
 - Credits accumulate and carry forward; redeem toward future monthly memberships, future swag when implemented, and up to 50% of annual maintenance fees.
 - Existing $5/month membership redemption cap remains unchanged.
