@@ -27,7 +27,7 @@
         <label>Email<input id="email" type="email" autocomplete="email" required /></label>
         <label>Password<span class="password-input-wrap"><input id="password" type="password" autocomplete="current-password" minlength="8" required /><button class="password-visibility" type="button" data-password-toggle="password" aria-label="Show password" aria-pressed="false">Show</button></span></label>
         <label id="confirm-password-label" hidden>Confirm new password<span class="password-input-wrap"><input id="confirm-password" type="password" autocomplete="new-password" minlength="8" /><button class="password-visibility" type="button" data-password-toggle="confirm-password" aria-label="Show confirmed password" aria-pressed="false">Show</button></span></label>
-        <label id="signup-adult-label" hidden><input id="signup-adult" type="checkbox"> I confirm that I am at least 18 years old. MealDaddy is for adults only.</label>
+        <label id="signup-adult-label" class="adult-confirmation" hidden><input id="signup-adult" type="checkbox"><span>I confirm that I am at least 18 years old. MealDaddy is for adults only.</span></label>
         <button class="button button-primary full-button" id="auth-submit" type="submit">Sign in</button>
       </form>
       <form id="mfa-signin-form" class="mfa-signin-form" hidden>

@@ -38,12 +38,20 @@ app=app.replace('  if (state.membershipPlan !== "byo") return invokeAuthenticate
 app=app.replace('async function loadMembership() {',`async function loadMembership() {
   if(session.betaPlan){
     state.membershipPlan=session.betaPlan;state.membershipStatus='active';state.membershipAccess='beta';
-    $('#estimate-membership-prompt').hidden=true;$('#subscription').hidden=false;$('#plan-options').hidden=false;$('#trial-note').hidden=false;
+    $('#estimate-membership-prompt').hidden=true;$('#subscription').hidden=false;$('#plan-options').hidden=true;$('#trial-note').hidden=true;
     $('#subscription-title').textContent='Complimentary Private Beta';
-    $('#subscription-copy').textContent='Your invited access is free. No card or paid subscription is required. Plans below are for review only.';
+    $('#subscription-copy').textContent='Your invited access is free. No card or paid subscription is required. Use Review plans to compare membership options; purchases are disabled.';
     $('#billing-status').textContent='Complimentary beta access active';return;
   }`);
 write('app.js',app);
+// Render the billing restriction even if account initialization has not finished.
+let account=read('account.html');
+account=account.replace('id="billing-actions"','id="billing-actions" hidden');
+account=account.replace('id="manage-billing" type="button"','id="manage-billing" type="button" disabled');
+account=account.replace('id="cancel-membership" type="button"','id="cancel-membership" type="button" disabled');
+account=account.replace('<p class="account-explainer" id="membership-explainer">','<p class="account-status" role="status">Billing &amp; invoices are unavailable on this test site. Beta access is complimentary; use the live MealDaddy site to manage an existing paid membership.</p><p class="account-explainer" id="membership-explainer">');
+write('account.html',account);
+
 write('auth.html',read('auth.html').replace('Sign in to open your daily ledger, profile, and plans.','Use your regular MealDaddy login. New testers must use the email Steve approved.').replace('Creating an account does not require payment information. Stripe is used only if you later choose a paid membership.','Private beta access is complimentary. No payment information is required; checkout is disabled.').replace('href="../"','href="https://www.mealdaddy.ai/"'));
 
 // No synthetic inventory in the real beta, and no calls to production billing endpoints.
