@@ -45,7 +45,7 @@ Owner decision: retain cross-device history syncing, activated by a specific opt
 
 ### Separate optional diagnostics control
 
-Implementation design: a separate unchecked checkbox, independent of sync and membership, labeled "Share optional diagnostics to help improve MealDaddy."
+Implementation design: a separate unchecked checkbox, independent of sync and membership, labeled "Allow optional diagnostics to help improve MealDaddy."
 Explanation: "Send technical error reports, app/browser version, performance measurements and feature-use counts to help us find bugs and improve reliability. Optional diagnostics do not include meal descriptions, photos, health details, passwords, API keys or payment details. You can turn this off at any time."
 
 - Collect minimal diagnostic fields; do not capture raw request/response bodies or unsanitized logs that could contain personal information or credentials.
@@ -54,9 +54,11 @@ Explanation: "Send technical error reports, app/browser version, performance mea
 - Disclose essential operational/security records separately rather than implying all logging can be disabled. Define actual fields, access, retention and deletion before release.
 - Diagnostics consent does not authorize marketing use or unrestricted inspection of meal/health records.
 
-### No-sale wording
+### No-sale and restricted-sharing wording
 
-"MealDaddy never sells your personal information. We use information to provide the service and, with your permission, collect optional diagnostics to improve reliability. Service providers process information needed to operate MealDaddy; that is explained in our Privacy Policy."
+"MealDaddy does not sell your personal information or share it for third-party advertising or marketing. Optional diagnostic information is used only to diagnose problems and improve MealDaddy. Service providers may process information needed to operate MealDaddy, as explained in our Privacy Policy."
+
+Owner clarification: diagnostic information is for internal diagnostics, not outside use. Do not disclose optional diagnostics to third parties for their independent purposes. Any provider processing on MealDaddy's behalf must be disclosed and verified against provider configuration and terms before this promise is published. This is a product-policy requirement, not a claim that current integrations have already been audited. Do not describe all user information as used only for diagnostics: account access, requested AI analysis, billing and optional history sync also require processing.
 
 Apply the commitment consistently to onboarding, Account & Privacy, diagnostic explanations and the Privacy Policy. Describe service-provider processing truthfully; do not promise that information never leaves the device or is never processed by another company.
 
