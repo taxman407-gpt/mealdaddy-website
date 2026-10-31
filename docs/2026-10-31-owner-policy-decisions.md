@@ -28,8 +28,36 @@ These decisions supersede conflicting unresolved-policy entries in the October 2
 
 Replace the $250 Founding lifetime offer with the $295 regular lifetime offer. Remove Founding wording; do not hide all lifetime purchasing. Older instructions to hide the offer mean the exhausted Founding offer, not its regular replacement. Reconcile storefront, checkout, disclosures and monitoring wording before release.
 
-## Local storage decision remains open
+## Storage, diagnostic collection and no-sale commitment
 
-Current main meal history, profile and progress use account database storage. Device-only favorites, drafts and API keys do not implement full local history or offline lifetime use.
+Owner decision: retain cross-device history syncing, activated by a specific opt-in checkbox with an explanation. Retain the commitment that no user information is ever sold. Collect information for diagnostics with transparent, separate controls.
 
-Owner requested more information before deciding release timing. No deferral was approved. Explain device storage versus cloud sync, migration and backup/recovery, multi-device tradeoffs, and the distinction between offline access to stored data and online AI analysis. Preserve existing member records; no migration or deletion is authorized by this decision record.
+### Cloud-sync control
+
+- Onboarding and Account & Privacy: unchecked by default for users without explicit consent.
+- Checkbox: "Sync my MealDaddy history across my devices."
+- Explanation: "Save my meal history, nutrition profile and progress in my protected MealDaddy account so I can access them on other devices. If this is off, these records stay on this device and need a backup before I clear browser data or replace the device."
+- Turning this off must stop future optional history/profile uploads. It must not silently delete existing cloud or local records. Explain existing cloud retention and provide a separate removal action.
+- Account authentication, membership/billing and essential security records are distinct from optional meal-history syncing and must be disclosed. AI requests still send the content required for the selected analysis even with sync off.
+- Existing users require a migration/consent flow that preserves their records. Do not infer explicit consent from historical cloud storage or silently migrate/delete data.
+- Main history/profile/progress currently use account database storage. Full local persistence, export/import and offline support must work before enabling this checkbox or claiming that unchecked means device-only. A cosmetic checkbox that leaves uploads running is not acceptable.
+- No deferral of the local/offline requirement was authorized.
+
+### Separate optional diagnostics control
+
+Implementation design: a separate unchecked checkbox, independent of sync and membership, labeled "Share optional diagnostics to help improve MealDaddy."
+Explanation: "Send technical error reports, app/browser version, performance measurements and feature-use counts to help us find bugs and improve reliability. Optional diagnostics do not include meal descriptions, photos, health details, passwords, API keys or payment details. You can turn this off at any time."
+
+- Collect minimal diagnostic fields; do not capture raw request/response bodies or unsanitized logs that could contain personal information or credentials.
+- Use aggregate reporting where practical. Do not call pseudonymous or account-linked diagnostics anonymous.
+- Gate optional diagnostic collection at its source on the current saved choice. Disabling it stops future optional reports and discards unsent optional diagnostic events.
+- Disclose essential operational/security records separately rather than implying all logging can be disabled. Define actual fields, access, retention and deletion before release.
+- Diagnostics consent does not authorize marketing use or unrestricted inspection of meal/health records.
+
+### No-sale wording
+
+"MealDaddy never sells your personal information. We use information to provide the service and, with your permission, collect optional diagnostics to improve reliability. Service providers process information needed to operate MealDaddy; that is explained in our Privacy Policy."
+
+Apply the commitment consistently to onboarding, Account & Privacy, diagnostic explanations and the Privacy Policy. Describe service-provider processing truthfully; do not promise that information never leaves the device or is never processed by another company.
+
+Status: decisions and acceptance requirements recorded; functional controls, local storage, consent migration and diagnostic pipeline verification remain implementation work. No production data or collection settings changed by this record.
