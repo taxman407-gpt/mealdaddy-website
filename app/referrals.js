@@ -5,7 +5,7 @@ export async function initializeReferrals({invoke,user,root=document}){
  async function refresh(){
   const data=await request({action:'status'});
   find('referral-balance').textContent=`${data.pointsAvailable} available points · Affiliate balance: ${new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(data.commissionCents/100)}`;
-  const terms=data.program.subscriberEnabled?`${data.program.pointsPerReferral} points once per new referred customer's first qualifying collected payment. Each point redeems for ${data.program.centsPerPoint} cent(s), up to $5 per billing month.`:'New subscriber referrals are paused or not yet configured. Existing earned points retain their promised terms.';
+  const terms=data.program.subscriberEnabled?`${data.program.pointsPerReferral} points once per new referred customer's second qualifying collected payment. Each point redeems for ${data.program.centsPerPoint} cent(s), up to $5 per billing month. Existing promised rewards retain their original terms. Cash, swag and maintenance redemption are not yet available.`:'New subscriber referrals are paused or not yet configured. Existing earned points retain their promised terms.';
   find('referral-program-terms').textContent=terms;
   find('referral-affiliate-state').textContent=`Affiliate application: ${data.affiliateStatus||'not submitted'}. Affiliate codes require owner approval.`;
   find('subscriber-referral-code').disabled=!data.program.subscriberEnabled;

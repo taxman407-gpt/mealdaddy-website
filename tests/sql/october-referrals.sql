@@ -33,6 +33,8 @@ do $$ declare u uuid; first_redemption uuid; begin
  if (select amount_cents from public.affiliate_commissions where receipt_key='invoice:late-first')<>0 then raise exception 'Out-of-order delivery moved eligibility window'; end if;
  perform public.attribute_referral('00000000-0000-4000-8000-00000000a106','00000000-0000-4000-8000-00000000b105','2026-10-22');
  perform public.attribute_referral('00000000-0000-4000-8000-00000000a107','00000000-0000-4000-8000-00000000b105','2026-10-22');
+ -- Legacy promise compatibility fixture. New two-payment terms have a separate test.
+ update public.referral_attributions set required_payments=1 where referred_user_id in ('00000000-0000-4000-8000-00000000a106','00000000-0000-4000-8000-00000000a107');
  update public.referral_program_settings set subscriber_enabled=false where id;
  perform public.record_referral_receipt('reward:first','pi:reward-first','00000000-0000-4000-8000-00000000a106','subscription','2026-10-22',999);
  perform public.record_referral_receipt('reward:renew','pi:reward-renew','00000000-0000-4000-8000-00000000a106','subscription','2026-11-22',999);

@@ -1,3 +1,4 @@
+import { requireAdultEligibility } from "../_shared/adult-eligibility.mjs";
 import Stripe from "npm:stripe@22.6.0";
 import { createClient } from "npm:@supabase/supabase-js@2.54.0";
 import { requireConditionalMfa } from "../_shared/conditional-mfa.ts";
@@ -17,6 +18,8 @@ Deno.serve(async(request)=>{
  const auth=createClient(url,anon,{global:{headers:{Authorization:authorization}}});
  const {data:{user},error:authError}=await auth.auth.getUser();if(authError||!user)return json({error:'Authentication required.'},401);
  const admin=createClient(url,service);const mfa=await requireConditionalMfa(admin,user.id,authorization);if(!mfa.ok)return json({error:mfa.error},mfa.status);
+  const adult = await requireAdultEligibility(admin,user.id);
+  if (!adult.ok) return json({error:adult.error},adult.status);
  let input:{plan?:string;kind?:string};try{input=await request.json();}catch{return json({error:'Invalid request.'},400);}
  if(!input||typeof input!=='object'||Array.isArray(input))return json({error:'Invalid request.'},400);
  const kind=input.kind==='maintenance'?'maintenance':'purchase';

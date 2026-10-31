@@ -1,3 +1,4 @@
+import { createOptionalDiagnostics } from "./optional-diagnostics.js?v=20261031-1";
 import { createClient } from "./vendor/supabase-js.js?v=20260813-4";
 import { initializeEntryFeedback, observeEstimateRequest } from "./entry-reliability.js?v=20261016-1";
 
@@ -32,12 +33,35 @@ export async function requireSession() {
     location.replace(`./auth.html?mfa=required&returnTo=${returnTo}`);
     return null;
   }
+  // Billing management/export/deletion remain available without an adult confirmation.
+  const eligibilityExempt = /\/(?:adult-eligibility|account)(?:\.html)?\/?$/.test(location.pathname);
+  if (!eligibilityExempt) {
+    const age = await supabase.from('adult_eligibility').select('confirmed_adult,policy_version').eq('user_id',data.session.user.id).maybeSingle();
+    if (age.error || age.data?.confirmed_adult !== true || age.data.policy_version !== 1) {
+      location.replace('./adult-eligibility.html');
+      return null;
+    }
+  }
   // Mount only when the Quick Log form exists. Other account screens are unchanged.
   initializeEntryFeedback();
   return data.session;
 }
 
+const reportOptionalDiagnostic = createOptionalDiagnostics(supabase);
+
 export async function invokeAuthenticated(functionName, options = {}) {
+  const started = performance.now();
+  try {
+    const result = await invokeWithFeedback(functionName, options);
+    void reportOptionalDiagnostic(functionName, performance.now()-started, Boolean(result?.error));
+    return result;
+  } catch (error) {
+    void reportOptionalDiagnostic(functionName, performance.now()-started, true);
+    throw error;
+  }
+}
+
+async function invokeWithFeedback(functionName, options = {}) {
   if (functionName === "estimate-entry") {
     return observeEstimateRequest(() => invokeAuthenticatedRequest(functionName, options), options.body);
   }

@@ -1,4 +1,4 @@
-const release = "20261016-v97";
+const release = "20261031-v98";
 const canonicalHost = "www.mealdaddy.ai";
 
 function isLocalHostname(hostname) {

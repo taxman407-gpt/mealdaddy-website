@@ -1,3 +1,4 @@
+import { requireAdultEligibility } from "../_shared/adult-eligibility.mjs";
 import {trackedAiCall} from "../_shared/processing-metrics.mjs";
 import {validateSavedFoodAnalysis,totalSavedFoodComponents,applyWrittenLabelValues} from "../_shared/saved-food-validation.mjs";
 import {resolveAiConnection} from "../_shared/ai-connection.mjs";
@@ -113,6 +114,8 @@ Deno.serve(async (request) => {
   try {
     const mfaResult = await requireConditionalMfa(admin, user.id, authHeader);
     if (!mfaResult.ok) return json({ error: mfaResult.error }, mfaResult.status);
+  const adult = await requireAdultEligibility(admin,user.id);
+  if (!adult.ok) return json({error:adult.error},adult.status);
     let ai;
     try { ai = await resolveAiConnection({admin,userId:user.id,byokInput,hostedKey:openAiKey}); }
     catch(error) { return json({error:error.message},error.status||503); }

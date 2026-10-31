@@ -127,6 +127,8 @@ const accountWasDeleted = new URLSearchParams(location.search).get("account") ==
 function setMode(nextMode) {
   mode = nextMode;
   const signingUp = mode === "signup";
+  document.querySelector("#signup-adult-label").hidden = !signingUp;
+  document.querySelector("#signup-adult").required = signingUp;
   document.querySelector("#signin-tab").classList.toggle("is-active", !signingUp);
   document.querySelector("#signup-tab").classList.toggle("is-active", signingUp);
   title.textContent = signingUp ? "Create your account" : "Welcome back";
@@ -191,6 +193,7 @@ form.addEventListener("submit", async (event) => {
   }
   status.textContent = mode === "signup" ? "Creating your account..." : "Signing in...";
 
+  if (mode === "signup" && !document.querySelector("#signup-adult").checked) { status.textContent="You must be at least 18 to create a MealDaddy account."; submit.disabled=false; return; }
   const credentials = { email: email.value.trim(), password: password.value };
   const result = mode === "signup"
     ? await supabase.auth.signUp({

@@ -30,7 +30,7 @@ Deno.serve(async(request)=>{
     if(existingRewards?.length)return json({error:'Already-promised point values cannot be changed through this settings screen.'},409);
    }
    const affiliate= input.affiliateEnabled===true,subscriber=input.subscriberEnabled===true;
-   if(subscriber&&(points===null||cents===null))return json({error:'Choose and disclose the point award and conversion before enabling subscriber rewards.'},400);
+   if(subscriber&&(points!==500||cents!==1))return json({error:'Subscriber rewards require the approved $5 award: 500 points at one cent each.'},400);
    const {error}=await admin.from('referral_program_settings').update({affiliate_enabled:affiliate,subscriber_enabled:subscriber,points_per_referral:points,cents_per_point:cents,...(!settings.affiliate_enabled&&!settings.subscriber_enabled&&(affiliate||subscriber)?{started_at:new Date().toISOString()}:{})}).eq('id',true);
    return error?json({error:'Settings could not be saved.'},503):json({ok:true});
   }
@@ -109,5 +109,5 @@ Deno.serve(async(request)=>{
  ]);
  if(codeError||commissionError||rewardError||redemptionError||affiliateError)return json({error:'Referral balances are unavailable.'},503);
  const earned=(rewards||[]).filter(row=>!row.revoked).reduce((sum,row)=>sum+Number(row.points),0),used=(redemptions||[]).filter(row=>row.status!=='released').reduce((sum,row)=>sum+Number(row.points),0);
- return json({ok:true,codes:codes||[],affiliateStatus:affiliate?.status||null,commissionCents:(commissions||[]).reduce((sum,row)=>sum+Number(row.amount_cents)-Number(row.paid_out_cents),0),pointsAvailable:Math.max(0,earned-used),redemptions:redemptions||[],program:{affiliateEnabled:settings.affiliate_enabled,subscriberEnabled:settings.subscriber_enabled,pointsPerReferral:settings.points_per_referral,centsPerPoint:settings.cents_per_point,monthlyCapCents:500}});
+ return json({ok:true,codes:codes||[],affiliateStatus:affiliate?.status||null,commissionCents:(commissions||[]).reduce((sum,row)=>sum+Number(row.amount_cents)-Number(row.paid_out_cents),0),pointsAvailable:Math.max(0,earned-used),redemptions:redemptions||[],program:{affiliateEnabled:settings.affiliate_enabled,subscriberEnabled:settings.subscriber_enabled,pointsPerReferral:settings.points_per_referral,centsPerPoint:settings.cents_per_point,monthlyCapCents:500,requiredPayments:2,rewardCents:500}});
 });

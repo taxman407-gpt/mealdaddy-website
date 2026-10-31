@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 
 const origin = 'https://mealdaddy-october-test.taxman407.workers.dev';
 const hash = value => createHash('sha256').update(value).digest('hex');
-const files = ['auth.js', 'auth.html', 'supabase-client.js', 'app.js', 'app.html', 'saved-foods.js', 'styles.css',
+const files = ['optional-diagnostics.js', 'adult-eligibility.html', 'adult-eligibility.js', 'auth.js', 'auth.html', 'supabase-client.js', 'app.js', 'app.html', 'saved-foods.js', 'styles.css',
   'beta-connection.js', 'beta-controls.js', 'beta-admin.js', 'byok-vault.js',
   'ai-usage.html', 'ai-usage.js', 'meal-photos.js', 'entry-reliability.js', 'feedback-insights.html', 'meal-drafts.js', 'draft-navigation.js', 'photo-review.js', 'meal-portion.js', 'welcome-email.html', 'welcome-email.js', 'welcome-email.css', 'account.html', 'account.js', 'referrals.js', 'referral-admin.html', 'referral-admin.js', 'referral-client.js', 'founding-license.js', 'founding-policy.mjs', 'membership-policy.mjs', 'saved-foods-store.js', 'index.html'];
 const get = path => fetch(`${origin}/${path}`, {

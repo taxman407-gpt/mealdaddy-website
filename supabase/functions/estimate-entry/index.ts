@@ -1,3 +1,4 @@
+import { requireAdultEligibility } from "../_shared/adult-eligibility.mjs";
 import {trackedAiCall} from "../_shared/processing-metrics.mjs";
 import { validatedMealPhotoPaths } from "../_shared/meal-photo-paths.mjs";
 import {PRIVATE_BETA_DEPLOYMENT} from "../_shared/beta-deployment.mjs";
@@ -116,6 +117,8 @@ Deno.serve(async (request) => {
   const admin = createClient(supabaseUrl, serviceKey);
   const mfaResult = await requireConditionalMfa(admin, user.id, authHeader);
   if (!mfaResult.ok) return json({ error: mfaResult.error }, mfaResult.status);
+  const adult = await requireAdultEligibility(admin,user.id);
+  if (!adult.ok) return json({error:adult.error},adult.status);
   let { data: membership } = await admin.from("subscriptions").select("plan_key,status").eq("user_id", user.id).maybeSingle();
   if (Deno.env.get("ENABLE_LIFETIME_BILLING") === "true") {
     const { data: license, error: licenseError } = await admin.from("lifetime_licenses").select("plan_key,status,purchased_at,maintenance_paid_through").eq("user_id", user.id).maybeSingle();

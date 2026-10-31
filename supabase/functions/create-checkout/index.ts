@@ -1,3 +1,4 @@
+import { requireAdultEligibility } from "../_shared/adult-eligibility.mjs";
 import { membershipPlans, assertPlanPrice } from "../_shared/membership-policy.mjs";
 import Stripe from "npm:stripe@22.6.0";
 import { createClient } from "npm:@supabase/supabase-js@2.54.0";
@@ -95,6 +96,8 @@ Deno.serve(async (request) => {
   const admin = createClient(supabaseUrl, serviceKey);
   const mfaResult = await requireConditionalMfa(admin, user.id, authHeader);
   if (!mfaResult.ok) return json({ error: mfaResult.error }, mfaResult.status);
+  const adult = await requireAdultEligibility(admin,user.id);
+  if (!adult.ok) return json({error:adult.error},adult.status);
   const { data: complimentaryGrant, error: grantError } = await admin
     .from("complimentary_access_grants")
     .select("status")

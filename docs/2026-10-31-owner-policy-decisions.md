@@ -63,3 +63,7 @@ Owner clarification: diagnostic information is for internal diagnostics, not out
 Apply the commitment consistently to onboarding, Account & Privacy, diagnostic explanations and the Privacy Policy. Describe service-provider processing truthfully; do not promise that information never leaves the device or is never processed by another company.
 
 Status: decisions and acceptance requirements recorded; functional controls, local storage, consent migration and diagnostic pipeline verification remain implementation work. No production data or collection settings changed by this record.
+
+## Adult eligibility — approved October 31
+
+Owner selected an 18+ only launch. Require an explicit adult self-attestation, without collecting date of birth, for new users and existing members before nutrition/AI use or new purchases. Keep billing management, exports and account deletion accessible. Self-attestation is not independent age verification. Provider onboarding must describe the intended adults-only audience truthfully; deploy and verify controls before launch.

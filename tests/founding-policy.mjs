@@ -10,4 +10,4 @@ const closed={capacity:2000,soldOut:true,remaining:0};
 assert.deepEqual(foundingOfferState(closed),{visible:true,counter:'',regular:true});
 assert.deepEqual(foundingOfferState(closed,{standard:true}),{visible:true,counter:'',regular:true});
 assert.equal(foundingOfferState({capacity:2000,soldOut:false,remaining:-1}).visible,false);
-console.log('Separate Founding bars: visible from 2,000, exact labels, BYOK hiding and Standard regular transition passed.');
+console.log('Separate Founding bars: visible from 2,000, exact labels, BYOK $295 and Standard regular-offer transition passed.');

@@ -8,7 +8,7 @@ async function run(purchasedAt,now,body={plan:'core_lifetime',kind:'maintenance'
  let handler,stripeCalls=0;
  const admin={auth:{getUser:async()=>({data:{user:{id:'fixture'}},error:null})},from:table=>{const q={select:()=>q,eq:()=>q,maybeSingle:async()=>({data:table==='lifetime_licenses'?{status:'paid',plan_key:'core',purchased_at:purchasedAt}:null,error:null})};return q;}};
  class Clock extends Date {static now(){return Date.parse(now);}}
- vm.runInNewContext(source,{URL,createClient:()=>admin,requireConditionalMfa:async()=>({ok:true}),addUtcYears,Date:Clock,Stripe:class {constructor(){stripeCalls++;throw Error('Stripe boundary reached');}},Deno:{env:{get:n=>n==='ENABLE_LIFETIME_BILLING'?'true':n==='SUPABASE_PUBLISHABLE_KEYS'?'{}':n==='APP_ORIGIN'?'https://fixture.test':'fixture'},serve:fn=>handler=fn},Response});
+ vm.runInNewContext(source,{URL,createClient:()=>admin,requireAdultEligibility:async()=>({ok:true}),requireConditionalMfa:async()=>({ok:true}),addUtcYears,Date:Clock,Stripe:class {constructor(){stripeCalls++;throw Error('Stripe boundary reached');}},Deno:{env:{get:n=>n==='ENABLE_LIFETIME_BILLING'?'true':n==='SUPABASE_PUBLISHABLE_KEYS'?'{}':n==='APP_ORIGIN'?'https://fixture.test':'fixture'},serve:fn=>handler=fn},Response});
  try {const response=await handler(new Request('https://fixture.test',{method:'POST',headers:{authorization:'Bearer fixture'},body:JSON.stringify(body)}));return {status:response.status,body:await response.json(),stripeCalls};}
  catch(error){assert.equal(error.message,'Stripe boundary reached');return {stripeCalls};}
 }

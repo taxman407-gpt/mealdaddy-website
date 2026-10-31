@@ -1,3 +1,4 @@
+import { initializeDiagnosticsControl } from "./optional-diagnostics.js?v=20261031-1";
 import { initializeReferrals } from "./referrals.js?v=20261022-1";
 import { createByokVault } from "./byok-vault.js?v=20261022-1";
 import { lifetimeAccess, addUtcYears } from "./membership-policy.mjs?v=20261022-1";
@@ -12,6 +13,7 @@ const session = await requireSession();
 if (!session) throw new Error("Authentication required");
 
 const user = session.user;
+void initializeDiagnosticsControl({client:supabase,userId:user.id});
 void initializeReferrals({ invoke: invokeAuthenticated, user });
 let membership = null;
 let contactOptedIn = true;

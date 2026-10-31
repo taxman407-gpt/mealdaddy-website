@@ -1,3 +1,4 @@
+import { requireAdultEligibility } from "../_shared/adult-eligibility.mjs";
 import {trackedAiCall} from "../_shared/processing-metrics.mjs";
 import {resolveAiConnection} from "../_shared/ai-connection.mjs";
 import { createClient } from "npm:@supabase/supabase-js@2.54.0";
@@ -307,6 +308,8 @@ Deno.serve(async (request) => {
   const admin = createClient(supabaseUrl, secretKey);
   const mfaResult = await requireConditionalMfa(admin, user.id, authHeader);
   if (!mfaResult.ok) return json({ error: mfaResult.error }, mfaResult.status);
+  const adult = await requireAdultEligibility(admin,user.id);
+  if (!adult.ok) return json({error:adult.error},adult.status);
   let ai;
   try { ai = await resolveAiConnection({admin,userId:user.id,byokInput,hostedKey:openAiKey}); ai.assertCapabilities({webSearch:mode === "restaurant"}); }
   catch(error) { return json({error:error.message},error.status||503); }

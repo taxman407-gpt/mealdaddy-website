@@ -18,7 +18,7 @@ const owner = '00000000-0000-4000-8000-000000000001';
 const baseNutrients = Object.fromEntries(contract.nutrientFields.map((field) => [field, 0]));
 function component(name, calories, extras = {}) { return { ...baseNutrients, name, calories, evidence_type: 'description_estimate', confidence: 'medium', inflammation_score: 3, inflammation_impact: 'neutral', inflammation_note: 'Test estimate.', ...extras }; }
 function answer(components) { return { ...baseNutrients, components, entry_description: 'Synthetic meal', photo_quality: { suitable: true, reason: '' }, photo_description: '', description_reconciliation_note: '', label_detected: false, label_food: {}, inflammation_score: 3, inflammation_summary: 'Test estimate.', confidence: 'medium', note: 'Synthetic fixture.' }; }
-async function exercise({ description = '1 oz vinaigrette', metadata = {}, kind = 'meal', status = 'pending_estimate', response = answer([component('1 oz vinaigrette', 45)]), stale = false, mfa = true, ownRow = true, body = {}, authorization = true, plan = "core", enableByok = false, hostedConfigured = true, cloudEnabled = false, cloudRecord = null, masterSecret = "", sponsorEnabled=false, sponsorAllowed=true } = {}) {
+async function exercise({ description = '1 oz vinaigrette', metadata = {}, kind = 'meal', status = 'pending_estimate', response = answer([component('1 oz vinaigrette', 45)]), stale = false, mfa = true, adult = true, ownRow = true, body = {}, authorization = true, plan = "core", enableByok = false, hostedConfigured = true, cloudEnabled = false, cloudRecord = null, masterSecret = "", sponsorEnabled=false, sponsorAllowed=true } = {}) {
   let handler;
   let providerCalls = 0, photoDownloads = 0, writes = 0, settlements = 0;
   let submitted;
@@ -61,7 +61,7 @@ async function exercise({ description = '1 oz vinaigrette', metadata = {}, kind 
   const context = {
     trackedAiCall, PRIVATE_BETA_DEPLOYMENT:false, validatedMealPhotoPaths, ...contract, applyComponentTotals, gatePhotoComponents, openByokCredentials, validateByok, callByokProvider, lifetimeAccess,
     createClient: () => client,
-    requireConditionalMfa: async () => mfa ? { ok: true } : { ok: false, status: 403, error: 'MFA required.' },
+    requireAdultEligibility:async()=>adult?({ok:true}):({ok:false,status:403,error:"Adult confirmation required"}),requireConditionalMfa: async () => mfa ? { ok: true } : { ok: false, status: 403, error: 'MFA required.' },
     Deno: { env: { get(name) { if(name === 'ENABLE_BYOK_CLOUD') return cloudEnabled ? 'true' : 'false'; if(name === 'BYOK_VAULT_MASTER_KEY') return masterSecret; if(name === 'ENABLE_BYOK') return enableByok ? 'true' : 'false'; if(name === 'OPENAI_API_KEY' && !hostedConfigured) return undefined; return name === 'SUPABASE_URL' ? 'https://synthetic.example.test' : name === 'SUPABASE_PUBLISHABLE_KEYS' ? '{}' : 'test-value'; } }, serve(fn) { handler = fn; } },
     AbortSignal, crypto: webcrypto, TextEncoder, Uint8Array, Response, Request, Blob, URL, btoa, atob,
     fetch: async (url, options) => {
@@ -213,3 +213,7 @@ for(const paths of [['other-user/private.jpg'],Array.from({length:5},(_,i)=>`${o
  assert.equal(r.status,400); assert.equal(r.photoDownloads,0); assert.equal(r.providerCalls,0); assert.equal(r.writes,0);
 }
 console.log('Multiple meal photos: private paths, four-photo cap, one meal/portion, text-only edits and restaurant context passed.');
+
+const ageDenied = await exercise({adult:false});
+assert.equal(ageDenied.status,403);
+assert.equal(ageDenied.providerCalls,0);
