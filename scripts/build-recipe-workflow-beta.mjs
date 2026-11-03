@@ -2,7 +2,9 @@
 // This opt-in wrapper leaves the existing deployment command and live beta unchanged.
 import './build-private-beta.mjs';
 import {addRecipeWorkflowBeta} from './recipe-workflow-beta.mjs';
+import {addPriorityOneBeta} from './priority-one-beta.mjs';
 import {addFavoriteSearchBeta} from './favorite-search-beta.mjs';
 addRecipeWorkflowBeta('dist-beta');
 addFavoriteSearchBeta('dist-beta');
+addPriorityOneBeta('dist-beta');
 console.log('Prepared draft recipe/shopping workflow in dist-beta. No deployment performed.');

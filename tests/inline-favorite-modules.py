@@ -42,7 +42,8 @@ const requestPersistentDeviceStorage=async()=>({supported:false,persistent:false
             source=re.sub(r'\bexport\s+','',source)
             exports+=aliases
             source=source.replace('import.meta.url',json.dumps('https://fixture.invalid/app/'+path.name))
-            source=source.replace('location.href',json.dumps('https://fixture.invalid/app/app.html'))
+            if path.name != 'planning-view-history.mjs':
+                source=source.replace('location.href',json.dumps('https://fixture.invalid/app/app.html'))
         built.append(f'const {symbol}=(()=>{{\n{source}\nreturn {{{",".join(exports)}}};\n}})();')
         return symbol
     main=pattern.sub(lambda m:replacements(m,root/'fixture.html'),entry)

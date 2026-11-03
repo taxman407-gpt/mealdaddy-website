@@ -58,6 +58,8 @@ with sync_playwright() as p:
     page.wait_for_function('window.ready')
     search=page.locator('#saved-foods-mood-search')
     check(page.locator('[data-saved-food]:visible').count()==4,'Main list includes loaded synced and device-only foods')
+    check(search.input_value()=='','Favorites initially has no prefilled filter')
+    page.screenshot(path=str(OUT/'favorites-all-mobile.png'),full_page=True)
     check(page.locator('[data-saved-food]:visible').first.get_attribute('data-saved-food')=='sync:chicken','Existing pinned ordering preserved')
     search.fill('creamy rosemary')
     check(page.locator('[data-saved-food]:visible').count()==1,'Main list searches notes and components together')
@@ -97,6 +99,8 @@ with sync_playwright() as p:
     page.locator('#rw-library-filter .favorite-search-only input').check()
     check(r1.is_visible() and not r2.is_visible(),'Favorites-only library filter uses saved flag')
     check(r2.is_checked(),'Favorites-only toggle retains nonfavorite selection')
+    page.locator('#rw-library-filter .favorite-search-row button').evaluate('(el)=>el.click()')
+    check(r1.is_visible() and r2.is_visible(),'Clear restores all meals and clears Favorites-only')
     for width in [320,360,390,768,1280]:
         page.set_viewport_size({'width':width,'height':850})
         check(page.evaluate('document.documentElement.scrollWidth<=innerWidth'),f'Shopping filter no overflow at {width}px')

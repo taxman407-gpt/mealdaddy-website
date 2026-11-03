@@ -72,7 +72,7 @@ export function createFavoriteSearch(host, {id, onChange = () => {}, initialQuer
   count.textContent = 'Loading saved meals…';
   host.replaceChildren(label, row, hint, chips, favoriteLabel, count);
   function notify() {
-    clear.disabled = !input.value;
+    clear.disabled = !input.value && !(allowFavoritesOnly && favoriteOnly.checked);
     chips.querySelectorAll('button').forEach(chip => chip.setAttribute('aria-pressed',
       String(normalizeFavoriteQuery(input.value) === chip.dataset.searchWord.toLowerCase())));
     onChange();
@@ -81,9 +81,9 @@ export function createFavoriteSearch(host, {id, onChange = () => {}, initialQuer
   input.addEventListener('compositionend', notify);
   input.addEventListener('search', notify);
   input.addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); notify(); } });
-  clear.addEventListener('click', () => { input.value = ''; notify(); input.focus(); });
+  clear.addEventListener('click', () => { input.value = ''; favoriteOnly.checked = false; notify(); input.focus(); });
   favoriteOnly.addEventListener('change', notify);
-  clear.disabled = !input.value;
+  clear.disabled = !input.value && !(allowFavoritesOnly && favoriteOnly.checked);
   return {
     get query() { return input.value; },
     get favoritesOnly() { return allowFavoritesOnly && favoriteOnly.checked; },
