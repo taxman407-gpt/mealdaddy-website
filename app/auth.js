@@ -6,6 +6,8 @@ const email = document.querySelector("#email");
 const password = document.querySelector("#password");
 const confirmPassword = document.querySelector("#confirm-password");
 const confirmPasswordLabel = document.querySelector("#confirm-password-label");
+const recoveryCodeLabel = document.querySelector("#recovery-code-label");
+const recoveryCode = document.querySelector("#recovery-code");
 const status = document.querySelector("#auth-status");
 const submit = document.querySelector("#auth-submit");
 const title = document.querySelector("#auth-title");
@@ -16,6 +18,7 @@ const mfaSubmit = document.querySelector("#mfa-signin-submit");
 const mfaFactor = document.querySelector("#mfa-signin-factor");
 let mode = "signin";
 let recoverySession = false;
+let recoveryCodeRequested = false;
 let pendingMfaFactorId = "";
 let pendingMfaFactors = [];
 let pendingMfaChallengeId = "";
@@ -89,8 +92,37 @@ async function continueAfterAuthentication(destination) {
   location.replace(destination);
 }
 
+function showRecoveryCodeForm() {
+  recoveryCodeRequested = true;
+  recoverySession = false;
+  mfaForm.hidden = true;
+  form.hidden = false;
+  document.querySelector(".auth-tabs").hidden = true;
+  document.querySelector("#signup-adult-label").hidden = true;
+  document.querySelector("#signup-adult").required = false;
+  email.closest("label").hidden = false;
+  email.required = true;
+  recoveryCodeLabel.hidden = false;
+  recoveryCode.required = true;
+  title.textContent = "Reset your MealDaddy password";
+  copy.textContent = "Enter the six-digit code from your email, then choose and confirm a new password.";
+  password.value = "";
+  password.autocomplete = "new-password";
+  confirmPasswordLabel.hidden = false;
+  confirmPassword.required = true;
+  submit.textContent = "Verify code and save password";
+  document.querySelector("#reset-password").hidden = false;
+  document.querySelector("#reset-password").textContent = "Resend recovery code";
+  status.textContent = "Enter the six-digit recovery code sent to your email.";
+}
+
 function showRecoveryForm() {
   recoverySession = true;
+  recoveryCodeRequested = false;
+  recoveryCodeLabel.hidden = true;
+  recoveryCode.required = false;
+  document.querySelector("#signup-adult-label").hidden = true;
+  document.querySelector("#signup-adult").required = false;
   mfaForm.hidden = true;
   form.hidden = false;
   document.querySelector(".auth-tabs").hidden = true;
@@ -104,7 +136,7 @@ function showRecoveryForm() {
   confirmPassword.required = true;
   submit.textContent = "Save new password";
   document.querySelector("#reset-password").hidden = true;
-  status.textContent = "Your secure recovery link was accepted. Choose your new password.";
+  status.textContent = "Your recovery code or link was verified. Choose your new password.";
 }
 
 const returnTo = new URLSearchParams(location.search).get("returnTo") || "./app.html";
@@ -142,6 +174,10 @@ function setMode(nextMode) {
 
 document.querySelector("#signin-tab").addEventListener("click", () => setMode("signin"));
 document.querySelector("#signup-tab").addEventListener("click", () => setMode("signup"));
+recoveryCode.addEventListener("input", (event) => {
+  event.target.value = String(event.target.value || "").replace(/\D/g, "").slice(0, 6);
+});
+
 document.querySelectorAll("[data-password-toggle]").forEach((button) => button.addEventListener("click", () => {
   const input = document.querySelector(`#${button.dataset.passwordToggle}`);
   const showing = input.type === "text";
@@ -154,6 +190,34 @@ document.querySelectorAll("[data-password-toggle]").forEach((button) => button.a
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
   submit.disabled = true;
+  if (recoveryCodeRequested && !recoverySession) {
+    if (password.value !== confirmPassword.value) {
+      submit.disabled = false;
+      status.textContent = "The two passwords do not match. Please enter them again.";
+      confirmPassword.focus();
+      return;
+    }
+    const token = String(recoveryCode.value || "").replace(/\D/g, "").slice(0, 6);
+    if (token.length !== 6) {
+      submit.disabled = false;
+      status.textContent = "Enter the six-digit code from your recovery email.";
+      recoveryCode.focus();
+      return;
+    }
+    status.textContent = "Verifying your recovery code…";
+    const { error } = await supabase.auth.verifyOtp({
+      email: email.value.trim(),
+      token,
+      type: "recovery"
+    });
+    if (error) {
+      submit.disabled = false;
+      status.textContent = error.message || "That recovery code could not be verified. Request a fresh code and try again.";
+      recoveryCode.select();
+      return;
+    }
+    showRecoveryForm();
+  }
   if (recoverySession) {
     try {
       const factors = await requiredMfaFactors();
@@ -291,9 +355,13 @@ document.querySelector("#reset-password").addEventListener("click", async () => 
   recoveryTarget.searchParams.set("mode", "recovery");
   recoveryTarget.searchParams.set("returnTo", safeReturnTo);
   const { error } = await supabase.auth.resetPasswordForEmail(address, { redirectTo: recoveryTarget.href });
-  status.textContent = error
-    ? error.message
-    : "MealDaddy password email sent. Open its Reset Password link, then return here to choose and confirm your new password.";
+  if (error) {
+    status.textContent = error.message;
+    return;
+  }
+  history.replaceState(null, "", recoveryTarget.href);
+  showRecoveryCodeForm();
+  status.textContent = "Recovery email sent. Enter the six-digit code from that email, then save your new password.";
 });
 
 supabase.auth.onAuthStateChange((event) => {
@@ -305,7 +373,8 @@ const recoveryRequested = recoveryParams.get("type") === "recovery" || recoveryP
 if (data.session && recoverySession) {
   // PASSWORD_RECOVERY is the trusted signal; a query parameter alone is not.
 } else if (recoveryRequested) {
-  status.textContent = "This page has not received a verified password-recovery session. Open the newest Reset Password link from your MealDaddy email, or request another link below.";
+  showRecoveryCodeForm();
+  status.textContent = "Enter the six-digit code from your recovery email. If you only have an older reset link, request a fresh code below.";
 } else if (data.session) {
   try {
     await continueAfterAuthentication(safeReturnTo);
