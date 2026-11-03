@@ -25,6 +25,7 @@
       </div>
       <form id="auth-form">
         <label>Email<input id="email" type="email" autocomplete="email" required /></label>
+        <label id="recovery-code-label" hidden>Email recovery code<input id="recovery-code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" /></label>
         <label>Password<span class="password-input-wrap"><input id="password" type="password" autocomplete="current-password" minlength="8" required /><button class="password-visibility" type="button" data-password-toggle="password" aria-label="Show password" aria-pressed="false">Show</button></span></label>
         <label id="confirm-password-label" hidden>Confirm new password<span class="password-input-wrap"><input id="confirm-password" type="password" autocomplete="new-password" minlength="8" /><button class="password-visibility" type="button" data-password-toggle="confirm-password" aria-label="Show confirmed password" aria-pressed="false">Show</button></span></label>
         <button class="button button-primary full-button" id="auth-submit" type="submit">Sign in</button>
@@ -42,7 +43,7 @@
       <p class="auth-status" id="auth-status" role="status" aria-live="polite"></p>
     </section>
   </main>
-  <script type="module" src="./auth.js?v=20261004-1"></script>
+  <script type="module" src="./auth.js?v=20261103-1"></script>
   <script src="./register-sw.js?v=20260813-5"></script>
 </body>
 </html>
