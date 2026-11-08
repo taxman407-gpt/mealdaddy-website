@@ -75,10 +75,11 @@ jobs:
               same_origin = urllib.parse.urlsplit(final).netloc == urllib.parse.urlsplit(origin).netloc
               record(label + ': sign-in page available', status == 200 and same_origin and '<html' in text.lower(), 'HTTP ' + str(status))
 
-          def check_manifest():
-              status, final, headers, text = request(ORIGINS['beta'] + '/beta-build.json')
+          def check_health():
+              # worker.beta.js deliberately blocks /beta-build.json; /health is its public status route.
+              status, final, headers, text = request(ORIGINS['beta'] + '/health')
               manifest = json.loads(text)
-              record('beta: shared-account build manifest', status == 200 and manifest.get('accounts') == 'shared' and manifest.get('billing') == 'disabled' and manifest.get('apiNamespace') == 'beta-', 'Shared accounts; billing disabled; beta namespace')
+              record('beta: live shared-account health response', status == 200 and manifest.get('environment') == 'private-beta' and manifest.get('accounts') == 'shared' and manifest.get('billing') == 'disabled' and manifest.get('apiNamespace') == 'beta-', 'Shared accounts; billing disabled; beta namespace')
 
           def check_public_api(label, origin):
               if label not in clients:
@@ -100,7 +101,7 @@ jobs:
           for label, origin in ORIGINS.items():
               run(label + ': client request', lambda label=label, origin=origin: check_client(label, origin))
               run(label + ': authentication page request', lambda label=label, origin=origin: check_auth(label, origin))
-          run('beta: build manifest request', check_manifest)
+          run('beta: health request', check_health)
           for label, origin in ORIGINS.items():
               run(label + ': public API requests', lambda label=label, origin=origin: check_public_api(label, origin))
           report = {'checked_at': datetime.datetime.now(datetime.timezone.utc).isoformat(), 'scope': 'Read-only public deployment and anonymous-access verification. Not an authenticated browser sign-in or meal-write test.', 'checks': results}
