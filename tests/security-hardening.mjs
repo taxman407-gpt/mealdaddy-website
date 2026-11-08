@@ -31,7 +31,7 @@ assert.match(wrangler, /"directory"\s*:\s*"\.\/dist"/);
 assert.match(securityTxt, /^Contact: mailto:/m);
 assert.match(securityTxt, /^Canonical: https:\/\/www\.mealdaddy\.ai\/\.well-known\/security\.txt$/m);
 assert.match(securityTxt, /^Expires: 2027-10-04T23:59:59Z$/m);
-assert.match(worker, /const release = "20261031-v98"/);
+assert.match(worker, /const release = "20261108-v99"/);
 assert.match(worker, /privatePathPrefixes/);
 assert.match(worker, /privateRootFiles/);
 assert.match(worker, /new Response\("Not found", \{ status: 404 \}\)/);

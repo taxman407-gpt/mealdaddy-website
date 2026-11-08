@@ -19,6 +19,9 @@ const mfaFactor = document.querySelector("#mfa-signin-factor");
 let mode = "signin";
 let recoverySession = false;
 let recoveryCodeRequested = false;
+let recoveryCodeVerificationPending = false;
+let recoveryRequestPending = false;
+let recoveryRequestAfter = 0;
 let pendingMfaFactorId = "";
 let pendingMfaFactors = [];
 let pendingMfaChallengeId = "";
@@ -77,7 +80,7 @@ async function showMfaForm(factors) {
   mfaForm.hidden = false;
   title.textContent = "Enter your security code";
   copy.textContent = recoverySession
-    ? "Your recovery link was accepted. Complete two-step verification before choosing your new password."
+    ? "Your recovery code or link was accepted. Complete two-step verification before choosing your new password."
     : "Your password was accepted. Complete two-step verification to finish signing in.";
   await prepareSelectedMfaFactor();
   mfaCode.focus();
@@ -105,7 +108,7 @@ function showRecoveryCodeForm() {
   recoveryCodeLabel.hidden = false;
   recoveryCode.required = true;
   title.textContent = "Reset your MealDaddy password";
-  copy.textContent = "Enter the six-digit code from your email, then choose and confirm a new password.";
+  copy.textContent = "Open the reset link in your email, or enter its six-digit code below and choose a new password.";
   password.value = "";
   password.autocomplete = "new-password";
   confirmPasswordLabel.hidden = false;
@@ -116,7 +119,7 @@ function showRecoveryCodeForm() {
   status.textContent = "Enter the six-digit recovery code sent to your email.";
 }
 
-function showRecoveryForm() {
+function showRecoveryForm(options = {}) {
   recoverySession = true;
   recoveryCodeRequested = false;
   recoveryCodeLabel.hidden = true;
@@ -130,7 +133,10 @@ function showRecoveryForm() {
   email.required = false;
   title.textContent = "Choose a new MealDaddy password";
   copy.textContent = "Enter and confirm a new password below. Use at least eight characters.";
-  password.value = "";
+  if (!options.preservePassword) {
+    password.value = "";
+    confirmPassword.value = "";
+  }
   password.autocomplete = "new-password";
   confirmPasswordLabel.hidden = false;
   confirmPassword.required = true;
@@ -189,6 +195,7 @@ document.querySelectorAll("[data-password-toggle]").forEach((button) => button.a
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
+  if (submit.disabled) return;
   submit.disabled = true;
   if (recoveryCodeRequested && !recoverySession) {
     if (password.value !== confirmPassword.value) {
@@ -205,18 +212,29 @@ form.addEventListener("submit", async (event) => {
       return;
     }
     status.textContent = "Verifying your recovery code…";
-    const { error } = await supabase.auth.verifyOtp({
-      email: email.value.trim(),
-      token,
-      type: "recovery"
-    });
+    const requestedPassword = password.value;
+    const requestedConfirmation = confirmPassword.value;
+    let verification;
+    try {
+      recoveryCodeVerificationPending = true;
+      verification = await supabase.auth.verifyOtp({
+        email: email.value.trim(), token, type: "recovery"
+      });
+    } catch (error) {
+      verification = { error };
+    } finally {
+      recoveryCodeVerificationPending = false;
+    }
+    const { error } = verification;
     if (error) {
       submit.disabled = false;
       status.textContent = error.message || "That recovery code could not be verified. Request a fresh code and try again.";
       recoveryCode.select();
       return;
     }
-    showRecoveryForm();
+    showRecoveryForm({ preservePassword: true });
+    password.value = requestedPassword;
+    confirmPassword.value = requestedConfirmation;
   }
   if (recoverySession) {
     try {
@@ -237,6 +255,12 @@ form.addEventListener("submit", async (event) => {
       submit.disabled = false;
       status.textContent = "The two passwords do not match. Please enter them again.";
       confirmPassword.focus();
+      return;
+    }
+    if (password.value.length < 8) {
+      submit.disabled = false;
+      status.textContent = "Use at least eight characters for your new password.";
+      password.focus();
       return;
     }
     status.textContent = "Updating your password...";
@@ -345,27 +369,45 @@ document.querySelector("#mfa-use-another-account").addEventListener("click", asy
 });
 
 document.querySelector("#reset-password").addEventListener("click", async () => {
+  if (recoveryRequestPending) return;
+  if (Date.now() < recoveryRequestAfter) {
+    status.textContent = "Please wait a minute before requesting another recovery email. Check your inbox and spam folder for the newest message.";
+    return;
+  }
   const address = email.value.trim();
   if (!address) {
     status.textContent = "Enter your email address first.";
     email.focus();
     return;
   }
+  const resetButton = document.querySelector("#reset-password");
   const recoveryTarget = new URL("./auth.html", location.href);
   recoveryTarget.searchParams.set("mode", "recovery");
   recoveryTarget.searchParams.set("returnTo", safeReturnTo);
-  const { error } = await supabase.auth.resetPasswordForEmail(address, { redirectTo: recoveryTarget.href });
-  if (error) {
-    status.textContent = error.message;
-    return;
+  recoveryRequestPending = true;
+  resetButton.disabled = true;
+  status.textContent = "Requesting your recovery email…";
+  try {
+    const { error } = await supabase.auth.resetPasswordForEmail(address, { redirectTo: recoveryTarget.href });
+    if (error) throw error;
+    recoveryRequestAfter = Date.now() + 60000;
+    history.replaceState(null, "", recoveryTarget.href);
+    showRecoveryCodeForm();
+    status.textContent = "Recovery email requested. Open its reset link, or enter the six-digit code if the email includes one. Check your spam folder too.";
+  } catch (error) {
+    const limited = error?.status === 429 || /rate|too many/i.test(error?.code || "") || /rate.*limit|too many/i.test(error?.message || "");
+    if (limited) recoveryRequestAfter = Date.now() + 60000;
+    status.textContent = limited
+      ? "The email service is temporarily rate-limited. Do not keep resending. Use the newest recovery email already received, or try again later."
+      : error?.message || "The recovery email request could not be completed. Your password has not changed.";
+  } finally {
+    recoveryRequestPending = false;
+    resetButton.disabled = false;
   }
-  history.replaceState(null, "", recoveryTarget.href);
-  showRecoveryCodeForm();
-  status.textContent = "Recovery email sent. Enter the six-digit code from that email, then save your new password.";
 });
 
 supabase.auth.onAuthStateChange((event) => {
-  if (event === "PASSWORD_RECOVERY") showRecoveryForm();
+  if (event === "PASSWORD_RECOVERY" && !recoveryCodeVerificationPending && !recoverySession) showRecoveryForm();
 });
 const { data } = await supabase.auth.getSession();
 const recoveryParams = new URLSearchParams(location.search);
@@ -374,7 +416,7 @@ if (data.session && recoverySession) {
   // PASSWORD_RECOVERY is the trusted signal; a query parameter alone is not.
 } else if (recoveryRequested) {
   showRecoveryCodeForm();
-  status.textContent = "Enter the six-digit code from your recovery email. If you only have an older reset link, request a fresh code below.";
+  status.textContent = "Open the reset link in your recovery email, or enter its six-digit code below. Request a new email only if the existing one has expired.";
 } else if (data.session) {
   try {
     await continueAfterAuthentication(safeReturnTo);
