@@ -1,0 +1,114 @@
+name: Verify shared database deployments
+on:
+  push:
+    branches: [audit/shared-database-20261108]
+    paths: [.github/workflows/verify-shared-database.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify-live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify public deployment configuration without user credentials
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import datetime
+          import hashlib
+          import json
+          import os
+          import re
+          import sys
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+
+          EXPECTED = 'https://egbieqvbwniaxgqjzqkp.supabase.co'
+          ORIGINS = {
+              'production': 'https://www.mealdaddy.ai',
+              'beta': 'https://mealdaddy-october-test.taxman407.workers.dev',
+          }
+          results = []
+          clients = {}
+
+          def request(url, method='GET', headers=None, data=None):
+              h = {'User-Agent': 'MealDaddy-read-only-deployment-verification/1.0', 'Cache-Control': 'no-cache'}
+              h.update(headers or {})
+              req = urllib.request.Request(url, data=data, headers=h, method=method)
+              try:
+                  with urllib.request.urlopen(req, timeout=25) as response:
+                      return response.status, response.geturl(), dict(response.headers), response.read(3000000).decode('utf-8')
+              except urllib.error.HTTPError as error:
+                  return error.code, error.geturl(), dict(error.headers), error.read(10000).decode('utf-8', errors='replace')
+
+          def record(name, passed, detail):
+              results.append({'check': name, 'passed': bool(passed), 'detail': detail})
+
+          def run(name, fn):
+              try:
+                  fn()
+              except Exception as error:
+                  record(name, False, type(error).__name__)
+
+          def check_client(label, origin):
+              status, final, headers, text = request(origin + '/app/supabase-client.js')
+              same_origin = urllib.parse.urlsplit(final).netloc == urllib.parse.urlsplit(origin).netloc
+              record(label + ': client available on intended host', status == 200 and same_origin, 'HTTP ' + str(status))
+              match = re.search(r'const\s+SUPABASE_URL\s*=\s*[\"\x27]([^\"\x27]+)', text)
+              url = match.group(1).rstrip('/') if match else ''
+              record(label + ': shared production project', url == EXPECTED, url or 'Project URL not found')
+              record(label + ': no isolated test database', 'dkirmzthyynogkkaacmj' not in text, 'Client source inspected')
+              record(label + ': no server secret in client', 'sb_secret_' not in text, 'Client source inspected')
+              key = re.search(r'const\s+SUPABASE_(?:PUBLISHABLE|ANON)_KEY\s*=\s*[\"\x27]([^\"\x27]+)', text)
+              if url == EXPECTED and key:
+                  clients[label] = (url, key.group(1))
+              record(label + ': client digest', status == 200, hashlib.sha256(text.encode()).hexdigest())
+              if label == 'beta':
+                  record('beta: invitation gate present', 'beta-access' in text and "action:'accept'" in text, 'Client source inspected')
+                  record('beta: namespaced functions', "'beta-'+functionName" in text, 'Client source inspected')
+                  record('beta: billing blocked', 'Payments and account deletion are disabled during the private beta' in text, 'Client source inspected')
+
+          def check_auth(label, origin):
+              status, final, headers, text = request(origin + '/app/auth.html')
+              same_origin = urllib.parse.urlsplit(final).netloc == urllib.parse.urlsplit(origin).netloc
+              record(label + ': sign-in page available', status == 200 and same_origin and '<html' in text.lower(), 'HTTP ' + str(status))
+
+          def check_manifest():
+              status, final, headers, text = request(ORIGINS['beta'] + '/beta-build.json')
+              manifest = json.loads(text)
+              record('beta: shared-account build manifest', status == 200 and manifest.get('accounts') == 'shared' and manifest.get('billing') == 'disabled' and manifest.get('apiNamespace') == 'beta-', 'Shared accounts; billing disabled; beta namespace')
+
+          def check_public_api(label, origin):
+              if label not in clients:
+                  record(label + ': public API checks', False, 'Verified public client configuration unavailable')
+                  return
+              url, key = clients[label]
+              headers = {'apikey': key, 'Origin': origin}
+              status, final, response_headers, text = request(url + '/auth/v1/settings', headers=headers)
+              record(label + ': authentication service available', status == 200, 'HTTP ' + str(status))
+              status, final, response_headers, text = request(url + '/rest/v1/ledger_entries?select=id&limit=1', headers=headers)
+              private = status in (401, 403) or (status == 200 and json.loads(text) == [])
+              record(label + ': anonymous ledger access denied', private, 'No user records printed; HTTP ' + str(status))
+              status, final, response_headers, text = request(url + '/functions/v1/beta-access', method='POST', headers={**headers, 'Content-Type': 'application/json'}, data=b'{"action":"status"}')
+              record(label + ': beta service requires authentication', status == 401, 'HTTP ' + str(status))
+              status, final, response_headers, text = request(url + '/functions/v1/beta-access', method='OPTIONS', headers={**headers, 'Access-Control-Request-Method': 'POST', 'Access-Control-Request-Headers': 'authorization,apikey,x-client-info,content-type'})
+              normalized = {k.lower(): v for k, v in response_headers.items()}
+              record(label + ': beta service CORS', status in (200, 204) and normalized.get('access-control-allow-origin') in ('*', origin), 'HTTP ' + str(status))
+
+          for label, origin in ORIGINS.items():
+              run(label + ': client request', lambda label=label, origin=origin: check_client(label, origin))
+              run(label + ': authentication page request', lambda label=label, origin=origin: check_auth(label, origin))
+          run('beta: build manifest request', check_manifest)
+          for label, origin in ORIGINS.items():
+              run(label + ': public API requests', lambda label=label, origin=origin: check_public_api(label, origin))
+          report = {'checked_at': datetime.datetime.now(datetime.timezone.utc).isoformat(), 'scope': 'Read-only public deployment and anonymous-access verification. Not an authenticated browser sign-in or meal-write test.', 'checks': results}
+          print(json.dumps(report, indent=2))
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as file:
+              file.write('# Shared database deployment verification\n\n')
+              file.write(report['scope'] + '\n\n')
+              for result in results:
+                  file.write(('- PASS: ' if result['passed'] else '- FAIL: ') + result['check'] + ' — ' + result['detail'] + '\n')
+          sys.exit(0 if results and all(result['passed'] for result in results) else 1)
+          PY
