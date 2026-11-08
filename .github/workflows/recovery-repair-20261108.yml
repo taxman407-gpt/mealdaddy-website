@@ -13,6 +13,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: fix/recovery-e2e-20261108
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -33,6 +34,7 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          import re
           path=Path('app/auth.js')
           text=path.read_text()
           if 'recoveryCodeVerificationPending' not in text:
@@ -48,42 +50,10 @@ jobs:
               assert section.count('  password.value = "";')==1
               section=section.replace('  password.value = "";', '  if (!options.preservePassword) {\n    password.value = "";\n    confirmPassword.value = "";\n  }',1)
               text=text[:start]+section+text[end:]
-              once('''    const { error } = await supabase.auth.verifyOtp({
-                email: email.value.trim(),
-                token,
-                type: "recovery"
-              });'''.replace('                ', '      ').replace('              });', '    });'), '''    const requestedPassword = password.value;
-              const requestedConfirmation = confirmPassword.value;
-              let verification;
-              try {
-                recoveryCodeVerificationPending = true;
-                verification = await supabase.auth.verifyOtp({
-                  email: email.value.trim(), token, type: "recovery"
-                });
-              } catch (error) {
-                verification = { error };
-              } finally {
-                recoveryCodeVerificationPending = false;
-              }
-              const { error } = verification;'''.replace('\n              ', '\n    '))
-              once('''    showRecoveryForm();
-            }
-            if (recoverySession) {'''.replace('\n            ', '\n  '), '''    showRecoveryForm({ preservePassword: true });
-              password.value = requestedPassword;
-              confirmPassword.value = requestedConfirmation;
-            }
-            if (recoverySession) {'''.replace('\n              ', '\n    ').replace('\n            ', '\n  '))
-              once('''  event.preventDefault();
-            submit.disabled = true;'''.replace('\n            ', '\n  '), '''  event.preventDefault();
-            if (submit.disabled) return;
-            submit.disabled = true;'''.replace('\n            ', '\n  '))
-              once('''    status.textContent = "Updating your password...";''', '''    if (password.value.length < 8) {
-                submit.disabled = false;
-                status.textContent = "Use at least eight characters for your new password.";
-                password.focus();
-                return;
-              }
-              status.textContent = "Updating your password...";'''.replace('\n              ', '\n    ').replace('\n                ', '\n      '))
+              once('    const { error } = await supabase.auth.verifyOtp({\n      email: email.value.trim(),\n      token,\n      type: "recovery"\n    });', '    const requestedPassword = password.value;\n    const requestedConfirmation = confirmPassword.value;\n    let verification;\n    try {\n      recoveryCodeVerificationPending = true;\n      verification = await supabase.auth.verifyOtp({\n        email: email.value.trim(), token, type: "recovery"\n      });\n    } catch (error) {\n      verification = { error };\n    } finally {\n      recoveryCodeVerificationPending = false;\n    }\n    const { error } = verification;')
+              once('    showRecoveryForm();\n  }\n  if (recoverySession) {', '    showRecoveryForm({ preservePassword: true });\n    password.value = requestedPassword;\n    confirmPassword.value = requestedConfirmation;\n  }\n  if (recoverySession) {')
+              once('  event.preventDefault();\n  submit.disabled = true;', '  event.preventDefault();\n  if (submit.disabled) return;\n  submit.disabled = true;')
+              once('    status.textContent = "Updating your password...";', '    if (password.value.length < 8) {\n      submit.disabled = false;\n      status.textContent = "Use at least eight characters for your new password.";\n      password.focus();\n      return;\n    }\n    status.textContent = "Updating your password...";')
               once('if (event === "PASSWORD_RECOVERY") showRecoveryForm();', 'if (event === "PASSWORD_RECOVERY" && !recoveryCodeVerificationPending && !recoverySession) showRecoveryForm();')
               reset_start=text.index('document.querySelector("#reset-password").addEventListener("click", async () => {')
               reset_end=text.index('\nsupabase.auth.onAuthStateChange',reset_start)
@@ -133,8 +103,9 @@ jobs:
               path.write_text(text)
           for filename in ['app/auth.html','app/service-worker.js','tests/release-cache-consistency.mjs']:
               p=Path(filename);s=p.read_text()
-              import re
-              s=re.sub(r'auth\.js\?v=\d{8}-\d+', 'auth.js?v=20261108-1', s)
+              # Only update the current ./auth.js reference, not historical versions
+              # in the regression test's explicit stale-version rejection list.
+              s=re.sub(r'(?<=\./)auth\.js\?v=\d{8}-\d+', 'auth.js?v=20261108-1', s)
               p.write_text(s)
           for p in [Path('worker.js'),Path('app/service-worker.js'),*Path('tests').glob('*.mjs')]:
               s=p.read_text()
@@ -155,5 +126,6 @@ jobs:
           git add app/auth.js app/auth.html app/service-worker.js worker.js tests/
           if ! git diff --cached --quiet; then
             git commit -m 'Fix recovery-code password loss, duplicate reset requests and stale auth cache references'
+            git pull --rebase origin fix/recovery-e2e-20261108
             git push origin HEAD:fix/recovery-e2e-20261108
           fi
