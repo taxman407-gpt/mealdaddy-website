@@ -7,8 +7,8 @@ const shellMatch = serviceWorker.match(/const SHELL = (\[[^;]+\]);/);
 assert.ok(shellMatch, "The service-worker shell manifest must be readable.");
 const shell = JSON.parse(shellMatch[1]);
 
-assert.match(serviceWorker, /mealdaddy-shell-v98/);
-assert.match(read("worker.js"), /const release = "20261031-v98"/);
+assert.match(serviceWorker, /mealdaddy-shell-v99/);
+assert.match(read("worker.js"), /const release = "20261108-v99"/);
 
 for (const page of ["app/index.html", "app/auth.html", "app/app.html", "app/account.html", "app/setup.html"]) {
   const html = read(page);
@@ -17,7 +17,7 @@ for (const page of ["app/index.html", "app/auth.html", "app/app.html", "app/acco
 }
 
 for (const [page, expectedScript] of [
-  ["app/auth.html", "./auth.js?v=20261023-1"],
+  ["app/auth.html", "./auth.js?v=20261108-1"],
   ["app/app.html", "./app.js?v=20261022-1"],
   ["app/account.html", "./account.js?v=20261008-1"],
   ["app/setup.html", "./setup.js?v=20261004-8"]
