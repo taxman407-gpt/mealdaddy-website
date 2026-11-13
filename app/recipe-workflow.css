@@ -1,0 +1,47 @@
+.rw-panel { display:none!important; grid-column:1/-1; min-width:0; box-sizing:border-box; padding:clamp(16px,3vw,32px); margin:0 auto; width:100%; max-width:940px; background:#fff; color:#173f35; border-radius:16px; line-height:1.5; overflow-wrap:anywhere; }
+body[data-app-subview="recreate"] .dashboard > :not(#rw-recreate), body[data-app-subview="shopping"] .dashboard > :not(#rw-shopping) { display:none!important; }
+body[data-app-subview="recreate"] #rw-recreate, body[data-app-subview="shopping"] #rw-shopping { display:block!important; }
+.rw-panel *, .rw-panel *::before, .rw-panel *::after { box-sizing:border-box; min-width:0; }
+.rw-panel [hidden] { display:none!important; }
+.rw-panel h1 { font-size:clamp(1.6rem,5vw,2.2rem); line-height:1.2; margin:12px 0; }
+.rw-panel h2 { font-size:1.4rem; margin:24px 0 12px; }
+.rw-panel h3 { font-size:1.15rem; }
+.rw-panel .rw-kicker { font-weight:700; letter-spacing:.08em; text-transform:uppercase; margin:24px 0 8px; }
+.rw-panel fieldset, .rw-panel details, .rw-panel article { padding:16px; border:1px solid #c7d6cf; border-radius:12px; margin:16px 0; }
+.rw-panel legend, .rw-panel summary { font-weight:700; font-size:1.1rem; }
+.rw-panel summary { cursor:pointer; }
+.rw-panel label { display:block!important; font-weight:600; margin:14px 0 6px; }
+.rw-panel input:not([type="checkbox"]), .rw-panel select, .rw-panel textarea { display:block; width:100%; max-width:100%; min-height:44px; padding:10px 12px; border:1px solid #718c80; border-radius:8px; background:#fff; color:#142c25; font:inherit; margin:6px 0 10px; }
+.rw-panel textarea { resize:vertical; }
+.rw-panel .rw-check { display:flex!important; gap:12px; align-items:flex-start; font-weight:400; }
+.rw-panel input[type="checkbox"] { flex:none; width:22px; height:22px; margin:2px 0; accent-color:#173f35; }
+.rw-panel .rw-actions { display:flex; flex-wrap:wrap; gap:10px; margin:16px 0; }
+.rw-panel button { min-height:44px; padding:10px 14px; background:#173f35; color:#fff; border:2px solid #173f35; border-radius:8px; font:inherit; font-weight:600; cursor:pointer; white-space:normal; overflow-wrap:anywhere; }
+.rw-panel button[aria-pressed="false"] { background:#fff; color:#173f35; }
+.rw-panel :focus-visible { outline:3px solid #d17c16; outline-offset:3px; }
+.rw-panel button:disabled { opacity:.55; cursor:wait; }
+.rw-panel a { color:#12533f; text-decoration:underline; }
+.rw-panel .rw-note { color:#465c52; font-size:.94rem; }
+.rw-panel .rw-status:not(:empty), .rw-panel .rw-stale { padding:12px; background:#fff3d9; color:#69400b; border-radius:8px; }
+.rw-panel .rw-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr)); gap:12px; }
+.rw-panel .rw-fields { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+.rw-panel .rw-recipe li { margin-bottom:8px; }
+.rw-panel dl { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+.rw-panel dd { margin:0; }
+#rw-print-root { display:none; }
+@media(max-width:560px) { .rw-panel .rw-fields {grid-template-columns:1fr;} .rw-panel .rw-actions {flex-direction:column;} .rw-panel .rw-actions button {width:100%;} .rw-panel fieldset,.rw-panel details,.rw-panel article {padding:12px;} }
+@media print {
+  @page {margin:16mm;}
+  body.rw-printing > :not(#rw-print-root) {display:none!important;}
+  body.rw-printing #rw-print-root {display:block!important; color:#000; background:#fff; font:11pt/1.45 Arial,sans-serif; width:auto; margin:0; padding:0;}
+  #rw-print-root pre {font:inherit;white-space:pre-wrap;overflow-wrap:anywhere;}
+  #rw-print-root h1 {font-size:22pt;line-height:1.2;}
+  #rw-print-root h2 {font-size:16pt;}
+  #rw-print-root h3 {font-size:13pt;}
+  #rw-print-root h1,#rw-print-root h2,#rw-print-root h3 {break-after:avoid;}
+  #rw-print-root li,#rw-print-root section {break-inside:avoid;margin-bottom:10pt;}
+  #rw-print-root a {color:#000;text-decoration:underline;overflow-wrap:anywhere;}
+}
+
+.rw-panel .rw-item > button {margin:6px 6px 0 0;}
+@media print { body.rw-printing {background:#fff!important;margin:0!important;padding:0!important;} }
