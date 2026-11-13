@@ -1,0 +1,62 @@
+name: Read-only live and beta feature inventory
+on:
+  push:
+    branches: [audit/shared-database-20261108]
+    paths: [.github/workflows/feature-inventory-20261108.yml]
+permissions:
+  contents: read
+jobs:
+  compare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 5f35ef055aaccf6ccab0bd5bc4170624438bc7b5
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npx --yes pnpm@9.10.0 install --frozen-lockfile
+      - run: npm run build && node scripts/build-private-beta.mjs
+      - name: Compare public assets without signing in or sending emails
+        run: |
+          python3 - <<'PY'
+          import concurrent.futures,datetime,hashlib,json,pathlib,re,subprocess,urllib.request,urllib.error
+          origins={'live':'https://www.mealdaddy.ai','beta':'https://mealdaddy-october-test.taxman407.workers.dev'}
+          files=['app.html','app.js','auth.html','auth.js','supabase-client.js','meal-photos.js','meal-portion.js','meal-drafts.js','draft-navigation.js','photo-review.js','saved-foods.js','byok-vault.js','optional-diagnostics.js','adult-eligibility.js','beta-controls.js','founding-license.js']
+          received={}
+          def fetch(item):
+              label,name=item
+              req=urllib.request.Request(origins[label]+'/app/'+name,headers={'Cache-Control':'no-cache','User-Agent':'MealDaddy-read-only-feature-inventory'})
+              try:
+                  with urllib.request.urlopen(req,timeout=20) as r:return label,name,r.status,r.read(1000000)
+              except urllib.error.HTTPError as e:return label,name,e.code,b''
+              except Exception:return label,name,0,b''
+          with concurrent.futures.ThreadPoolExecutor(max_workers=6) as pool:
+              for label,name,status,body in pool.map(fetch,[(label,name) for label in origins for name in files]):received[(label,name)]=(status,body)
+          rows=[]
+          for name in files:
+              live_status,live=received[('live',name)];beta_status,beta=received[('beta',name)]
+              expected=pathlib.Path('dist-beta/app/'+name)
+              rows.append({'asset':name,'live_http':live_status,'beta_http':beta_status,'different_from_live':live!=beta,'beta_matches_latest_build':expected.exists() and beta_status==200 and expected.read_bytes()==beta})
+          print('DEPLOYED_ASSET_COMPARISON='+json.dumps(rows))
+          for label in origins:
+              html=received[(label,'app.html')][1].decode(errors='replace')
+              js=received[(label,'app.js')][1].decode(errors='replace')
+              auth=received[(label,'auth.js')][1].decode(errors='replace')
+              nav=re.findall(r'<button[^>]*data-app-nav="([^"]+)"[^>]*>(.*?)</button>',html,re.S)
+              nav=[{'view':view,'label':re.sub('<[^>]+>','',text)} for view,text in nav]
+              details={'navigation':nav,'recovery_password_preservation_fix':'recoveryCodeVerificationPending' in auth,'weekly_related_code':[line.strip()[:240] for line in js.splitlines() if re.search(r'weekly|7.day|seven.day',line,re.I)][:10]}
+              print('DEPLOYED_'+label.upper()+'='+json.dumps(details))
+          print('CURRENT_SOURCE_REFERRAL_POLICY='+pathlib.Path('supabase/functions/_shared/referral-policy.mjs').read_text())
+          print('CURRENT_SOURCE_BETA_CONNECTION='+pathlib.Path('app/beta-connection.js').read_text())
+          print('CURRENT_SOURCE_SHARED_CLIENT='+ '\n'.join(pathlib.Path('app/supabase-client.js').read_text().splitlines()[:14]))
+          report={'checked_at':datetime.datetime.now(datetime.timezone.utc).isoformat(),'source_commit':'5f35ef055aaccf6ccab0bd5bc4170624438bc7b5','scope':'Read-only public assets; no login, email, payment or data write. Matching code is not functional end-to-end certification.','assets':rows}
+          pathlib.Path('feature-inventory.json').write_text(json.dumps(report,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: live-beta-feature-inventory
+          path: feature-inventory.json
+          retention-days: 7
