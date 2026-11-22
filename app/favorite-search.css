@@ -1,0 +1,18 @@
+.favorite-search { box-sizing:border-box; margin:16px 0; padding:16px; border:1px solid #809e90; border-radius:12px; background:#f7faf8; color:#173f35; min-width:0; }
+.favorite-search *, .favorite-search *::before { box-sizing:border-box; min-width:0; }
+.favorite-search > label { display:block!important; font-weight:700; margin:0 0 8px; }
+.favorite-search .favorite-search-row { display:flex; align-items:center; gap:8px; }
+.favorite-search input[type="search"] { display:block; flex:1; width:100%; min-height:44px; border:1px solid #718c80; border-radius:8px; padding:10px; margin:0; background:#fff; color:#173f35; font:inherit; }
+.favorite-search button { min-height:44px; padding:8px 12px; margin:0; border:1px solid #173f35; border-radius:8px; background:#173f35; color:#fff; font:inherit; cursor:pointer; }
+.favorite-search button:disabled { opacity:.55; cursor:default; }
+.favorite-search .favorite-search-chips { display:flex; flex-wrap:wrap; gap:8px; margin:10px 0; }
+.favorite-search-chips button[aria-pressed="false"] { color:#173f35; background:#fff; }
+.favorite-search p { margin:8px 0; font-size:.92rem; line-height:1.45; color:#365748; }
+.favorite-search .favorite-search-only { display:flex!important; gap:8px; align-items:center; font-weight:500; }
+.favorite-search-only input { flex:none; width:22px; height:22px; margin:0; }
+.favorite-search :focus-visible { outline:3px solid #b56300; outline-offset:3px; }
+.favorite-search [hidden], .saved-food-item[hidden], .rw-panel label[hidden] { display:none!important; }
+@media (max-width:360px) { .favorite-search { padding:12px; } .favorite-search-row { flex-wrap:wrap; } .favorite-search input[type="search"] { flex-basis:100%; } }
+@media print { .favorite-search { display:none!important; } }
+
+.favorite-search .favorite-search-chips button {font-size:.875rem;padding:6px 10px;}

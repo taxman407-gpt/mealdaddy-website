@@ -1,0 +1,43 @@
+/* Opt-in beta fixes, scoped to avoid changing production or print reports. */
+.priority-one .dashboard, .priority-one .dashboard > *, .priority-one .ledger-item > *, .priority-one .ledger-heading > * { min-width:0; box-sizing:border-box; }
+.priority-one #refresh-ledger, .priority-one .ledger-edit-button, .priority-one .ledger-trust-details button {
+  background:#f3faf6; color:#173f35; border:1px solid #8ca99a; border-radius:9px; min-height:44px; padding:9px 14px; font:inherit; font-weight:700;
+}
+.priority-one .ledger-actions { gap:8px; }
+.priority-one .ledger-actions > span { color:#d7e8df; }
+.priority-one .ledger-estimate-retry { flex-wrap:wrap; }
+.priority-one .ledger-estimate-retry > span { flex:1 1 220px; }
+.priority-one .ledger-estimate-retry button, .priority-one .ledger-estimate-retry [data-open-ai-settings] { min-height:44px; padding:10px 14px; background:#173f35; color:#fff; border:1px solid #173f35; white-space:normal; }
+.priority-one #toast { display:none; position:static; left:auto; bottom:auto; transform:none; opacity:1; width:auto; max-width:1100px; margin:16px auto; padding:14px 18px; border:1px solid #90b4a3; box-shadow:none; pointer-events:auto; font-size:1rem; line-height:1.45; overflow-wrap:anywhere; }
+.priority-one #toast.is-visible { display:block; transform:none; }
+.ai-setup-notice { max-width:1100px; margin:16px auto; padding:16px 20px; color:#173f35; background:#f1f8f3; border:2px solid #789e8b; border-radius:12px; font:1rem/1.5 inherit; }
+.ai-setup-notice[hidden] { display:none!important; }
+.ai-setup-notice p { margin:0 0 10px; }
+.p1-actions { display:flex; flex-wrap:wrap; gap:10px; }
+.p1-actions button { min-height:44px; padding:10px 14px; border:1px solid #173f35; border-radius:8px; color:#fff; background:#173f35; font:inherit; cursor:pointer; }
+.priority-one :is(button,input,select,textarea):focus-visible { outline:3px solid #ffbb4f; outline-offset:3px; }
+.priority-one .rw-panel label, .priority-one .rw-panel input, .priority-one .rw-panel textarea, .priority-one .rw-panel select { font-size:1rem; }
+.priority-one .rw-panel .rw-actions { align-items:stretch; }
+.priority-one .rw-panel fieldset { min-inline-size:0; }
+.priority-one .rw-panel legend { white-space:normal; max-width:100%; }
+@media (max-width:560px) {
+  .priority-one .ledger-heading { flex-wrap:wrap; gap:12px; }
+  .priority-one .ledger-item { grid-template-columns:36px minmax(0,1fr); gap:10px; }
+  .priority-one .ledger-item .ledger-actions { grid-column:2; align-items:flex-start; justify-items:start; text-align:left; }
+  .priority-one .ledger-estimate-retry { grid-column:1/-1; }
+  .priority-one .ledger-estimate-retry > span { flex:auto; }
+  .priority-one .ledger-estimate-retry button { width:100%; }
+  .priority-one #toast, .ai-setup-notice { margin:12px 14px; }
+  .priority-one .v1-top-tabs button { min-width:0; padding-inline:5px; overflow-wrap:normal; font-size:clamp(.8rem,3.7vw,1rem); }
+  .p1-actions { flex-direction:column; }
+}
+@media print { .priority-one #toast, .ai-setup-notice { display:none!important; } }
+
+/* Use the actual beta connection controls, not a duplicate form or billing screen. */
+.priority-one:not([data-app-subview="ai-settings"]) :is(.beta-connection-panel,#provider-settings) { display:none!important; }
+.priority-one[data-app-view="more"][data-app-subview="ai-settings"] .beta-connection-panel { display:block!important; }
+.priority-one[data-app-subview="ai-settings"] .v1-more-launchers { display:none!important; }
+.priority-one .beta-connection-panel { width:calc(100% - 28px); margin:16px auto; }
+.priority-one .beta-connection-panel :is(select,input,button), .priority-one #provider-settings :is(select,input,button) { font-size:1rem; }
+
+.priority-one #sign-out { color:#f3faf6; min-height:44px; padding:8px 12px; border:1px solid #789e8b; border-radius:8px; }

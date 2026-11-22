@@ -1,0 +1,49 @@
+name: Planning workflow validation
+on:
+  push:
+    branches: [feature/recipe-shopping-source-links-20261102]
+  pull_request:
+    branches: [feature/october-2026-upgrade]
+    paths: ['app/recipe-*', 'app/planning-*', 'supabase/functions/planning-*', 'supabase/migrations/*planning*', 'tests/*planning*', 'tests/*recipe-workflow*', 'scripts/*recipe-workflow*', '.github/workflows/planning-workflow-validation.yml']
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Package reviewed source for reproducible validation
+        run: |
+          mkdir -p validation-artifacts
+          git archive --format=tar.gz HEAD > validation-artifacts/reviewed-source.tar.gz
+          git rev-parse HEAD > validation-artifacts/commit.txt
+      - name: Install pinned dependencies
+        run: npx --yes pnpm@10.11.0 install --frozen-lockfile
+      - name: Full repository regression
+        run: npm test
+      - name: Build the private beta planning candidate without deploying
+        run: |
+          npm run build
+          node scripts/build-recipe-workflow-beta.mjs
+          node --check dist-beta/app/app.js
+          node --check dist-beta/app/supabase-client.js
+          node scripts/package-priority-one-functions.mjs
+          cp /tmp/mealdaddy-priority-one-function.json validation-artifacts/
+          test -s dist-beta/app/pantry-review.mjs
+          test -s dist-beta/app/recipe-workflow.mjs
+          test -s dist-beta/app/app.html
+          tar -czf validation-artifacts/planning-beta-candidate.tar.gz dist-beta
+          git diff --check
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: planning-validation-${{ github.sha }}
+          path: validation-artifacts/
+          retention-days: 7
