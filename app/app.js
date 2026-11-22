@@ -212,7 +212,12 @@ function hydrationOunces(description) {
 }
 
 function hydrationNeedsNutritionEstimate(description) {
-  return /\b(cream|creamer|milk|half[\s-]?and[\s-]?half|sugar|honey|syrup|sweeten(?:ed|er)?|juice|smoothie|shake|protein|soda|pop|sports drink|energy drink|beer|wine|cocktail|liquor)\b/i.test(description);
+  const withoutPlainWater = String(description || "")
+    .toLowerCase()
+    .replace(/\b\d+(?:\.\d+)?\s*(?:fluid\s*ounces?|fl\s*oz|ounces?|oz|cups?|milliliters?|ml|liters?|litres?|l)\b/g, "")
+    .replace(/\b(?:plain|tap|bottled|filtered|cold|ice|water|with|only)\b/g, "")
+    .replace(/[\s.,!?()[\]-]/g, "");
+  return withoutPlainWater.length > 0;
 }
 
 $("#meal-label").value = defaultMealLabel();
