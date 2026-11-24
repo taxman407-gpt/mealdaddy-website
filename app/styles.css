@@ -454,8 +454,12 @@ h2 { font-size: clamp(1.65rem, 3vw, 2.6rem); line-height: 1.06; letter-spacing: 
 .ledger-portion-button { color: var(--orange); }
 .ledger-undo-portion { color: var(--muted); font-size: .66rem; }
 .ledger-edit-form { grid-column: 2 / -1; display: grid; grid-template-columns: minmax(120px, .35fr) 1fr; gap: 10px; border-radius: 14px; padding: 12px; background: var(--soft); }
-.ledger-edit-form label { display: grid; gap: 5px; color: var(--muted); font-size: .7rem; font-weight: 750; }
-.ledger-edit-form input, .ledger-edit-form select { width: 100%; min-height: 42px; border: 1px solid var(--line); border-radius: 10px; padding: 0 10px; color: var(--ink); background: white; }
+.ledger-edit-form label { display: grid; gap: 5px; color: var(--ink); font-size: .7rem; font-weight: 750; }
+.ledger-edit-form input, .ledger-edit-form select { width: 100%; min-height: 42px; border: 1px solid #64786d; border-radius: 10px; padding: 0 10px; color: var(--ink); background: white; }
+.ledger-edit-form small { color: var(--ink); }
+.ledger-edit-form input::placeholder { color: #52645b; opacity: 1; }
+.ledger-edit-form .button-quiet { border: 1px solid #64786d; color: var(--forest-2); background: white; }
+.ledger-edit-form :is(input, select, button):focus-visible { outline: 2px solid var(--forest-2); outline-offset: 2px; }
 .ledger-edit-form > div { grid-column: 1 / -1; display: flex; gap: 8px; }
 .ledger-edit-form .button { min-height: 40px; padding-inline: 15px; font-size: .78rem; }
 .ledger-edit-form .button-delete-entry { margin-left: auto; border: 1px solid #c85a45; color: #9c3b2a; background: white; }
